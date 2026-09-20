@@ -1,48 +1,106 @@
 import crypto from "node:crypto";
-import { getApps, initializeApp, cert } from "firebase-admin/app";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
 
-/* =========================================================
-   FIREBASE ADMIN
-========================================================= */
+import {
+  getApps,
+  initializeApp,
+  cert,
+} from "firebase-admin/app";
+
+import {
+  getFirestore,
+  FieldValue,
+} from "firebase-admin/firestore";
+
+
+// ============================================================
+// FIREBASE ADMIN
+// ============================================================
+
+function getFirebaseServiceAccount() {
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+
+  if (!raw) {
+    throw new Error(
+      "FIREBASE_SERVICE_ACCOUNT_JSON is not configured."
+    );
+  }
+
+  let value = raw.trim();
+
+  // Remove accidental wrapping quotes
+  if (
+    value.startsWith('"') &&
+    value.endsWith('"')
+  ) {
+    value = value.slice(1, -1);
+  }
+
+  let serviceAccount = null;
+
+  // ------------------------------------------------------------
+  // 1. Try normal JSON
+  // ------------------------------------------------------------
+
+  try {
+    if (value.startsWith("{")) {
+      serviceAccount = JSON.parse(value);
+    }
+  } catch {
+    serviceAccount = null;
+  }
+
+  // ------------------------------------------------------------
+  // 2. If not normal JSON, try Base64 JSON
+  // ------------------------------------------------------------
+
+  if (!serviceAccount) {
+    try {
+      const decoded = Buffer
+        .from(value, "base64")
+        .toString("utf8")
+        .trim();
+
+      serviceAccount = JSON.parse(decoded);
+    } catch {
+      throw new Error(
+        "FIREBASE_SERVICE_ACCOUNT_JSON is invalid. Use valid Firebase service-account JSON or Base64 encoded JSON."
+      );
+    }
+  }
+
+  // ------------------------------------------------------------
+  // Validate required Firebase fields
+  // ------------------------------------------------------------
+
+  if (
+    !serviceAccount ||
+    !serviceAccount.project_id ||
+    !serviceAccount.client_email ||
+    !serviceAccount.private_key
+  ) {
+    throw new Error(
+      "FIREBASE_SERVICE_ACCOUNT_JSON is missing project_id, client_email or private_key."
+    );
+  }
+
+  // ------------------------------------------------------------
+  // Fix escaped/newline private key
+  // ------------------------------------------------------------
+
+  serviceAccount.private_key =
+    String(serviceAccount.private_key)
+      .replace(/\\n/g, "\n")
+      .replace(/\r\n/g, "\n")
+      .trim();
+
+  return serviceAccount;
+}
+
 
 function firebaseAdmin() {
   if (!getApps().length) {
-    const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-
-    if (!raw) {
-      throw new Error(
-        "FIREBASE_SERVICE_ACCOUNT_JSON is not configured."
-      );
-    }
-
-    let serviceAccount;
-
-    // Try Base64 first
-    try {
-      serviceAccount = JSON.parse(
-        Buffer.from(raw.trim(), "base64").toString("utf8")
-      );
-    } catch {
-      // If Base64 is not used, try normal JSON
-      try {
-        serviceAccount = JSON.parse(raw.trim());
-      } catch {
-        throw new Error(
-          "FIREBASE_SERVICE_ACCOUNT_JSON is invalid. Use the complete Firebase service-account JSON or its Base64 value."
-        );
-      }
-    }
-
-    if (
-      !serviceAccount.project_id ||
-      !serviceAccount.client_email ||
-      !serviceAccount.private_key
-    ) {
-      throw new Error(
-        "Firebase service account is incomplete. project_id, client_email and private_key are required."
-      );
-    }
+    const serviceAccount =
+      getFirebaseServiceAccount();
 
     initializeApp({
       credential: cert(serviceAccount),
@@ -52,25 +110,39 @@ function firebaseAdmin() {
   return getFirestore();
 }
 
+
 export const db = firebaseAdmin();
 
-/* =========================================================
-   HELPERS
-========================================================= */
 
-export const safeNumber = (value, fallback = 0) => {
+// ============================================================
+// HELPERS
+// ============================================================
+
+export const safeNumber = (
+  value,
+  fallback = 0
+) => {
   const number = Number(value);
 
-  return Number.isFinite(number) ? number : fallback;
+  return Number.isFinite(number)
+    ? number
+    : fallback;
 };
 
-/* =========================================================
-   RAZORPAY API
-========================================================= */
 
-export async function razorpayRequest(path, options = {}) {
-  const keyId = process.env.RAZORPAY_KEY_ID || "";
-  const keySecret = process.env.RAZORPAY_KEY_SECRET || "";
+// ============================================================
+// RAZORPAY REQUEST
+// ============================================================
+
+export async function razorpayRequest(
+  path,
+  options = {}
+) {
+  const keyId =
+    process.env.RAZORPAY_KEY_ID || "";
+
+  const keySecret =
+    process.env.RAZORPAY_KEY_SECRET || "";
 
   if (!keyId || !keySecret) {
     throw new Error(
@@ -78,14 +150,15 @@ export async function razorpayRequest(path, options = {}) {
     );
   }
 
-  const auth = Buffer.from(
-    `${keyId}:${keySecret}`
-  ).toString("base64");
+  const auth = Buffer
+    .from(`${keyId}:${keySecret}`)
+    .toString("base64");
 
   const response = await fetch(
     `https://api.razorpay.com/v1${path}`,
     {
       ...options,
+
       headers: {
         Authorization: `Basic ${auth}`,
         "Content-Type": "application/json",
@@ -100,24 +173,35 @@ export async function razorpayRequest(path, options = {}) {
     data = await response.json();
   } catch {
     throw new Error(
-      `Razorpay returned an invalid response. HTTP ${response.status}.`
+      `Razorpay returned an invalid response (${response.status}).`
     );
   }
 
   if (!response.ok) {
     throw new Error(
       data?.error?.description ||
-        data?.error?.reason ||
-        `Razorpay API request failed with HTTP ${response.status}.`
+      data?.error?.reason ||
+      "Razorpay API request failed."
     );
   }
 
   return data;
 }
 
-/* =========================================================
-   DISTANCE CALCULATION
-========================================================= */
+
+// ============================================================
+// SHOP LOCATION
+// ============================================================
+
+const SHOP_LOCATION = {
+  lat: 22.417212,
+  lng: 82.665984,
+};
+
+
+// ============================================================
+// DISTANCE CALCULATION
+// ============================================================
 
 function calculateDistance(
   lat1,
@@ -149,18 +233,10 @@ function calculateDistance(
   );
 }
 
-/* =========================================================
-   SUGAR CAFE SHOP LOCATION
-========================================================= */
 
-const SHOP_LOCATION = {
-  lat: 22.417212,
-  lng: 82.665984,
-};
-
-/* =========================================================
-   VALIDATE ORDER
-========================================================= */
+// ============================================================
+// VALIDATE ORDER
+// ============================================================
 
 export async function validateOrderPayload(
   orderData,
@@ -176,9 +252,9 @@ export async function validateOrderPayload(
     );
   }
 
-  /* -----------------------------------------
-     STORE SETTINGS
-  ----------------------------------------- */
+  // ----------------------------------------------------------
+  // Store settings
+  // ----------------------------------------------------------
 
   const settingsSnap = await db
     .collection("settings")
@@ -194,22 +270,53 @@ export async function validateOrderPayload(
         maxDeliveryCharge: 300,
       };
 
-  /* -----------------------------------------
-     MENU VALIDATION
-  ----------------------------------------- */
+  const maxDeliveryDistance =
+    safeNumber(
+      settings.maxDeliveryDistanceKm,
+      10
+    );
+
+  const deliveryPerKm =
+    safeNumber(
+      settings.deliveryPerKm,
+      20
+    );
+
+  const minDeliveryCharge =
+    safeNumber(
+      settings.minDeliveryCharge,
+      20
+    );
+
+  const maxDeliveryCharge =
+    safeNumber(
+      settings.maxDeliveryCharge,
+      300
+    );
+
+
+  // ----------------------------------------------------------
+  // Validate menu items from Firestore
+  // ----------------------------------------------------------
 
   const itemResults = [];
 
   let subtotalPaise = 0;
 
   for (const rawItem of orderData.items) {
-    const id = String(rawItem?.id || "");
+    const id = String(
+      rawItem?.id || ""
+    );
 
     const qty = Math.floor(
       safeNumber(rawItem?.qty, 0)
     );
 
-    if (!id || qty < 1 || qty > 99) {
+    if (
+      !id ||
+      qty < 1 ||
+      qty > 99
+    ) {
       throw new Error(
         "Invalid cart item."
       );
@@ -249,16 +356,19 @@ export async function validateOrderPayload(
       );
     }
 
+    const pricePaise =
+      Math.round(price * 100);
+
     subtotalPaise +=
-      Math.round(price * 100) * qty;
+      pricePaise * qty;
 
     itemResults.push({
       id,
 
       name: String(
         menu.name ||
-          rawItem.name ||
-          ""
+        rawItem.name ||
+        ""
       ),
 
       price,
@@ -267,21 +377,22 @@ export async function validateOrderPayload(
 
       image: String(
         menu.image ||
-          rawItem.image ||
-          ""
+        rawItem.image ||
+        ""
       ),
 
       category: String(
         menu.category ||
-          rawItem.category ||
-          ""
+        rawItem.category ||
+        ""
       ),
     });
   }
 
-  /* -----------------------------------------
-     DELIVERY LOCATION
-  ----------------------------------------- */
+
+  // ----------------------------------------------------------
+  // Delivery coordinates
+  // ----------------------------------------------------------
 
   const latitude = safeNumber(
     orderData.latitude,
@@ -302,85 +413,87 @@ export async function validateOrderPayload(
     );
   }
 
-  /* -----------------------------------------
-     DISTANCE
-  ----------------------------------------- */
 
-  const distance = calculateDistance(
-    SHOP_LOCATION.lat,
-    SHOP_LOCATION.lng,
-    latitude,
-    longitude
-  );
+  // ----------------------------------------------------------
+  // Distance
+  // ----------------------------------------------------------
 
-  const maxDistance = safeNumber(
-    settings.maxDeliveryDistanceKm,
-    10
-  );
+  const distance =
+    calculateDistance(
+      SHOP_LOCATION.lat,
+      SHOP_LOCATION.lng,
+      latitude,
+      longitude
+    );
+
 
   if (
     distance >
-    maxDistance + 0.05
+    maxDeliveryDistance + 0.05
   ) {
     throw new Error(
-      `Delivery is available only within ${maxDistance} km.`
+      `Delivery is available only within ${maxDeliveryDistance} km.`
     );
   }
 
-  /* -----------------------------------------
-     DELIVERY CHARGE
-  ----------------------------------------- */
+
+  // ----------------------------------------------------------
+  // Delivery charge
+  // ----------------------------------------------------------
 
   const roundedDistance =
     Math.ceil(distance);
 
-  const deliveryPerKm =
-    safeNumber(
-      settings.deliveryPerKm,
-      20
-    );
+  let deliveryCharge = 0;
 
-  const minDeliveryCharge =
-    safeNumber(
-      settings.minDeliveryCharge,
-      20
-    );
+  if (subtotalPaise > 0) {
+    deliveryCharge =
+      Math.max(
+        minDeliveryCharge,
 
-  const maxDeliveryCharge =
-    safeNumber(
-      settings.maxDeliveryCharge,
-      300
-    );
+        Math.min(
+          roundedDistance *
+            deliveryPerKm,
 
-  const deliveryCharge =
-    subtotalPaise > 0
-      ? Math.max(
-          minDeliveryCharge,
-          Math.min(
-            roundedDistance *
-              deliveryPerKm,
-            maxDeliveryCharge
-          )
+          maxDeliveryCharge
         )
-      : 0;
+      );
+  }
 
-  /* -----------------------------------------
-     TOTAL
-  ----------------------------------------- */
+
+  // ----------------------------------------------------------
+  // Discount / GST
+  // ----------------------------------------------------------
+
+  const discount = 0;
+  const gst = 0;
+
+
+  // ----------------------------------------------------------
+  // Final total
+  // ----------------------------------------------------------
 
   const total =
     (
       subtotalPaise +
       Math.round(
         deliveryCharge * 100
+      ) -
+      Math.round(
+        discount * 100
+      ) +
+      Math.round(
+        gst * 100
       )
     ) / 100;
+
 
   const requestedTotal =
     safeNumber(
       orderData.total,
       NaN
     );
+
 
   if (
     !Number.isFinite(
@@ -389,18 +502,32 @@ export async function validateOrderPayload(
     Math.round(
       requestedTotal * 100
     ) !==
-      Math.round(
-        total * 100
-      )
+      Math.round(total * 100)
   ) {
     throw new Error(
       "Order total changed. Please refresh your cart and try again."
     );
   }
 
-  /* -----------------------------------------
-     FINAL VALIDATED DATA
-  ----------------------------------------- */
+
+  // ----------------------------------------------------------
+  // Address
+  // ----------------------------------------------------------
+
+  const address =
+    String(
+      selectedAddress?.address ||
+      orderData.address ||
+      ""
+    );
+
+  const fullAddress =
+    String(
+      selectedAddress?.fullAddress ||
+      orderData.address ||
+      ""
+    );
+
 
   return {
     items: itemResults,
@@ -410,58 +537,72 @@ export async function validateOrderPayload(
 
     deliveryCharge,
 
-    discount: 0,
+    discount,
 
-    gst: 0,
+    gst,
 
     total,
 
-    distance: Number(
-      distance.toFixed(2)
-    ),
+    distance:
+      Number(
+        distance.toFixed(2)
+      ),
 
     selectedAddress: {
-      address: String(
-        selectedAddress?.address ||
-          orderData.address ||
-          ""
-      ),
-
-      fullAddress: String(
-        selectedAddress?.fullAddress ||
-          orderData.address ||
-          ""
-      ),
-
+      address,
+      fullAddress,
       latitude,
-
       longitude,
     },
   };
 }
 
-/* =========================================================
-   CREATE FINAL ORDER
-========================================================= */
+
+// ============================================================
+// CREATE FINAL ORDER AFTER PAYMENT
+// ============================================================
 
 export async function createFinalOrderFromAttempt(
   attempt,
   payment,
   signature = ""
 ) {
+  if (
+    !attempt ||
+    !attempt.razorpayOrderId
+  ) {
+    throw new Error(
+      "Invalid payment attempt."
+    );
+  }
+
+  if (
+    !payment ||
+    !payment.id
+  ) {
+    throw new Error(
+      "Invalid Razorpay payment."
+    );
+  }
+
+
   const attemptRef = db
     .collection("paymentAttempts")
-    .doc(attempt.razorpayOrderId);
+    .doc(
+      attempt.razorpayOrderId
+    );
 
   const paymentRef = db
     .collection("paymentRecords")
     .doc(payment.id);
 
+
   return db.runTransaction(
     async (transaction) => {
-      /* -----------------------------------------
-         PAYMENT ATTEMPT
-      ----------------------------------------- */
+
+      // ------------------------------------------------------
+      // Payment attempt
+      // ------------------------------------------------------
 
       const attemptSnap =
         await transaction.get(
@@ -477,17 +618,16 @@ export async function createFinalOrderFromAttempt(
       const data =
         attemptSnap.data();
 
-      /* -----------------------------------------
-         ALREADY CREATED ORDER
-      ----------------------------------------- */
 
+      // Already created
       if (data.orderId) {
         return data.orderId;
       }
 
-      /* -----------------------------------------
-         CHECK PAYMENT RECORD
-      ----------------------------------------- */
+
+      // ------------------------------------------------------
+      // Payment record
+      // ------------------------------------------------------
 
       const paymentSnap =
         await transaction.get(
@@ -498,58 +638,99 @@ export async function createFinalOrderFromAttempt(
         paymentSnap.exists &&
         paymentSnap.data()?.orderId
       ) {
-        return paymentSnap
-          .data()
+        return paymentSnap.data()
           .orderId;
       }
 
-      /* -----------------------------------------
-         CREATE ORDER
-      ----------------------------------------- */
+
+      // ------------------------------------------------------
+      // Create final order
+      // ------------------------------------------------------
 
       const orderRef =
         db.collection("orders").doc();
 
+
+      const validated =
+        data.validated || {};
+
+
+      const validatedItems =
+        Array.isArray(
+          validated.items
+        )
+          ? validated.items
+          : [];
+
+
       transaction.set(
         orderRef,
         {
-          ...data.orderData,
+          ...(
+            data.orderData || {}
+          ),
 
-          items:
-            data.validated.items,
+          items: validatedItems,
 
           subtotal:
-            data.validated.subtotal,
+            safeNumber(
+              validated.subtotal
+            ),
 
           deliveryCharge:
-            data.validated.deliveryCharge,
+            safeNumber(
+              validated.deliveryCharge
+            ),
 
           discount:
-            data.validated.discount,
+            safeNumber(
+              validated.discount
+            ),
 
           gst:
-            data.validated.gst,
+            safeNumber(
+              validated.gst
+            ),
 
           total:
-            data.validated.total,
+            safeNumber(
+              validated.total
+            ),
 
           distance:
-            data.validated.distance,
+            safeNumber(
+              validated.distance
+            ),
 
           address:
-            data.validated
-              .selectedAddress
-              .address,
+            String(
+              validated
+                ?.selectedAddress
+                ?.address ||
+              ""
+            ),
+
+          fullAddress:
+            String(
+              validated
+                ?.selectedAddress
+                ?.fullAddress ||
+              ""
+            ),
 
           latitude:
-            data.validated
-              .selectedAddress
-              .latitude,
+            safeNumber(
+              validated
+                ?.selectedAddress
+                ?.latitude
+            ),
 
           longitude:
-            data.validated
-              .selectedAddress
-              .longitude,
+            safeNumber(
+              validated
+                ?.selectedAddress
+                ?.longitude
+            ),
 
           paymentMethod:
             "Online Payment",
@@ -570,7 +751,8 @@ export async function createFinalOrderFromAttempt(
           razorpaySignature:
             signature,
 
-          status: "New",
+          status:
+            "New",
 
           createdAt:
             FieldValue.serverTimestamp(),
@@ -584,9 +766,10 @@ export async function createFinalOrderFromAttempt(
         }
       );
 
-      /* -----------------------------------------
-         UPDATE PAYMENT ATTEMPT
-      ----------------------------------------- */
+
+      // ------------------------------------------------------
+      // Mark payment attempt paid
+      // ------------------------------------------------------
 
       transaction.set(
         attemptRef,
@@ -594,7 +777,8 @@ export async function createFinalOrderFromAttempt(
           orderId:
             orderRef.id,
 
-          status: "paid",
+          status:
+            "paid",
 
           paidAt:
             FieldValue.serverTimestamp(),
@@ -607,9 +791,10 @@ export async function createFinalOrderFromAttempt(
         }
       );
 
-      /* -----------------------------------------
-         PAYMENT RECORD
-      ----------------------------------------- */
+
+      // ------------------------------------------------------
+      // Payment record
+      // ------------------------------------------------------
 
       transaction.set(
         paymentRef,
@@ -631,7 +816,8 @@ export async function createFinalOrderFromAttempt(
             payment.status,
 
           method:
-            payment.method || null,
+            payment.method ||
+            null,
 
           createdAt:
             FieldValue.serverTimestamp(),
@@ -641,14 +827,16 @@ export async function createFinalOrderFromAttempt(
         }
       );
 
+
       return orderRef.id;
     }
   );
 }
 
-/* =========================================================
-   VERIFY RAZORPAY SIGNATURE
-========================================================= */
+
+// ============================================================
+// RAZORPAY SIGNATURE VERIFICATION
+// ============================================================
 
 export function verifySignature(
   orderId,
@@ -659,13 +847,15 @@ export function verifySignature(
     process.env.RAZORPAY_KEY_SECRET ||
     "";
 
-  if (!secret) {
+  if (
+    !secret ||
+    !orderId ||
+    !paymentId ||
+    !received
+  ) {
     return false;
   }
 
-  if (!orderId || !paymentId || !received) {
-    return false;
-  }
 
   const expected =
     crypto
@@ -678,6 +868,7 @@ export function verifySignature(
       )
       .digest("hex");
 
+
   const expectedBuffer =
     Buffer.from(
       expected,
@@ -686,23 +877,29 @@ export function verifySignature(
 
   const receivedBuffer =
     Buffer.from(
-      received,
+      String(received),
       "utf8"
     );
 
-  return (
-    expectedBuffer.length ===
-      receivedBuffer.length &&
-    crypto.timingSafeEqual(
-      expectedBuffer,
-      receivedBuffer
-    )
+
+  if (
+    expectedBuffer.length !==
+    receivedBuffer.length
+  ) {
+    return false;
+  }
+
+
+  return crypto.timingSafeEqual(
+    expectedBuffer,
+    receivedBuffer
   );
 }
 
-/* =========================================================
-   VERCEL JSON RESPONSE
-========================================================= */
+
+// ============================================================
+// JSON RESPONSE HELPER
+// ============================================================
 
 export function json(
   res,
@@ -712,4 +909,4 @@ export function json(
   return res
     .status(status)
     .json(body);
-}
+}s
