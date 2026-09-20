@@ -1,0 +1,142 @@
+import { useState } from "react";
+import SplashScreen from "./SplashScreen";
+import "./App.css";
+import { StoreProvider } from "./context/StoreContext";
+import StoreStatusBanner from "./components/StoreStatusBanner";
+
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+
+// =========================
+// CUSTOMER PAGES
+// =========================
+
+import Profile from "./pages/Profile";
+import Home from "./pages/Home";
+import Cart from "./pages/Cart";
+import Login from "./pages/Login";
+import Checkout from "./pages/Checkout";
+import OrderSuccess from "./pages/OrderSuccess";
+import Categories from "./pages/Categories";
+import Menu from "./pages/Menu";
+import Orders from "./pages/Orders";
+import AdminLogin from "./pages/AdminLogin";
+import Dashboard from "./pages/Dashboard";
+import StoreSettings from "./pages/StoreSettings";
+
+// =========================
+// ADMIN
+// =========================
+
+
+// =========================
+// APP
+// =========================
+
+function App() {
+  const [showSplash, setShowSplash] = useState(true);
+
+  // =========================
+  // SPLASH SCREEN
+  // =========================
+
+  if (showSplash) {
+    return (
+      <SplashScreen
+        onFinish={() => setShowSplash(false)}
+      />
+    );
+  }
+
+  return (
+    <StoreProvider>
+      <BrowserRouter>
+        <StoreStatusBanner />
+      <Routes>
+
+        {/* =========================
+            CUSTOMER WEBSITE
+        ========================= */}
+
+        <Route
+          path="/"
+          element={<Home />}
+        />
+
+        <Route
+          path="/home"
+          element={<Home />}
+        />
+
+        <Route
+          path="/cart"
+          element={<Cart />}
+        />
+
+        <Route
+          path="/checkout"
+          element={<Checkout />}
+        />
+
+        <Route
+          path="/success"
+          element={<OrderSuccess />}
+        />
+
+        <Route
+          path="/categories"
+          element={<Categories />}
+        />
+
+        <Route
+          path="/menu"
+          element={<Menu />}
+        />
+
+        <Route
+          path="/orders"
+          element={<Orders />}
+        />
+
+        <Route
+          path="/login"
+          element={<Login />}
+        />
+
+        <Route
+          path="/profile"
+          element={<Profile />}
+        />
+
+        {/* =========================
+            ADMIN
+            NO EMAIL
+            NO PASSWORD
+            NO LOGIN
+        ========================= */}
+
+        <Route path="/admin-login" element={<AdminLogin />} />
+        <Route path="/admin" element={<Dashboard />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/settings" element={<StoreSettings />} />
+
+        {/* =========================
+            UNKNOWN URL
+        ========================= */}
+
+        <Route
+          path="*"
+          element={<Navigate to="/" replace />}
+        />
+
+      </Routes>
+      </BrowserRouter>
+    </StoreProvider>
+  );
+}
+
+export default App;

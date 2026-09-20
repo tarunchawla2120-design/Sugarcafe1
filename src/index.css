@@ -1,0 +1,31 @@
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-family:Arial, Helvetica, sans-serif;
+}
+
+html,body{
+  width:100%;
+  min-height:100vh;
+  overflow-x:hidden;
+  background:#f5f5f5;
+}
+
+#root{
+  width:100%;
+  min-height:100vh;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+}
+
+* {
+  box-sizing: border-box;
+}

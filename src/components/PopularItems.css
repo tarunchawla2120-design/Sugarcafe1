@@ -1,0 +1,35 @@
+.popular-items{
+    padding:20px;
+}
+
+.section-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:18px;
+}
+
+.section-header h2{
+    margin:0;
+    font-size:24px;
+    font-weight:700;
+}
+
+.section-header span{
+    color:#ff6b35;
+    font-weight:600;
+    cursor:pointer;
+}
+
+.products-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+    gap:18px;
+}
+
+.empty-state{
+    width:100%;
+    text-align:center;
+    padding:50px 20px;
+    color:#777;
+}

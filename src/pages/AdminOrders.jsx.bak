@@ -1,0 +1,311 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { collection, doc, onSnapshot, Timestamp, updateDoc } from "firebase/firestore";
+import { db } from "../firebase";
+import Sidebar from "../components/admin/Sidebar";
+import "./AdminOrders.css";
+
+const STATUS = ["All", "New", "Preparing", "Food Ready", "Dispatched", "Delivered", "Rejected"];
+const ACTIVE = ["New", "Preparing", "Food Ready", "Dispatched"];
+
+function toMillis(value) {
+  if (!value) return null;
+  if (typeof value.toMillis === "function") return value.toMillis();
+  if (typeof value.seconds === "number") return value.seconds * 1000;
+  if (value instanceof Date) return value.getTime();
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function money(value) {
+  return `₹${Number(value || 0).toLocaleString("en-IN")}`;
+}
+
+function orderLabel(order) {
+  return order.orderNumber || order.id?.slice(-8).toUpperCase() || "—";
+}
+
+function itemsFor(order) {
+  return order.items || order.cart || [];
+}
+
+function OrderKOT({ order, onClose }) {
+  if (!order) return null;
+  const items = itemsFor(order);
+  const created = toMillis(order.createdAt);
+  const date = created ? new Date(created) : new Date();
+  const address = typeof order.address === "string" ? order.address : order.address?.fullAddress || order.address?.address || "—";
+
+  return (
+    <div className="sc-modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="sc-kot-modal">
+        <div className="sc-kot-head">
+          <div>
+            <div className="sc-kot-brand">☕ SUGAR CAFE</div>
+            <div className="sc-kot-sub">KITCHEN ORDER TICKET</div>
+          </div>
+          <button className="icon-close" onClick={onClose}>×</button>
+        </div>
+        <div className="sc-kot-meta">
+          <b>#{orderLabel(order)}</b>
+          <span>{date.toLocaleDateString("en-IN")} · {date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
+          <span className="pill">{order.orderType || "Delivery"}</span>
+        </div>
+        <div className="sc-kot-section">
+          <h4>Customer</h4>
+          <div><b>{order.customerName || order.name || "Customer"}</b></div>
+          <div>{order.phone || order.mobile || "—"}</div>
+          <div>{address}</div>
+        </div>
+        <div className="sc-kot-section">
+          <h4>Order Items</h4>
+          {items.length ? items.map((item, i) => (
+            <div className="sc-kot-item" key={item.id || i}>
+              <span>{item.name || "Food Item"} <b>×{item.qty || item.quantity || 1}</b></span>
+              <span>{money(Number(item.price || 0) * Number(item.qty || item.quantity || 1))}</span>
+            </div>
+          )) : <div className="muted">No items found.</div>}
+        </div>
+        {order.instructions && <div className="sc-kot-note"><b>Special instructions:</b> {order.instructions}</div>}
+        <div className="sc-kot-total"><span>Total</span><b>{money(order.total)}</b></div>
+        <div className="sc-kot-actions no-print">
+          <button className="btn secondary" onClick={() => window.print()}>🖨 Print KOT</button>
+          <button className="btn dark" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminOrders() {
+  const [orders, setOrders] = useState([]);
+  const [filter, setFilter] = useState("All");
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [newOrder, setNewOrder] = useState(null);
+  const [kotOrder, setKotOrder] = useState(null);
+  const [now, setNow] = useState(Date.now());
+  const knownIds = useRef(new Set());
+  const firstSnapshot = useRef(true);
+  const soundContext = useRef(null);
+
+  const playNewOrderBuzzer = () => {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = soundContext.current || new AudioContext();
+      soundContext.current = ctx;
+      if (ctx.state === "suspended") ctx.resume().catch(() => {});
+      const start = ctx.currentTime;
+      for (let i = 0; i < 8; i += 1) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "square";
+        osc.frequency.setValueAtTime(i % 2 ? 660 : 880, start + i * 0.35);
+        gain.gain.setValueAtTime(0.0001, start + i * 0.35);
+        gain.gain.exponentialRampToValueAtTime(0.42, start + i * 0.35 + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + i * 0.35 + 0.25);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(start + i * 0.35);
+        osc.stop(start + i * 0.35 + 0.26);
+      }
+    } catch (e) {
+      console.warn("New order buzzer unavailable", e);
+    }
+  };
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "orders"), (snapshot) => {
+      const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (toMillis(b.createdAt) || 0) - (toMillis(a.createdAt) || 0));
+      setOrders(data);
+      setLoading(false);
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added" && !firstSnapshot.current && !knownIds.current.has(change.doc.id)) {
+          const incoming = { id: change.doc.id, ...change.doc.data() };
+          if ((incoming.status || "New") === "New") {
+            setNewOrder(incoming);
+            playNewOrderBuzzer();
+            if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+              try { new Notification("SugarCafe — New Order", { body: `Order #${orderLabel(incoming)} received`, requireInteraction: true }); } catch (_) {}
+            }
+          }
+        }
+        knownIds.current.add(change.doc.id);
+      });
+      firstSnapshot.current = false;
+    }, (err) => {
+      console.error(err);
+      setError("Orders load nahi ho paaye. Firebase connection/rules check karein.");
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const unlockSound = () => {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        if (!soundContext.current) soundContext.current = new AudioContext();
+        if (soundContext.current.state === "suspended") soundContext.current.resume().catch(() => {});
+      } catch (_) {}
+    };
+    window.addEventListener("pointerdown", unlockSound, { passive: true });
+    return () => window.removeEventListener("pointerdown", unlockSound);
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => () => {
+    if (soundContext.current) soundContext.current.close().catch(() => {});
+  }, []);
+
+  const updateOrder = async (order, updates) => {
+    try {
+      await updateDoc(doc(db, "orders", order.id), updates);
+      if (newOrder?.id === order.id) setNewOrder(null);
+    } catch (e) {
+      console.error(e);
+      alert("Order update nahi ho paya.");
+    }
+  };
+
+  const acceptOrder = async (order) => {
+    const minutes = Number(order.preparationMinutes ?? 15);
+    const started = Date.now();
+    await updateOrder(order, {
+      status: "Preparing",
+      acceptedAt: Timestamp.fromMillis(started),
+      preparationStartedAt: Timestamp.fromMillis(started),
+      preparationEndAt: Timestamp.fromMillis(started + minutes * 60 * 1000),
+      preparationMinutes: minutes,
+      rejectedAt: null,
+    });
+  };
+
+  const rejectOrder = async (order) => {
+    const reason = window.prompt("Reject reason (optional):", "Unable to accept this order");
+    await updateOrder(order, { status: "Rejected", rejectionReason: reason || "Order rejected by staff", rejectedAt: Timestamp.now() });
+  };
+
+  const addExtraTime = async (order) => {
+    const extra = Number(order.extraPreparationMinutes ?? 10);
+    const base = toMillis(order.preparationEndAt) || now;
+    await updateOrder(order, { preparationEndAt: Timestamp.fromMillis(base + extra * 60 * 1000), extraTimeAdded: extra });
+  };
+
+  const markReady = async (order) => updateOrder(order, { status: "Food Ready", foodReadyAt: Timestamp.now() });
+  const dispatch = async (order) => updateOrder(order, { status: "Dispatched", dispatchedAt: Timestamp.now() });
+  const delivered = async (order) => updateOrder(order, { status: "Delivered", deliveredAt: Timestamp.now() });
+  const verifyUpi = async (order) => updateOrder(order, { paymentStatus: "Paid", paymentVerifiedAt: Timestamp.now() });
+
+  const counts = useMemo(() => STATUS.reduce((acc, s) => {
+    acc[s] = s === "All" ? orders.length : orders.filter((o) => (o.status || "New") === s).length;
+    return acc;
+  }, {}), [orders]);
+
+  const filtered = useMemo(() => orders.filter((o) => {
+    const status = o.status || "New";
+    const q = query.trim().toLowerCase();
+    const matchesStatus = filter === "All" || status === filter;
+    const matchesQuery = !q || [orderLabel(o), o.customerName, o.phone, o.address, o.orderType].join(" ").toLowerCase().includes(q);
+    return matchesStatus && matchesQuery;
+  }), [orders, filter, query]);
+
+  const formatTimer = (order) => {
+    const end = toMillis(order.preparationEndAt);
+    if (!end) return "15:00";
+    const seconds = Math.max(0, Math.floor((end - now) / 1000));
+    return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+  };
+
+  const timerExpired = (order) => {
+    const end = toMillis(order.preparationEndAt);
+    return end != null && end <= now;
+  };
+
+  return (
+    <div className="sc-orders-shell">
+      <Sidebar />
+      <main className="sc-orders-main">
+        <header className="sc-orders-header">
+          <div>
+            <div className="eyebrow">SUGAR CAFE · LIVE CONTROL</div>
+            <h1>Orders</h1>
+            <p>Manage and track all customer orders in real time.</p>
+          </div>
+          <div className="header-actions">
+            <button className="store-pill" onClick={() => { if (typeof Notification !== "undefined" && Notification.permission === "default") Notification.requestPermission(); }}>● Store Open</button>
+            <button className="bell-btn" onClick={() => { if (newOrder) { playNewOrderBuzzer(); } }}>🔔 <span>{counts.New || 0}</span></button>
+          </div>
+        </header>
+
+        <section className="orders-toolbar">
+          <div className="search-box">⌕<input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by order no, name, phone or address..." /></div>
+          <button className="today-btn">▣ Today ▾</button>
+        </section>
+
+        <div className="status-tabs">
+          {STATUS.slice(0, 6).map((s) => <button key={s} className={filter === s ? `active ${s.toLowerCase().replace(" ", "-")}` : ""} onClick={() => setFilter(s)}>{s === "All" ? "All Orders" : s} <b>{counts[s] || 0}</b></button>)}
+        </div>
+
+        {error && <div className="error-banner">⚠️ {error}</div>}
+        {loading ? <div className="empty-card">Loading live orders...</div> : filtered.length === 0 ? <div className="empty-card"><div className="empty-icon">📦</div><h2>No orders found</h2><p>New customer orders will appear here automatically.</p></div> : (
+          <div className="order-list">
+            {filtered.map((order) => {
+              const status = order.status || "New";
+              const items = itemsFor(order);
+              const created = toMillis(order.createdAt);
+              const type = order.orderType || "Delivery";
+              const address = typeof order.address === "string" ? order.address : order.address?.fullAddress || order.address?.address || "Address not available";
+              return (
+                <article className={`order-card status-${status.toLowerCase().replace(/\s+/g, "-")}`} key={order.id}>
+                  <div className="order-info">
+                    <div className="order-topline"><strong>#{orderLabel(order)}</strong><span className={`badge ${status.toLowerCase().replace(/\s+/g, "-")}`}>{status}</span></div>
+                    <div className="order-time">{created ? new Date(created).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"} · {created ? new Date(created).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "—"}</div>
+                    <div className="customer"><b>● {order.customerName || order.name || "Customer"}</b><span>☎ {order.phone || order.mobile || "—"}</span></div>
+                    <div className="type-line"><span>📍 {type}</span><span> {address}</span></div>
+                  </div>
+                  <div className="order-items">
+                    {items.slice(0, 4).map((item, i) => <div className="item-line" key={item.id || i}><span>{item.name || "Food Item"} <small>×{item.qty || item.quantity || 1}</small></span><b>{money(Number(item.price || 0) * Number(item.qty || item.quantity || 1))}</b></div>)}
+                    {items.length > 4 && <div className="muted">+{items.length - 4} more items</div>}
+                    <div className="order-total"><span>Total</span><strong>{money(order.total)}</strong></div>
+                    <div className="payment-line">{order.paymentMethod === "UPI Payment" ? "Online / UPI" : "Cash on Delivery"} · <b className={order.paymentStatus === "Paid" ? "paid" : "pending"}>{order.paymentStatus || "Pending"}</b></div>
+                  </div>
+                  <div className="order-actions">
+                    {status === "New" && <><div className="accept-timer"><span>Accept in</span><strong>{(() => { const createdMs = toMillis(order.createdAt) || now; const left = Math.max(0, Math.floor((createdMs + Number(order.acceptanceSeconds || 60) * 1000 - now) / 1000)); return `${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")}`; })()}</strong></div><button className="btn accept" onClick={() => acceptOrder(order)}>✓ Accept</button><button className="btn reject" onClick={() => rejectOrder(order)}>✕ Reject</button></>}
+                    {status === "Preparing" && <><div className={`prep-timer ${timerExpired(order) ? "expired" : ""}`}><span>{timerExpired(order) ? "Time completed" : "Preparing"}</span><strong>{formatTimer(order)}</strong></div><button className="btn extra" onClick={() => addExtraTime(order)}>+10 Min</button><button className="btn ready" onClick={() => markReady(order)}>Mark Ready</button></>}
+                    {status === "Food Ready" && <><button className="btn dispatch" onClick={() => dispatch(order)}>Dispatch</button><button className="btn secondary" onClick={() => setKotOrder(order)}>View KOT</button></>}
+                    {status === "Dispatched" && <button className="btn delivered" onClick={() => delivered(order)}>✓ Mark Delivered</button>}
+                    {status === "Delivered" && <button className="btn secondary" onClick={() => setKotOrder(order)}>View KOT</button>}
+                    {status === "Rejected" && <div className="rejected-note">Rejected · {order.rejectionReason || "Staff rejected"}</div>}
+                    {order.paymentMethod === "UPI Payment" && order.paymentStatus !== "Paid" && status !== "Rejected" && <button className="btn payment" onClick={() => verifyUpi(order)}>💳 Mark UPI Paid</button>}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </main>
+
+      {newOrder && (
+        <div className="new-order-overlay">
+          <div className="new-order-alert">
+            <div className="alert-icon">🔔</div>
+            <div><div className="alert-kicker">NEW ORDER RECEIVED</div><h2>Order #{orderLabel(newOrder)}</h2><p>{newOrder.customerName || newOrder.name || "Customer"} · {money(newOrder.total)}</p></div>
+            <button className="alert-close" onClick={() => setNewOrder(null)}>×</button>
+            <div className="alert-actions"><button className="btn accept big" onClick={() => acceptOrder(newOrder)}>✓ ACCEPT ORDER</button><button className="btn reject big" onClick={() => rejectOrder(newOrder)}>✕ REJECT</button><button className="btn secondary big" onClick={() => { setKotOrder(newOrder); setNewOrder(null); }}>VIEW KOT</button></div>
+          </div>
+        </div>
+      )}
+
+      <OrderKOT order={kotOrder} onClose={() => setKotOrder(null)} />
+    </div>
+  );
+}
+
+export default AdminOrders;

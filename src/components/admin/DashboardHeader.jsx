@@ -1,0 +1,2 @@
+import "./DashboardHeader.css";
+export default function DashboardHeader({onAdd}){return <header className="dashboard-header"><div><div className="header-kicker">SUGAR CAFE · ADMIN</div><h1>Dashboard</h1><p>Welcome back, Admin. Your store is under control.</p></div><div className="header-actions"><span className="admin-chip">● Admin Online</span><button className="header-btn" onClick={onAdd}>+ Add Menu Item</button></div></header>}

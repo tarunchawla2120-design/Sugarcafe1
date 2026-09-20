@@ -1,0 +1,2 @@
+import "./StatsCards.css";
+export default function StatsCards({menuCount,categoryCount,orderCount,revenue}){const cards=[['Menu Items',menuCount,'🍔','menu'],['Categories',categoryCount,'📂','category'],['Orders',orderCount,'📦','orders'],['Revenue',`₹${Number(revenue||0).toLocaleString('en-IN')}`,'₹','revenue']];return <div className="stats-grid">{cards.map(([t,v,i,c])=><div className={`stats-card stat-${c}`} key={t}><div className="stats-icon">{i}</div><div><h4>{t}</h4><h2>{v}</h2><small>{t==='Orders'?'All recorded orders':'Live store data'}</small></div></div>)}</div>}

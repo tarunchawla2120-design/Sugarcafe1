@@ -1,0 +1,86 @@
+import { Link, useLocation } from "react-router-dom";
+import { useState } from "react";
+import "../../css/Sidebar.css";
+
+function Sidebar() {
+  const location = useLocation();
+  const [collapsed, setCollapsed] = useState(false);
+
+  const menus = [
+    {
+      name: "Dashboard",
+      icon: "🏠",
+      path: "/admin",
+    },
+    {
+      name: "Menu",
+      icon: "🍔",
+      path: "/menu",
+    },
+    {
+      name: "Categories",
+      icon: "📂",
+      path: "/categories",
+    },
+    {
+      name: "Orders",
+      icon: "📦",
+      path: "/admin/orders",
+    },
+    {
+      name: "Offers",
+      icon: "🎁",
+      path: "/offers",
+    },
+    {
+      name: "Settings",
+      icon: "⚙️",
+      path: "/settings",
+    },
+  ];
+
+  return (
+    <>
+      <button
+        className="menu-btn"
+        onClick={() =>
+          setCollapsed(!collapsed)
+        }
+      >
+        ☰
+      </button>
+
+      <aside
+        className={`admin-sidebar ${
+          collapsed ? "collapsed" : ""
+        }`}
+      >
+        <div className="logo">
+          ☕ <span>Sugar Cafe</span>
+        </div>
+
+        <nav>
+          {menus.map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={
+                location.pathname ===
+                item.path
+                  ? "active"
+                  : ""
+              }
+            >
+              <span>{item.icon}</span>
+
+              {!collapsed &&
+                item.name}
+            </Link>
+          ))}
+        </nav>
+      </aside>
+    </>
+  );
+}
+
+export default Sidebar;

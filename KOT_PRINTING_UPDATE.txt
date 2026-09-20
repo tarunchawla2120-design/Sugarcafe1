@@ -1,0 +1,16 @@
+SugarCafe KOT Printing Update
+
+Changes included:
+1. Accept Order updates Firestore to Preparing and starts the preparation timer.
+2. Accept Order automatically calls Electron print-kot for silent KOT printing.
+3. Chrome window.print() fallback has been removed; browser will not open the print dialog.
+4. Electron silent printing prefers TVS-E RP 3230 / RP3230 when available, otherwise the Windows default printer.
+5. Electron printing uses printBackground=true and zero margins.
+6. The broken KOT.jsx has been repaired so the Dashboard KOT popup works again.
+7. Firebase Firestore is configured to use long polling to reduce WebChannel connection issues.
+
+Important:
+- Automatic silent printing requires the SugarCafe Electron Dashboard app, not Chrome.
+- The Windows printer must be installed and visible to Electron.
+- Run `npm install` once in the project folder, then `npm run desktop` for the Electron dashboard.
+- For the Windows installer, use `npm run installer`.

@@ -1,0 +1,6 @@
+import { useEffect,useState } from "react";
+import { addDoc,collection,deleteDoc,doc,onSnapshot,Timestamp } from "firebase/firestore";
+import { db } from "../firebase";
+import Sidebar from "../components/admin/Sidebar";
+import "./AdminWorkspace.css";
+export default function AdminCategories(){const [items,setItems]=useState([]);const [name,setName]=useState("");useEffect(()=>onSnapshot(collection(db,"categories"),s=>setItems(s.docs.map(d=>({id:d.id,...d.data()})))),[]);const add=async()=>{if(!name.trim())return;await addDoc(collection(db,"categories"),{name:name.trim(),createdAt:Timestamp.now()});setName("")};return <div className="admin-workspace"><Sidebar/><main><div className="workspace-head"><div><span>SUGAR CAFE · CATALOG</span><h1>Categories</h1><p>Create and remove customer menu categories.</p></div></div><section className="workspace-panel"><div className="category-form"><input value={name} onChange={e=>setName(e.target.value)} placeholder="New category name"/><button onClick={add}>+ Add Category</button></div><div className="category-grid">{items.map(c=><div className="category-chip" key={c.id}><span>📂 {c.name}</span><button onClick={()=>deleteDoc(doc(db,"categories",c.id))}>Delete</button></div>)}</div></section></main></div>}

@@ -1,0 +1,42 @@
+.hero {
+  width: 100%;
+  padding: 16px;
+  box-sizing: border-box;
+  background: #f7f7f7;
+}
+
+.hero-banner {
+  position: relative;
+  width: 100%;
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+}
+
+.hero-image {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain;
+}
+
+/* Hide old overlay because all text is already inside the image */
+.hero-overlay {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .hero {
+    padding: 10px;
+  }
+
+  .hero-banner {
+    border-radius: 16px;
+  }
+
+  .hero-image {
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+  }
+}

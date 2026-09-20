@@ -1,0 +1,668 @@
+/* =========================
+   NAVBAR
+========================= */
+
+.navbar {
+  width: 100%;
+  background: #06133f;
+  color: #fff;
+  padding: 16px 14px 20px;
+  box-sizing: border-box;
+}
+
+
+/* =========================
+   LOCATION + PROFILE
+========================= */
+/* =========================
+   LOCATION + PROFILE
+========================= */
+
+.navbar-top {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+
+/* =========================
+   LOCATION SELECTOR
+========================= */
+
+.location-selector {
+  flex: 1;
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+
+  gap: 9px;
+
+  padding: 0;
+  margin: 0;
+
+  border: none;
+  background: transparent;
+
+  color: #fff;
+
+  text-align: left;
+
+  cursor: pointer;
+
+  font-family: inherit;
+}
+
+.location-selector:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+
+/* LOCATION ICON */
+
+.location-pin {
+  color: #ff3f72;
+  font-size: 25px;
+
+  flex-shrink: 0;
+}
+
+
+/* LOCATION TEXT */
+
+.location-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.location-title {
+  font-size: 19px;
+  font-weight: 800;
+
+  line-height: 1.15;
+
+  white-space: nowrap;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.location-address {
+  margin-top: 4px;
+
+  color: #aeb6ca;
+
+  font-size: 13px;
+
+  white-space: nowrap;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+/* =========================
+   PROFILE
+========================= */
+
+.profile-circle {
+  width: 54px;
+  height: 54px;
+
+  min-width: 54px;
+
+  border-radius: 50%;
+
+  border: 2px solid #294176;
+
+  background: transparent;
+
+  color: #bfc5d1;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+}
+
+.profile-circle svg {
+  font-size: 28px;
+}
+
+/* PROFILE */
+
+.profile-circle {
+  width: 54px;
+  height: 54px;
+  min-width: 54px;
+
+  border-radius: 50%;
+  border: 2px solid #294176;
+
+  background: transparent;
+  color: #bfc5d1;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+}
+
+.profile-circle svg {
+  font-size: 28px;
+}
+
+
+/* =========================
+   DELIVERY / TAKEAWAY
+========================= */
+
+.order-tabs {
+  width: 100%;
+
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+
+  border: 2px solid #263e77;
+  border-radius: 16px;
+
+  overflow: hidden;
+
+  margin-bottom: 24px;
+}
+
+.order-tab {
+  min-width: 0;
+  height: 92px;
+
+  border: 0;
+  border-right: 2px solid #263e77;
+
+  background: #07194c;
+
+  color: #bfc5d4;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+}
+
+.order-tab:last-child {
+  border-right: 0;
+}
+
+.order-tab.active {
+  background: #fff;
+  color: #111;
+}
+
+.order-tab-title {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.order-tab-subtitle {
+  margin-top: 5px;
+  font-size: 14px;
+}
+
+
+/* =========================
+   LOCATION DETECTION
+========================= */
+
+.detect-box {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 12px;
+
+  box-sizing: border-box;
+}
+
+.detect-message {
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+
+  min-width: 0;
+  flex: 1;
+}
+
+.detect-icon {
+  width: 58px;
+  height: 58px;
+
+  min-width: 58px;
+
+  border-radius: 50%;
+
+  background: #d31919;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.detect-icon svg {
+  color: white;
+  font-size: 28px;
+}
+
+.detect-text {
+  color: #fff;
+
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+
+/* =========================
+   DETECT BUTTON
+========================= */
+
+.detect-btn {
+  width: 132px;
+  min-width: 132px;
+
+  height: 58px;
+
+  border-radius: 10px;
+
+  border: 2px solid #29457c;
+
+  background: #bd0909;
+
+  color: #fff;
+
+  font-size: 13px;
+  font-weight: 800;
+
+  cursor: pointer;
+
+  padding: 0 8px;
+
+  white-space: nowrap;
+}
+
+.detect-btn:hover {
+  background: #d10c0c;
+}
+
+
+/* =========================
+   TAKEAWAY BOX
+========================= */
+
+.takeaway-box {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  padding: 18px;
+
+  box-sizing: border-box;
+
+  background: #091b50;
+
+  border-radius: 14px;
+}
+
+.takeaway-icon {
+  color: white;
+  font-size: 32px;
+}
+
+.takeaway-box strong {
+  font-size: 17px;
+}
+
+.takeaway-box p {
+  margin: 4px 0 0;
+  color: #aeb6ca;
+  font-size: 12px;
+}
+
+
+/* =========================
+   LOGIN OVERLAY
+========================= */
+
+.login-overlay {
+  position: fixed;
+  inset: 0;
+
+  z-index: 9999;
+
+  background: rgba(0, 0, 0, 0.65);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 20px;
+
+  box-sizing: border-box;
+}
+
+.login-modal {
+  position: relative;
+
+  width: 100%;
+  max-width: 380px;
+
+  background: white;
+  color: #111;
+
+  border-radius: 22px;
+
+  padding: 26px 20px;
+
+  box-sizing: border-box;
+
+  text-align: center;
+}
+
+.close-login {
+  position: absolute;
+
+  top: 10px;
+  right: 12px;
+
+  width: 32px;
+  height: 32px;
+
+  border: none;
+  border-radius: 50%;
+
+  background: #f3f3f3;
+
+  font-size: 22px;
+
+  cursor: pointer;
+}
+
+.login-icon {
+  width: 58px;
+  height: 58px;
+
+  margin: 0 auto 12px;
+
+  border-radius: 50%;
+
+  background: #fff0ec;
+  color: #d31919;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-icon svg {
+  font-size: 25px;
+}
+
+.login-modal h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+
+.login-modal p {
+  color: #777;
+  font-size: 13px;
+}
+
+.phone-input {
+  width: 100%;
+
+  display: flex;
+
+  border: 1px solid #ddd;
+  border-radius: 11px;
+
+  overflow: hidden;
+
+  margin: 16px 0 12px;
+}
+
+.phone-input span {
+  padding: 13px;
+  background: #f5f5f5;
+  font-weight: 700;
+}
+
+.phone-input input {
+  flex: 1;
+
+  min-width: 0;
+
+  border: none;
+  outline: none;
+
+  padding: 13px;
+
+  font-size: 15px;
+}
+
+.otp-input {
+  width: 100%;
+
+  box-sizing: border-box;
+
+  padding: 14px;
+
+  border: 1px solid #ddd;
+  border-radius: 11px;
+
+  outline: none;
+
+  text-align: center;
+
+  letter-spacing: 4px;
+
+  font-size: 18px;
+}
+
+.continue-btn {
+  width: 100%;
+
+  margin-top: 12px;
+
+  padding: 14px;
+
+  border: none;
+  border-radius: 11px;
+
+  background: #d31919;
+  color: white;
+
+  font-weight: 800;
+
+  cursor: pointer;
+}
+
+.continue-btn:disabled {
+  opacity: 0.6;
+}
+
+.change-number-btn {
+  margin-top: 13px;
+
+  border: none;
+  background: transparent;
+
+  color: #d31919;
+
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.login-modal small {
+  display: block;
+
+  margin-top: 16px;
+
+  color: #999;
+
+  font-size: 10px;
+}
+
+
+/* =========================
+   430px MOBILE
+========================= */
+
+@media (max-width: 430px) {
+
+  .navbar {
+    padding: 15px 12px 20px;
+  }
+
+  .location-name {
+    font-size: 18px;
+  }
+
+  .location-address {
+    font-size: 12px;
+  }
+
+  .location-pin {
+    font-size: 23px;
+  }
+
+  .profile-circle {
+    width: 50px;
+    height: 50px;
+    min-width: 50px;
+  }
+
+  .profile-circle svg {
+    font-size: 26px;
+  }
+
+  .order-tabs {
+    margin-bottom: 22px;
+  }
+
+  .order-tab {
+    height: 88px;
+  }
+
+  .order-tab-title {
+    font-size: 19px;
+  }
+
+  .order-tab-subtitle {
+    font-size: 13px;
+  }
+
+  .detect-text {
+    font-size: 13px;
+  }
+
+  .detect-icon {
+    width: 55px;
+    height: 55px;
+    min-width: 55px;
+  }
+
+  .detect-btn {
+    width: 125px;
+    min-width: 125px;
+    height: 55px;
+    font-size: 12px;
+  }
+}
+
+
+/* =========================
+   VERY SMALL PHONES
+========================= */
+
+@media (max-width: 360px) {
+
+  .location-name {
+    font-size: 16px;
+  }
+
+  .location-address {
+    font-size: 11px;
+  }
+
+  .profile-circle {
+    width: 46px;
+    height: 46px;
+    min-width: 46px;
+  }
+
+  .order-tab {
+    height: 82px;
+  }
+
+  .order-tab-title {
+    font-size: 17px;
+  }
+
+  .order-tab-subtitle {
+    font-size: 12px;
+  }
+
+  .detect-text {
+    font-size: 11px;
+  }
+
+  .detect-icon {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+  }
+
+  .detect-btn {
+    width: 112px;
+    min-width: 112px;
+    height: 48px;
+    font-size: 11px;
+  }
+}
+/* =========================
+   ACTIVE ORDER ICON
+========================= */
+
+.profile-circle.has-active-order {
+  position: relative;
+  color: #ff3f72;
+  border-color: #ff3f72;
+  background: rgba(255, 63, 114, 0.08);
+}
+
+.profile-circle.has-active-order svg {
+  font-size: 27px;
+}
+
+.active-order-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #22c55e;
+  border: 2px solid #06133f;
+  box-sizing: border-box;
+}

@@ -1,0 +1,75 @@
+.modal-overlay{
+position:fixed;
+inset:0;
+background:rgba(0,0,0,.45);
+display:flex;
+justify-content:center;
+align-items:center;
+z-index:999;
+}
+
+.admin-modal{
+background:#fff;
+width:520px;
+padding:30px;
+border-radius:18px;
+box-shadow:0 20px 40px rgba(0,0,0,.2);
+}
+
+.admin-modal h2{
+margin-bottom:20px;
+}
+
+.admin-modal input,
+.admin-modal select,
+.admin-modal textarea{
+width:100%;
+padding:12px;
+margin-bottom:15px;
+border:1px solid #ddd;
+border-radius:10px;
+font-size:15px;
+}
+
+.admin-modal textarea{
+min-height:90px;
+resize:none;
+}
+
+.preview{
+display:flex;
+justify-content:center;
+margin-bottom:15px;
+}
+
+.preview img{
+width:120px;
+height:120px;
+border-radius:12px;
+object-fit:cover;
+border:1px solid #ddd;
+}
+
+.modal-buttons{
+display:flex;
+justify-content:flex-end;
+gap:12px;
+}
+
+.save-btn{
+background:#16a34a;
+color:white;
+border:none;
+padding:12px 22px;
+border-radius:10px;
+cursor:pointer;
+}
+
+.cancel-btn{
+background:#dc2626;
+color:white;
+border:none;
+padding:12px 22px;
+border-radius:10px;
+cursor:pointer;
+}

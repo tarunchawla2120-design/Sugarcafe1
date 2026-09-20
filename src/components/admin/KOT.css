@@ -1,0 +1,441 @@
+.kot-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.kot-box {
+  width: 380px;
+  max-width: 100%;
+  max-height: 95vh;
+  overflow-y: auto;
+  background: white;
+  padding: 24px;
+  border-radius: 12px;
+  color: #111;
+  box-sizing: border-box;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+
+.kot-header {
+  text-align: center;
+}
+
+.kot-header h2 {
+  margin: 0;
+  font-size: 24px;
+  letter-spacing: 1px;
+}
+
+.kot-header p {
+  margin: 5px 0;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.kot-line {
+  border-top: 1px dashed #222;
+  margin: 14px 0;
+}
+
+.kot-info p,
+.kot-box p {
+  margin: 6px 0;
+  font-size: 14px;
+}
+
+.kot-box h3 {
+  margin: 10px 0;
+  font-size: 15px;
+}
+
+.kot-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 7px 0;
+  font-size: 15px;
+}
+
+.kot-item-name {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.kot-item-name small {
+  color: #666;
+  font-size: 12px;
+}
+
+.kot-item-qty {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.kot-instructions {
+  background: #f5f5f5;
+  padding: 10px;
+  border-radius: 6px;
+}
+
+/* =========================
+   PREPARATION SECTION
+========================= */
+
+.kot-preparation {
+  margin-top: 10px;
+  text-align: center;
+}
+
+.kot-preparation h3 {
+  margin-bottom: 12px;
+}
+
+/* =========================
+   STATUS
+========================= */
+
+.kot-status {
+  display: inline-block;
+  padding: 7px 16px;
+  border-radius: 30px;
+  font-size: 13px;
+  font-weight: 800;
+  margin-bottom: 15px;
+}
+
+.status-new {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.status-preparing {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.status-ready {
+  background: #ecfdf5;
+  color: #15803d;
+}
+
+.status-dispatched {
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.status-delivered {
+  background: #f0fdf4;
+  color: #166534;
+}
+
+/* =========================
+   START BUTTONS
+========================= */
+
+.kot-start-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 5px;
+}
+
+.kot-start-buttons button {
+  flex: 1;
+  padding: 13px 8px;
+  border: none;
+  border-radius: 8px;
+  background: #111827;
+  color: white;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.kot-start-buttons button:hover {
+  opacity: 0.9;
+}
+
+.kot-start-buttons button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* =========================
+   TIMER
+========================= */
+
+.kot-timer {
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  margin: 5px 0;
+  color: #111827;
+}
+
+.kot-timer-label {
+  color: #666;
+  font-size: 13px !important;
+  margin-bottom: 14px !important;
+}
+
+/* =========================
+   TIME BUTTONS
+========================= */
+
+.kot-time-buttons {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.kot-time-buttons button {
+  flex: 1;
+  padding: 11px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #111;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.kot-time-buttons button:hover {
+  background: #e5e7eb;
+}
+
+.kot-time-buttons button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* =========================
+   FOOD READY
+========================= */
+
+.food-ready-btn {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 9px;
+  background: #16a34a;
+  color: white;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.food-ready-btn:hover {
+  background: #15803d;
+}
+
+.food-ready-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* =========================
+   DISPATCH
+========================= */
+
+.dispatch-btn {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 9px;
+  background: #7c3aed;
+  color: white;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.dispatch-btn:hover {
+  background: #6d28d9;
+}
+
+.dispatch-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* =========================
+   DELIVERED
+========================= */
+
+.delivered-btn {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 9px;
+  background: #059669;
+  color: white;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.delivered-btn:hover {
+  background: #047857;
+}
+
+.delivered-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.kot-delivered-message {
+  padding: 14px;
+  border-radius: 9px;
+  background: #ecfdf5;
+  color: #166534;
+  font-weight: 800;
+  font-size: 15px;
+}
+
+/* =========================
+   BILL
+========================= */
+
+.kot-bill p {
+  display: flex;
+  justify-content: space-between;
+  margin: 7px 0;
+}
+
+.kot-total {
+  font-size: 16px !important;
+}
+
+/* =========================
+   BOTTOM BUTTONS
+========================= */
+
+.kot-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.kot-buttons button {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.kot-buttons button:first-child {
+  background: #dc2626;
+  color: white;
+}
+
+.kot-buttons button:last-child {
+  background: #e5e5e5;
+  color: #111;
+}
+
+.kot-buttons button:hover {
+  opacity: 0.9;
+}
+
+/* =========================
+   MOBILE
+========================= */
+
+@media (max-width: 480px) {
+  .kot-overlay {
+    padding: 10px;
+  }
+
+  .kot-box {
+    width: 100%;
+    max-height: 94vh;
+    padding: 18px;
+  }
+
+  .kot-timer {
+    font-size: 36px;
+  }
+
+  .kot-start-buttons {
+    flex-direction: column;
+  }
+}
+
+/* =========================
+   PRINT
+========================= */
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .kot-box,
+  .kot-box * {
+    visibility: visible;
+  }
+
+  .kot-overlay {
+    position: absolute;
+    inset: 0;
+    background: white;
+    padding: 0;
+    display: block;
+  }
+
+  .kot-box {
+    width: 80mm;
+    max-width: 80mm;
+    max-height: none;
+    overflow: visible;
+    border-radius: 0;
+    padding: 8px;
+    box-shadow: none;
+  }
+
+  .kot-buttons,
+  .kot-preparation {
+    display: none;
+  }
+}
+.kot-response{display:flex;gap:10px;align-items:center;padding:12px;background:#fff3d6;border-radius:12px;margin-bottom:10px}.kot-response button,.extra-time-btn{padding:12px 16px;border:0;border-radius:9px;font-weight:800;cursor:pointer}.kot-response strong{font-size:22px;min-width:70px}.extra-time-btn{background:#222;color:#fff;margin-bottom:12px}
+
+/* =========================
+   TWO-SLIP PRINT DESIGN
+========================= */
+.print-slip { background: #fff; }
+.delivery-slip { margin-top: 28px; padding-top: 28px; border-top: 2px dashed #111; }
+.handover-order-id { display:flex; justify-content:space-between; align-items:center; font-size:16px; margin:10px 0; }
+.handover-order-id strong { font-size:22px; }
+.payment-highlight { margin:16px 0; padding:16px 12px; border:3px solid #111; border-radius:8px; text-align:center; }
+.payment-highlight-label { display:block; font-size:11px; font-weight:900; letter-spacing:1.5px; }
+.payment-highlight strong { display:block; font-size:20px; margin:5px 0; }
+.payment-highlight-amount { display:block; font-size:24px; font-weight:900; }
+.payment-prepaid { background:#e9f8ee; border-color:#15803d; color:#14532d; }
+.payment-cod { background:#fff1df; border-color:#c2410c; color:#9a3412; }
+.delivery-otp { display:inline-block; padding:4px 10px; border:2px solid #111; border-radius:6px; font-size:20px; font-weight:900; letter-spacing:2px; }
+.handover-warning { margin-top:16px; padding:13px 10px; border-radius:7px; text-align:center; font-size:13px; font-weight:900; border:2px solid #111; }
+.payment-prepaid + .kot-line + h3 + p + p + p + p + .kot-line + h3 + p + p + p + .handover-warning { background:#e9f8ee; }
+.handover-sign { margin-top:20px !important; }
+.kot-kitchen-status { text-align:center; }
+.screen-actions { margin-top:20px; }
+
+@media print {
+  @page { size: 80mm auto; margin: 0; }
+  body { margin:0 !important; padding:0 !important; }
+  .kot-overlay { position:static !important; display:block !important; background:#fff !important; padding:0 !important; }
+  .kot-box { width:80mm !important; max-width:80mm !important; padding:5mm !important; box-shadow:none !important; border-radius:0 !important; overflow:visible !important; }
+  .print-slip { width:100% !important; page-break-after:always; break-after:page; }
+  .print-slip:last-of-type { page-break-after:auto; break-after:auto; }
+  .screen-actions, .kot-response, .extra-time-btn { display:none !important; }
+  .delivery-slip { margin-top:0; border-top:0; padding-top:0; }
+}

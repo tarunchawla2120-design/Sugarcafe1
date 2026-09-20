@@ -1,0 +1,152 @@
+.explore-menu {
+  width: 100%;
+  padding: 20px 16px 24px;
+  box-sizing: border-box;
+  background: #fff;
+}
+
+.section-title {
+  margin: 0 0 22px;
+  font-size: 28px;
+  font-weight: 800;
+  color: #222;
+  line-height: 1.2;
+}
+
+.menu-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px 16px;
+}
+
+.menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  min-width: 0;
+}
+
+.menu-item:active {
+  transform: scale(0.95);
+}
+
+.menu-image {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #f4f4f4;
+  border: 3px solid transparent;
+  box-sizing: border-box;
+  transition: 0.25s ease;
+}
+
+.menu-image img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.menu-item p {
+  margin: 9px 0 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #222;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* Selected category */
+.menu-item.active .menu-image {
+  border-color: #c62828;
+  box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.10);
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .explore-menu {
+    padding: 18px 12px 22px;
+  }
+
+  .section-title {
+    font-size: 24px;
+    margin-bottom: 22px;
+  }
+
+  .menu-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px 10px;
+  }
+
+  .menu-image {
+    width: 82px;
+    height: 82px;
+  }
+
+  .menu-item p {
+    font-size: 13px;
+    margin-top: 8px;
+  }
+}
+
+/* Small phones */
+@media (max-width: 420px) {
+  .explore-menu {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .section-title {
+    font-size: 22px;
+  }
+
+  .menu-grid {
+    gap: 22px 6px;
+  }
+
+  .menu-image {
+    width: 76px;
+    height: 76px;
+  }
+
+  .menu-item p {
+    font-size: 12px;
+  }
+}
+.category-more-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.category-more-btn span {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: #f4f4f4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 38px;
+  color: #555;
+  line-height: 1;
+}
+
+.category-more-btn p {
+  margin: 9px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #222;
+}

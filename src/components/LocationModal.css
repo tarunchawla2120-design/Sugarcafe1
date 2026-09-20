@@ -1,0 +1,361 @@
+.location-overlay {
+  position: fixed;
+  inset: 0;
+
+  z-index: 10000;
+
+  background: rgba(0, 0, 0, 0.65);
+
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+
+  padding: 0;
+}
+
+.location-modal {
+  width: 100%;
+  max-width: 520px;
+
+  background: #fff;
+
+  border-radius: 24px 24px 0 0;
+
+  padding: 22px;
+
+  box-sizing: border-box;
+
+  color: #111;
+}
+
+.location-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.location-modal-header h2 {
+  margin: 0;
+
+  font-size: 21px;
+}
+
+.location-modal-header p {
+  margin: 5px 0 0;
+
+  color: #777;
+
+  font-size: 13px;
+}
+
+.location-close {
+  width: 38px;
+  height: 38px;
+
+  border: none;
+  border-radius: 50%;
+
+  background: #f2f2f2;
+
+  font-size: 25px;
+
+  cursor: pointer;
+}
+
+.location-map {
+  height: 230px;
+
+  margin-top: 18px;
+
+  border-radius: 18px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #e9f0e6,
+      #dce8f0
+    );
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  overflow: hidden;
+}
+
+.location-loading,
+.location-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  gap: 8px;
+
+  text-align: center;
+}
+
+.location-loading span,
+.location-found small {
+  color: #777;
+}
+
+.location-loader,
+.location-big-pin {
+  font-size: 48px;
+}
+
+.detected-address {
+  display: flex;
+
+  gap: 12px;
+
+  margin-top: 18px;
+
+  padding: 14px;
+
+  background: #f7f7f7;
+
+  border-radius: 14px;
+}
+
+.detected-address > span {
+  font-size: 22px;
+}
+
+.detected-address strong {
+  font-size: 14px;
+}
+
+.detected-address p {
+  margin: 5px 0 0;
+
+  color: #666;
+
+  font-size: 12px;
+
+  line-height: 1.4;
+}
+
+.house-input {
+  margin-top: 15px;
+}
+
+.house-input label {
+  display: block;
+
+  margin-bottom: 7px;
+
+  font-size: 13px;
+
+  font-weight: 700;
+}
+
+.house-input input {
+  width: 100%;
+
+  box-sizing: border-box;
+
+  padding: 14px;
+
+  border: 1px solid #ddd;
+
+  border-radius: 11px;
+
+  outline: none;
+
+  font-size: 14px;
+}
+
+.save-location-btn {
+  width: 100%;
+
+  margin-top: 16px;
+
+  padding: 15px;
+
+  border: none;
+
+  border-radius: 12px;
+
+  background: #d31919;
+
+  color: white;
+
+  font-size: 15px;
+
+  font-weight: 800;
+
+  cursor: pointer;
+}
+
+.retry-location-btn {
+  width: 100%;
+
+  margin-top: 15px;
+
+  padding: 14px;
+
+  border: 1px solid #ddd;
+
+  border-radius: 12px;
+
+  background: white;
+
+  font-weight: 700;
+
+  cursor: pointer;
+}
+/* =========================
+   REAL MAP
+========================= */
+
+.real-map {
+  position: relative;
+
+  width: 100%;
+  height: 300px;
+
+  margin-top: 18px;
+
+  border-radius: 18px;
+
+  overflow: hidden;
+}
+
+.real-map .leaflet-container {
+  width: 100%;
+  height: 100%;
+}
+
+
+/* MAP HINT */
+
+.map-hint {
+  position: absolute;
+
+  bottom: 12px;
+  left: 50%;
+
+  transform: translateX(-50%);
+
+  z-index: 1000;
+
+  background: rgba(255,255,255,0.95);
+
+  padding: 8px 13px;
+
+  border-radius: 20px;
+
+  font-size: 11px;
+
+  font-weight: 700;
+
+  white-space: nowrap;
+
+  box-shadow:
+    0 2px 10px rgba(0,0,0,0.15);
+}
+
+
+/* =========================
+   CUSTOM PIN
+========================= */
+
+.custom-location-pin {
+  background: transparent;
+
+  border: none;
+}
+
+.pin-marker {
+  width: 38px;
+  height: 38px;
+
+  background: #d31919;
+
+  border: 4px solid white;
+
+  border-radius: 50% 50% 50% 0;
+
+  transform: rotate(-45deg);
+
+  box-shadow:
+    0 3px 12px rgba(0,0,0,0.35);
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+}
+
+.pin-dot {
+  width: 12px;
+  height: 12px;
+
+  background: white;
+
+  border-radius: 50%;
+
+  transform: rotate(45deg);
+}
+
+
+/* =========================
+   ACCURACY
+========================= */
+
+.accuracy-box {
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  margin-top: 12px;
+
+  padding: 11px 13px;
+
+  background: #f5f7fa;
+
+  border-radius: 12px;
+}
+
+.accuracy-box > span {
+  font-size: 20px;
+}
+
+.accuracy-box strong {
+  display: block;
+
+  font-size: 13px;
+}
+
+.accuracy-box small {
+  display: block;
+
+  margin-top: 3px;
+
+  color: #777;
+
+  font-size: 11px;
+}
+
+
+/* =========================
+   MOBILE MAP
+========================= */
+
+@media (max-width: 430px) {
+
+  .real-map {
+    height: 280px;
+  }
+
+  .map-hint {
+    font-size: 10px;
+
+    padding: 7px 10px;
+  }
+
+}

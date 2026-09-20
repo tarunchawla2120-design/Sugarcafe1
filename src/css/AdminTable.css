@@ -1,0 +1,75 @@
+.table-card{
+background:#fff;
+padding:25px;
+border-radius:18px;
+box-shadow:0 10px 25px rgba(0,0,0,.08);
+margin-top:30px;
+}
+
+.table-header{
+display:flex;
+justify-content:space-between;
+align-items:center;
+margin-bottom:20px;
+}
+
+.search-box{
+width:280px;
+padding:12px;
+border:1px solid #ddd;
+border-radius:10px;
+outline:none;
+}
+
+.search-box:focus{
+border-color:#dc2626;
+}
+
+.menu-table{
+width:100%;
+border-collapse:collapse;
+}
+
+.menu-table th{
+background:#f5f5f5;
+padding:15px;
+text-align:left;
+}
+
+.menu-table td{
+padding:15px;
+border-bottom:1px solid #eee;
+}
+
+.food-img{
+width:60px;
+height:60px;
+border-radius:12px;
+object-fit:cover;
+}
+
+.edit-btn,
+.delete-btn{
+border:none;
+padding:10px 12px;
+margin-right:8px;
+border-radius:8px;
+cursor:pointer;
+font-size:16px;
+}
+
+.edit-btn{
+background:#2563eb;
+color:#fff;
+}
+
+.delete-btn{
+background:#dc2626;
+color:#fff;
+}
+
+.empty{
+text-align:center;
+padding:30px;
+color:#777;
+}

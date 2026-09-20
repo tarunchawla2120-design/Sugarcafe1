@@ -1,0 +1,22 @@
+.app {
+  width: 100%;
+  max-width: 430px;
+  min-height: 100vh;
+  margin: 0 auto;
+  background: #fff;
+
+  overflow-x: hidden;
+  box-sizing: border-box;
+
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.08);
+}
+
+.app *,
+.app *::before,
+.app *::after {
+  box-sizing: border-box;
+}
+
+.app img {
+  max-width: 100%;
+}

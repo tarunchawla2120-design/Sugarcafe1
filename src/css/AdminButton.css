@@ -1,0 +1,31 @@
+.admin-btn{
+position:fixed;
+bottom:25px;
+right:25px;
+
+width:60px;
+height:60px;
+
+background:#8B4513;
+color:#fff;
+
+display:flex;
+justify-content:center;
+align-items:center;
+
+border-radius:50%;
+font-size:28px;
+
+text-decoration:none;
+
+box-shadow:0 10px 25px rgba(0,0,0,.3);
+
+z-index:99999;
+
+transition:.3s;
+}
+
+.admin-btn:hover{
+transform:rotate(180deg) scale(1.1);
+background:#D2691E;
+}
