@@ -1,4 +1,4 @@
-import { db, razorpayRequest, validateOrderPayload, json } from './_lib.js';
+import { db, razorpayRequest, validateOrderPayload, json } from "./lib.js";
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { error: 'Method not allowed' });

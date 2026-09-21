@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { db, createFinalOrderFromAttempt, json } from './_lib.js';
+import { db, createFinalOrderFromAttempt, json } from './lib.js';
 
 export const config = { api: { bodyParser: false } };
 
