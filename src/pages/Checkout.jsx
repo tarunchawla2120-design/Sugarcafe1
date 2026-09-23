@@ -32,6 +32,7 @@ function Checkout() {
   const {
     cart,
     totalPrice,
+    clearCart,
   } = useCart();
 
   const [address, setAddress] = useState("");
@@ -98,8 +99,6 @@ function Checkout() {
         const profile = {
           ...data,
 
-          // IMPORTANT:
-          // Never erase the permanent customer ID
           customerId:
             data.customerId ||
             localStorage.getItem(
@@ -697,10 +696,28 @@ function Checkout() {
               ? profile.addresses
               : [];
 
-          const updatedAddresses = [
-            ...existingAddresses,
-            selectedAddress,
-          ];
+          const alreadyExists =
+            existingAddresses.some(
+              (item) =>
+                item.address ===
+                  selectedAddress.address &&
+                Number(item.latitude) ===
+                  Number(
+                    selectedAddress.latitude
+                  ) &&
+                Number(item.longitude) ===
+                  Number(
+                    selectedAddress.longitude
+                  )
+            );
+
+          const updatedAddresses =
+            alreadyExists
+              ? existingAddresses
+              : [
+                  ...existingAddresses,
+                  selectedAddress,
+                ];
 
           const updatedProfile = {
             ...profile,
@@ -733,7 +750,7 @@ function Checkout() {
             updatedAddresses
           );
 
-          // Also update Firebase customer
+          // Update Firebase customer
           if (customerId) {
             try {
               const customerQuery =
@@ -805,12 +822,14 @@ function Checkout() {
       orderData,
       selectedAddress
     ) => {
+      // Create order in Firestore first
       const orderRef =
         await addDoc(
           collection(db, "orders"),
           orderData
         );
 
+      // Save last order details
       localStorage.setItem(
         "lastOrderId",
         orderRef.id
@@ -852,15 +871,37 @@ function Checkout() {
               ? profile.addresses
               : [];
 
+          // Prevent duplicate address
+          const alreadyExists =
+            existingAddresses.some(
+              (item) =>
+                item.address ===
+                  selectedAddress.address &&
+                Number(item.latitude) ===
+                  Number(
+                    selectedAddress.latitude
+                  ) &&
+                Number(item.longitude) ===
+                  Number(
+                    selectedAddress.longitude
+                  )
+            );
+
+          const updatedAddresses =
+            alreadyExists
+              ? existingAddresses
+              : [
+                  ...existingAddresses,
+                  selectedAddress,
+                ];
+
           const updatedProfile = {
             ...profile,
 
             customerId,
 
-            addresses: [
-              ...existingAddresses,
-              selectedAddress,
-            ],
+            addresses:
+              updatedAddresses,
 
             defaultAddress:
               selectedAddress,
@@ -897,6 +938,13 @@ function Checkout() {
           );
         }
       }
+
+      // =================================================
+      // ⭐ CLEAR CART ONLY AFTER ORDER IS SUCCESSFULLY
+      // SAVED IN FIRESTORE
+      // =================================================
+
+      clearCart();
 
       return orderRef;
     };
@@ -1282,12 +1330,9 @@ function Checkout() {
         orderNumber:
           `SC-${Date.now()}`,
 
-        // Keep Firebase uid if available
         userId:
           customer.userId || "",
 
-        // IMPORTANT:
-        // Permanent customer ID
         customerId:
           customer.customerId,
 
@@ -1398,13 +1443,12 @@ function Checkout() {
         );
       }
 
-    alert(
-  "🕐 Order received! Sugar Café is reviewing your order."
-);
-
-      navigate(
-        "/success"
+      alert(
+        "🕐 Order received! Sugar Café is reviewing your order."
       );
+
+      navigate("/success");
+
     } catch (error) {
       console.error(
         "❌ Order placement error:",
@@ -1916,5 +1960,3 @@ function Checkout() {
 }
 
 export default Checkout;
-
-                  
