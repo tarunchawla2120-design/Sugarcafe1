@@ -1,18 +1,24 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   collection,
+  getDocs,
   query,
   where,
-  getDocs,
   addDoc,
-  updateDoc,
-  doc,
-  Timestamp,
+  serverTimestamp,
 } from "firebase/firestore";
-import { FaPhoneAlt, FaCoffee, FaUser } from "react-icons/fa";
+
 import { db } from "../firebase";
 import "./Login.css";
+
+function generateCustomerId() {
+  return `SC-${Math.floor(100000 + Math.random() * 900000)}`;
+}
+
+function normalizePhone(phone) {
+  return String(phone || "").replace(/\D/g, "").slice(-10);
+}
 
 function Login() {
   const navigate = useNavigate();
@@ -22,133 +28,146 @@ function Login() {
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const from = location.state?.from || "/profile";
+  useEffect(() => {
+    const savedCustomerId = localStorage.getItem("sugarCafeCustomerId");
 
-  const generateCustomerId = () => {
-    const random = Math.random()
-      .toString(36)
-      .substring(2, 8)
-      .toUpperCase();
+    if (savedCustomerId) {
+      navigate("/home", { replace: true });
+    }
+  }, [navigate]);
 
-    return `SC-${random}`;
-  };
-
-  const handleContinue = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
 
     const cleanName = name.trim();
-    const cleanPhone = phone.replace(/\D/g, "");
+    const cleanPhone = normalizePhone(phone);
 
-    if (cleanName.length < 2) {
+    if (!cleanName) {
       alert("Please enter your name.");
       return;
     }
 
-    if (!/^\d{10}$/.test(cleanPhone)) {
-      alert("Please enter a valid 10 digit mobile number.");
+    if (cleanPhone.length !== 10) {
+      alert("Please enter a valid 10-digit mobile number.");
       return;
     }
 
     try {
       setLoading(true);
 
-      const fullPhone = `+91${cleanPhone}`;
+      /*
+       * =====================================================
+       * STEP 1
+       * Find customer by PHONE NUMBER
+       *
+       * This is the important part.
+       * Same phone = same customer forever.
+       * =====================================================
+       */
 
-      // Find existing customer
+      const customersRef = collection(db, "customers");
+
       const customerQuery = query(
-        collection(db, "customers"),
-        where("phone", "==", fullPhone)
+        customersRef,
+        where("phone", "==", cleanPhone)
       );
 
-      const snapshot = await getDocs(customerQuery);
+      const customerSnapshot = await getDocs(customerQuery);
 
-      let customerId = "";
-      let customerData = {};
+      let customerId;
+      let customerData;
 
-      if (!snapshot.empty) {
-        // EXISTING CUSTOMER
-        const customerDoc = snapshot.docs[0];
-        const existingData = customerDoc.data();
+      /*
+       * =====================================================
+       * EXISTING CUSTOMER
+       * =====================================================
+       */
 
-        customerId =
-          existingData.customerId ||
-          generateCustomerId();
+      if (!customerSnapshot.empty) {
+        const customerDoc = customerSnapshot.docs[0];
 
+        customerId = customerDoc.data().customerId;
         customerData = {
-          ...existingData,
-          customerId,
+          id: customerDoc.id,
+          ...customerDoc.data(),
         };
 
-        // Make sure old customer also gets an ID
-        await updateDoc(
-          doc(db, "customers", customerDoc.id),
-          {
-            customerId,
-            name: cleanName,
-            updatedAt: Timestamp.now(),
-          }
-        );
-      } else {
-        // NEW CUSTOMER
-        customerId = generateCustomerId();
+        /*
+         * Safety:
+         * If old customer document somehow doesn't have
+         * customerId, generate one only once.
+         */
 
-        customerData = {
-          customerId,
-          name: cleanName,
-          phone: fullPhone,
-          email: "",
-          photoURL: "",
-          rewards: 0,
-          favourites: [],
-          addresses: [],
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now(),
-        };
-
-        await addDoc(
-          collection(db, "customers"),
-          customerData
-        );
+        if (!customerId) {
+          customerId = generateCustomerId();
+        }
       }
 
-      // Save customer locally
-      const profile = {
-        name: cleanName,
-        phone: fullPhone,
-        customerId,
-        uid: "",
-        email: customerData.email || "",
-        photoURL: customerData.photoURL || "",
-        phoneVerified: false,
-        rewards: Number(customerData.rewards || 0),
-        favourites: Array.isArray(customerData.favourites)
-          ? customerData.favourites
-          : [],
-        addresses: Array.isArray(customerData.addresses)
-          ? customerData.addresses
-          : [],
-        defaultAddress:
-          customerData.defaultAddress || null,
-        guest: false,
-        loggedIn: true,
-      };
+      /*
+       * =====================================================
+       * NEW CUSTOMER
+       * =====================================================
+       */
 
-      localStorage.setItem(
-        "sugarCafeUser",
-        JSON.stringify(profile)
-      );
+      else {
+        customerId = generateCustomerId();
+
+        const newCustomer = {
+          customerId,
+          name: cleanName,
+          phone: cleanPhone,
+          addresses: [],
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+
+        const newCustomerRef = await addDoc(
+          customersRef,
+          newCustomer
+        );
+
+        customerData = {
+          id: newCustomerRef.id,
+          ...newCustomer,
+        };
+      }
+
+      /*
+       * =====================================================
+       * SAVE PERMANENT CUSTOMER SESSION
+       * =====================================================
+       */
 
       localStorage.setItem(
         "sugarCafeCustomerId",
         customerId
       );
 
-      navigate(from, { replace: true });
+      localStorage.setItem(
+        "sugarCafeUser",
+        JSON.stringify({
+          customerId,
+          name: customerData?.name || cleanName,
+          phone: cleanPhone,
+        })
+      );
+
+      /*
+       * Keep the existing redirect location if available.
+       */
+
+      const redirectTo =
+        location.state?.from || "/home";
+
+      navigate(redirectTo, {
+        replace: true,
+      });
+
     } catch (error) {
       console.error("Customer login error:", error);
 
       alert(
-        "Unable to create/login customer account. Please try again."
+        "Unable to login right now. Please try again."
       );
     } finally {
       setLoading(false);
@@ -157,77 +176,81 @@ function Login() {
 
   return (
     <div className="login-page">
-      <div className="login-box">
+      <div className="login-card">
 
-        <div className="login-icon">
-          <FaUser />
+        <div className="login-logo">
+          🍰
         </div>
 
-        <FaCoffee className="login-logo" />
+        <div className="login-heading">
+          <span>SUGAR CAFÉ</span>
 
-        <h2>Welcome to Sugar Café</h2>
+          <h1>Welcome Back</h1>
 
-        <p className="login-subtitle">
-          Login or create your Sugar Café customer account.
-        </p>
+          <p>
+            Login to view your orders and track
+            your Sugar Café account.
+          </p>
+        </div>
 
-        <form onSubmit={handleContinue}>
+        <form onSubmit={handleLogin}>
 
-          <div className="input-box">
-            <FaUser className="icon" />
+          <div className="login-field">
+            <label>Your Name</label>
 
             <input
               type="text"
-              placeholder="Your Name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) =>
+                setName(e.target.value)
+              }
+              placeholder="Enter your name"
               autoComplete="name"
+              disabled={loading}
             />
           </div>
 
-          <div className="input-box">
-            <FaPhoneAlt className="icon" />
+          <div className="login-field">
+            <label>Mobile Number</label>
 
-            <span className="country-code">+91</span>
+            <div className="phone-input">
+              <span>+91</span>
 
-            <input
-              type="tel"
-              placeholder="10 digit mobile number"
-              value={phone}
-              maxLength={10}
-              onChange={(e) =>
-                setPhone(
-                  e.target.value.replace(/\D/g, "")
-                )
-              }
-              autoComplete="tel"
-            />
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) =>
+                  setPhone(
+                    e.target.value
+                      .replace(/\D/g, "")
+                      .slice(0, 10)
+                  )
+                }
+                placeholder="10-digit mobile number"
+                inputMode="numeric"
+                autoComplete="tel"
+                disabled={loading}
+              />
+            </div>
           </div>
 
           <button
-            className="login-btn"
             type="submit"
+            className="login-button"
             disabled={loading}
           >
-            {loading ? "Please wait…" : "Continue"}
+            {loading
+              ? "Checking Account..."
+              : "Continue"}
           </button>
 
         </form>
 
         <div className="login-note">
-          <strong>Your Customer Account</strong>
-          <br />
-          Your Customer ID and order history will be saved
-          for future visits.
+          Your mobile number is used to keep
+          your Sugar Café customer account
+          connected across devices.
         </div>
-
-        <button
-          className="change-number"
-          type="button"
-          onClick={() => navigate("/")}
-        >
-          Back to Home
-        </button>
 
       </div>
     </div>
