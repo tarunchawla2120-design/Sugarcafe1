@@ -13,6 +13,11 @@ import {
   addDoc,
   collection,
   Timestamp,
+  query,
+  where,
+  getDocs,
+  updateDoc,
+  doc,
 } from "firebase/firestore";
 
 import { db } from "../firebase";
@@ -79,7 +84,7 @@ function Checkout() {
     Number(store.maxDeliveryCharge ?? 300);
 
   // =====================================================
-  // LOAD GUEST CUSTOMER
+  // LOAD CUSTOMER
   // =====================================================
 
   useEffect(() => {
@@ -92,15 +97,31 @@ function Checkout() {
 
         const profile = {
           ...data,
-          customerId: "",
+
+          // IMPORTANT:
+          // Never erase the permanent customer ID
+          customerId:
+            data.customerId ||
+            localStorage.getItem(
+              "sugarCafeCustomerId"
+            ) ||
+            "",
+
           name: data.name || "",
           phone: data.phone || "",
           email: data.email || "",
-          addresses: data.addresses || [],
-          guest: true,
+          photoURL: data.photoURL || "",
+
+          addresses: Array.isArray(data.addresses)
+            ? data.addresses
+            : [],
+
+          guest: false,
+          loggedIn: true,
         };
 
         setCustomerProfile(profile);
+
         setSavedAddresses(
           profile.addresses || []
         );
@@ -110,7 +131,8 @@ function Checkout() {
         localStorage.getItem("userLocation");
 
       if (savedLocation) {
-        const loc = JSON.parse(savedLocation);
+        const loc =
+          JSON.parse(savedLocation);
 
         if (
           loc.latitude != null &&
@@ -135,10 +157,9 @@ function Checkout() {
           }
         }
       }
-
     } catch (error) {
       console.error(
-        "Guest checkout loading error:",
+        "Customer checkout loading error:",
         error
       );
     }
@@ -287,7 +308,6 @@ function Checkout() {
               data.display_name ||
                 `${latitude}, ${longitude}`
             );
-
           } catch (error) {
             console.error(
               "Address lookup error:",
@@ -298,7 +318,6 @@ function Checkout() {
               `${latitude}, ${longitude}`
             );
           }
-
         } catch (error) {
           console.error(
             "Location processing error:",
@@ -308,7 +327,6 @@ function Checkout() {
           alert(
             "Location mil gayi, lekin address load nahi ho paya."
           );
-
         } finally {
           setLoadingLocation(false);
         }
@@ -393,7 +411,6 @@ function Checkout() {
           `${value}, Korba, Chhattisgarh, India`,
       },
       (results, status) => {
-
         setGeocodingManual(false);
 
         if (
@@ -500,7 +517,6 @@ function Checkout() {
         data.display_name ||
           `${lat}, ${lng}`
       );
-
     } catch (error) {
       console.error(
         "Address error:",
@@ -582,18 +598,31 @@ function Checkout() {
     }
 
     return {
-      userId: "",
-      customerId: "",
+      userId:
+        customerProfile.uid || "",
+
+      customerId:
+        customerProfile.customerId ||
+        localStorage.getItem(
+          "sugarCafeCustomerId"
+        ) ||
+        "",
+
       customerName:
         customerProfile.name ||
         "Customer",
+
       customerPhone:
         customerProfile.phone ||
         "",
+
       customerEmail:
         customerProfile.email ||
         "",
-      photoURL: "",
+
+      photoURL:
+        customerProfile.photoURL ||
+        "",
     };
   };
 
@@ -603,7 +632,6 @@ function Checkout() {
 
   const loadRazorpay = () =>
     new Promise((resolve) => {
-
       if (window.Razorpay) {
         resolve(true);
         return;
@@ -629,156 +657,249 @@ function Checkout() {
     });
 
   // =====================================================
-  // SAVE ADDRESS
+  // SAVE CUSTOMER ADDRESS
   // =====================================================
 
-  const saveCustomerAddress = async () => {
+  const saveCustomerAddress =
+    async () => {
+      const selectedAddress = {
+        id: `${Date.now()}`,
+        label: "Delivery Address",
+        address: address.trim(),
+        fullAddress: address.trim(),
+        latitude: Number(marker.lat),
+        longitude: Number(marker.lng),
+        savedAt:
+          new Date().toISOString(),
+      };
 
-    const selectedAddress = {
-      id: `${Date.now()}`,
-      label: "Delivery Address",
-      address: address.trim(),
-      fullAddress: address.trim(),
-      latitude: Number(marker.lat),
-      longitude: Number(marker.lng),
-      savedAt:
-        new Date().toISOString(),
+      try {
+        const savedUser =
+          localStorage.getItem(
+            "sugarCafeUser"
+          );
+
+        if (savedUser) {
+          const profile =
+            JSON.parse(savedUser);
+
+          const customerId =
+            profile.customerId ||
+            localStorage.getItem(
+              "sugarCafeCustomerId"
+            ) ||
+            "";
+
+          const existingAddresses =
+            Array.isArray(
+              profile.addresses
+            )
+              ? profile.addresses
+              : [];
+
+          const updatedAddresses = [
+            ...existingAddresses,
+            selectedAddress,
+          ];
+
+          const updatedProfile = {
+            ...profile,
+
+            customerId,
+
+            addresses:
+              updatedAddresses,
+
+            defaultAddress:
+              selectedAddress,
+
+            guest: false,
+
+            loggedIn: true,
+          };
+
+          localStorage.setItem(
+            "sugarCafeUser",
+            JSON.stringify(
+              updatedProfile
+            )
+          );
+
+          setCustomerProfile(
+            updatedProfile
+          );
+
+          setSavedAddresses(
+            updatedAddresses
+          );
+
+          // Also update Firebase customer
+          if (customerId) {
+            try {
+              const customerQuery =
+                query(
+                  collection(
+                    db,
+                    "customers"
+                  ),
+                  where(
+                    "customerId",
+                    "==",
+                    customerId
+                  )
+                );
+
+              const customerSnapshot =
+                await getDocs(
+                  customerQuery
+                );
+
+              if (
+                !customerSnapshot.empty
+              ) {
+                const customerDoc =
+                  customerSnapshot.docs[0];
+
+                await updateDoc(
+                  doc(
+                    db,
+                    "customers",
+                    customerDoc.id
+                  ),
+                  {
+                    addresses:
+                      updatedAddresses,
+
+                    defaultAddress:
+                      selectedAddress,
+
+                    updatedAt:
+                      Timestamp.now(),
+                  }
+                );
+              }
+            } catch (firebaseError) {
+              console.error(
+                "Firebase address update error:",
+                firebaseError
+              );
+            }
+          }
+        }
+      } catch (error) {
+        console.error(
+          "Customer address save error:",
+          error
+        );
+      }
+
+      return selectedAddress;
     };
 
-    try {
+  // =====================================================
+  // SAVE ORDER
+  // =====================================================
+
+  const saveCompletedOrder =
+    async (
+      orderData,
+      selectedAddress
+    ) => {
+      const orderRef =
+        await addDoc(
+          collection(db, "orders"),
+          orderData
+        );
+
+      localStorage.setItem(
+        "lastOrderId",
+        orderRef.id
+      );
+
+      localStorage.setItem(
+        "lastOrderNumber",
+        orderData.orderNumber
+      );
+
+      localStorage.setItem(
+        "lastOrderPaymentStatus",
+        orderData.paymentStatus
+      );
+
+      // Keep customer profile
       const savedUser =
         localStorage.getItem(
           "sugarCafeUser"
         );
 
       if (savedUser) {
+        try {
+          const profile =
+            JSON.parse(savedUser);
 
-        const profile =
-          JSON.parse(savedUser);
+          const customerId =
+            profile.customerId ||
+            orderData.customerId ||
+            localStorage.getItem(
+              "sugarCafeCustomerId"
+            ) ||
+            "";
 
-        const existingAddresses =
-          Array.isArray(
-            profile.addresses
-          )
-            ? profile.addresses
-            : [];
+          const existingAddresses =
+            Array.isArray(
+              profile.addresses
+            )
+              ? profile.addresses
+              : [];
 
-        const updatedProfile = {
-          ...profile,
-          customerId: "",
-          addresses: [
-            ...existingAddresses,
-            selectedAddress,
-          ],
-          defaultAddress:
-            selectedAddress,
-          guest: true,
-        };
+          const updatedProfile = {
+            ...profile,
 
-        localStorage.setItem(
-          "sugarCafeUser",
-          JSON.stringify(
+            customerId,
+
+            addresses: [
+              ...existingAddresses,
+              selectedAddress,
+            ],
+
+            defaultAddress:
+              selectedAddress,
+
+            guest: false,
+
+            loggedIn: true,
+          };
+
+          localStorage.setItem(
+            "sugarCafeUser",
+            JSON.stringify(
+              updatedProfile
+            )
+          );
+
+          localStorage.setItem(
+            "sugarCafeCustomerId",
+            customerId
+          );
+
+          setCustomerProfile(
             updatedProfile
-          )
-        );
+          );
 
-        setCustomerProfile(
-          updatedProfile
-        );
-
-        setSavedAddresses(
-          updatedProfile.addresses
-        );
+          setSavedAddresses(
+            updatedProfile.addresses ||
+              []
+          );
+        } catch (error) {
+          console.error(
+            "Customer profile update error:",
+            error
+          );
+        }
       }
 
-    } catch (error) {
-      console.error(
-        "Guest address save error:",
-        error
-      );
-    }
-
-    return selectedAddress;
-  };
-
-  // =====================================================
-  // SAVE ORDER
-  // =====================================================
-
-  const saveCompletedOrder = async (
-    orderData,
-    selectedAddress
-  ) => {
-
-    const orderRef =
-      await addDoc(
-        collection(db, "orders"),
-        orderData
-      );
-
-    localStorage.setItem(
-      "lastOrderId",
-      orderRef.id
-    );
-
-    localStorage.setItem(
-      "lastOrderNumber",
-      orderData.orderNumber
-    );
-
-    localStorage.setItem(
-      "lastOrderPaymentStatus",
-      orderData.paymentStatus
-    );
-
-    const savedUser =
-      localStorage.getItem(
-        "sugarCafeUser"
-      );
-
-    if (savedUser) {
-
-      try {
-        const profile =
-          JSON.parse(savedUser);
-
-        const updatedProfile = {
-          ...profile,
-          customerId: "",
-          addresses: [
-            ...(profile.addresses || []),
-            selectedAddress,
-          ],
-          defaultAddress:
-            selectedAddress,
-          guest: true,
-        };
-
-        localStorage.setItem(
-          "sugarCafeUser",
-          JSON.stringify(
-            updatedProfile
-          )
-        );
-
-        setCustomerProfile(
-          updatedProfile
-        );
-
-        setSavedAddresses(
-          updatedProfile.addresses || []
-        );
-
-      } catch (error) {
-        console.error(
-          "Guest profile update error:",
-          error
-        );
-      }
-    }
-
-    return orderRef;
-  };
+      return orderRef;
+    };
 
   // =====================================================
   // API RESPONSE
@@ -786,7 +907,6 @@ function Checkout() {
 
   const readApiResponse =
     async (response) => {
-
       const raw =
         await response.text();
 
@@ -798,7 +918,6 @@ function Checkout() {
 
       try {
         return JSON.parse(raw);
-
       } catch {
         const preview =
           raw
@@ -815,218 +934,210 @@ function Checkout() {
   // ONLINE PAYMENT
   // =====================================================
 
-  const startOnlinePayment = async ({
-    customer,
-    orderData,
-    selectedAddress,
-  }) => {
+  const startOnlinePayment =
+    async ({
+      customer,
+      orderData,
+      selectedAddress,
+    }) => {
+      const gatewayResponse =
+        await fetch(
+          `${
+            import.meta.env
+              .VITE_PAYMENT_API_URL || ""
+          }/api/payment/create-order`,
+          {
+            method: "POST",
 
-    const gatewayResponse =
-      await fetch(
-        `${
-          import.meta.env
-            .VITE_PAYMENT_API_URL || ""
-        }/api/payment/create-order`,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-
-          body: JSON.stringify({
-            orderData,
-            selectedAddress,
-          }),
-        }
-      );
-
-    const gatewayData =
-      await readApiResponse(
-        gatewayResponse
-      );
-
-    if (!gatewayResponse.ok) {
-      throw new Error(
-        gatewayData.error ||
-          "Unable to start online payment."
-      );
-    }
-
-    const loaded =
-      await loadRazorpay();
-
-    if (!loaded) {
-      throw new Error(
-        "Payment gateway load nahi ho paya. Internet connection check karein."
-      );
-    }
-
-    await new Promise(
-      (resolve, reject) => {
-
-        const razorpay =
-          new window.Razorpay({
-
-            key:
-              gatewayData.keyId,
-
-            amount:
-              gatewayData.amount,
-
-            currency:
-              gatewayData.currency,
-
-            name:
-              "Sugar Cafe",
-
-            description:
-              `Sugar Cafe Order ${orderData.orderNumber}`,
-
-            order_id:
-              gatewayData.orderId,
-
-            prefill: {
-              name:
-                customer.customerName ||
-                "",
-
-              email:
-                customer.customerEmail ||
-                "",
-
-              contact:
-                customer.customerPhone ||
-                "",
+            headers: {
+              "Content-Type":
+                "application/json",
             },
 
-            handler:
-              async (response) => {
-
-                try {
-
-                  const verifyResponse =
-                    await fetch(
-                      `${
-                        import.meta.env
-                          .VITE_PAYMENT_API_URL ||
-                        ""
-                      }/api/payment/verify`,
-                      {
-                        method: "POST",
-
-                        headers: {
-                          "Content-Type":
-                            "application/json",
-                        },
-
-                        body:
-                          JSON.stringify({
-                            razorpayOrderId:
-                              response.razorpay_order_id,
-
-                            razorpayPaymentId:
-                              response.razorpay_payment_id,
-
-                            razorpaySignature:
-                              response.razorpay_signature,
-                          }),
-                      }
-                    );
-
-                  const verifyData =
-                    await readApiResponse(
-                      verifyResponse
-                    );
-
-                  if (
-                    !verifyResponse.ok ||
-                    !verifyData.verified
-                  ) {
-                    reject(
-                      new Error(
-                        "Payment verification failed."
-                      )
-                    );
-
-                    return;
-                  }
-
-                  if (
-                    !verifyData.finalized
-                  ) {
-
-                    const paidOrder = {
-                      ...orderData,
-
-                      paymentMethod:
-                        "Online Payment",
-
-                      paymentStatus:
-                        "Paid",
-
-                      paymentNote:
-                        "Paid and verified by Razorpay.",
-
-                      razorpayOrderId:
-                        response.razorpay_order_id,
-
-                      razorpayPaymentId:
-                        response.razorpay_payment_id,
-
-                      razorpaySignature:
-                        response.razorpay_signature,
-                    };
-
-                    await saveCompletedOrder(
-                      paidOrder,
-                      selectedAddress
-                    );
-                  }
-
-                  resolve();
-
-                } catch (error) {
-                  reject(error);
-                }
-              },
-
-            modal: {
-              ondismiss: () =>
-                reject(
-                  new Error(
-                    "Payment cancelled."
-                  )
-                ),
-            },
-          });
-
-        razorpay.on(
-          "payment.failed",
-          (response) => {
-
-            reject(
-              new Error(
-                response?.error
-                  ?.description ||
-                  "Payment failed. Please try again."
-              )
-            );
+            body: JSON.stringify({
+              orderData,
+              selectedAddress,
+            }),
           }
         );
 
-        razorpay.open();
+      const gatewayData =
+        await readApiResponse(
+          gatewayResponse
+        );
+
+      if (!gatewayResponse.ok) {
+        throw new Error(
+          gatewayData.error ||
+            "Unable to start online payment."
+        );
       }
-    );
-  };
+
+      const loaded =
+        await loadRazorpay();
+
+      if (!loaded) {
+        throw new Error(
+          "Payment gateway load nahi ho paya. Internet connection check karein."
+        );
+      }
+
+      await new Promise(
+        (resolve, reject) => {
+          const razorpay =
+            new window.Razorpay({
+              key:
+                gatewayData.keyId,
+
+              amount:
+                gatewayData.amount,
+
+              currency:
+                gatewayData.currency,
+
+              name:
+                "Sugar Cafe",
+
+              description:
+                `Sugar Cafe Order ${orderData.orderNumber}`,
+
+              order_id:
+                gatewayData.orderId,
+
+              prefill: {
+                name:
+                  customer.customerName ||
+                  "",
+
+                email:
+                  customer.customerEmail ||
+                  "",
+
+                contact:
+                  customer.customerPhone ||
+                  "",
+              },
+
+              handler:
+                async (response) => {
+                  try {
+                    const verifyResponse =
+                      await fetch(
+                        `${
+                          import.meta.env
+                            .VITE_PAYMENT_API_URL ||
+                          ""
+                        }/api/payment/verify`,
+                        {
+                          method: "POST",
+
+                          headers: {
+                            "Content-Type":
+                              "application/json",
+                          },
+
+                          body:
+                            JSON.stringify({
+                              razorpayOrderId:
+                                response.razorpay_order_id,
+
+                              razorpayPaymentId:
+                                response.razorpay_payment_id,
+
+                              razorpaySignature:
+                                response.razorpay_signature,
+                            }),
+                        }
+                      );
+
+                    const verifyData =
+                      await readApiResponse(
+                        verifyResponse
+                      );
+
+                    if (
+                      !verifyResponse.ok ||
+                      !verifyData.verified
+                    ) {
+                      reject(
+                        new Error(
+                          "Payment verification failed."
+                        )
+                      );
+
+                      return;
+                    }
+
+                    if (
+                      !verifyData.finalized
+                    ) {
+                      const paidOrder = {
+                        ...orderData,
+
+                        paymentMethod:
+                          "Online Payment",
+
+                        paymentStatus:
+                          "Paid",
+
+                        paymentNote:
+                          "Paid and verified by Razorpay.",
+
+                        razorpayOrderId:
+                          response.razorpay_order_id,
+
+                        razorpayPaymentId:
+                          response.razorpay_payment_id,
+
+                        razorpaySignature:
+                          response.razorpay_signature,
+                      };
+
+                      await saveCompletedOrder(
+                        paidOrder,
+                        selectedAddress
+                      );
+                    }
+
+                    resolve();
+                  } catch (error) {
+                    reject(error);
+                  }
+                },
+
+              modal: {
+                ondismiss: () =>
+                  reject(
+                    new Error(
+                      "Payment cancelled."
+                    )
+                  ),
+              },
+            });
+
+          razorpay.on(
+            "payment.failed",
+            (response) => {
+              reject(
+                new Error(
+                  response?.error
+                    ?.description ||
+                    "Payment failed. Please try again."
+                )
+              );
+            }
+          );
+
+          razorpay.open();
+        }
+      );
+    };
 
   // =====================================================
   // PLACE ORDER
   // =====================================================
 
   const placeOrder = async () => {
-
     if (!store.deliveryAvailable) {
       alert(
         store.announcement ||
@@ -1073,9 +1184,8 @@ function Checkout() {
       !customerProfile.name ||
       !customerProfile.phone
     ) {
-
       alert(
-        "Please enter your name and mobile number before placing the order."
+        "Please login with your customer account before placing the order."
       );
 
       navigate(
@@ -1103,6 +1213,25 @@ function Checkout() {
       return;
     }
 
+    if (
+      !customer?.customerId
+    ) {
+      alert(
+        "Customer account is not ready. Please login again."
+      );
+
+      navigate(
+        "/login",
+        {
+          state: {
+            from: "/checkout",
+          },
+        }
+      );
+
+      return;
+    }
+
     if (!address.trim()) {
       alert(
         "Please select your delivery address."
@@ -1120,7 +1249,6 @@ function Checkout() {
     }
 
     try {
-
       setPlacingOrder(true);
 
       const orderItems =
@@ -1151,13 +1279,17 @@ function Checkout() {
         }));
 
       const orderData = {
-
         orderNumber:
           `SC-${Date.now()}`,
 
-        userId: "",
+        // Keep Firebase uid if available
+        userId:
+          customer.userId || "",
 
-        customerId: "",
+        // IMPORTANT:
+        // Permanent customer ID
+        customerId:
+          customer.customerId,
 
         customerName:
           customer.customerName,
@@ -1254,15 +1386,12 @@ function Checkout() {
         paymentMethod ===
         "Online Payment"
       ) {
-
         await startOnlinePayment({
           customer,
           orderData,
           selectedAddress,
         });
-
       } else {
-
         await saveCompletedOrder(
           orderData,
           selectedAddress
@@ -1276,9 +1405,7 @@ function Checkout() {
       navigate(
         "/success"
       );
-
     } catch (error) {
-
       console.error(
         "❌ Order placement error:",
         error
@@ -1291,11 +1418,8 @@ function Checkout() {
       alert(
         `Order place nahi ho paya.\n\n${message}`
       );
-
     } finally {
-
       setPlacingOrder(false);
-
     }
   };
 
@@ -1334,6 +1458,13 @@ function Checkout() {
               {customerProfile.phone}
             </div>
 
+            {customerProfile.customerId && (
+              <div>
+                🆔{" "}
+                {customerProfile.customerId}
+              </div>
+            )}
+
           </div>
         )}
 
@@ -1357,7 +1488,6 @@ function Checkout() {
                   }
                   className="saved-address-btn"
                   onClick={() => {
-
                     const lat =
                       Number(
                         saved.latitude
@@ -1413,7 +1543,6 @@ function Checkout() {
                     {saved.fullAddress ||
                       saved.address}
                   </span>
-
                 </button>
               )
             )}
@@ -1535,11 +1664,9 @@ function Checkout() {
                 "600",
             }}
           >
-
             {loadingLocation
               ? "Getting Location..."
               : "📍 Use My Current Location"}
-
           </button>
 
           <GoogleMap
@@ -1789,3 +1916,5 @@ function Checkout() {
 }
 
 export default Checkout;
+
+                  
