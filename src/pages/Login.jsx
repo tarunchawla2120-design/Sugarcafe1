@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+
 import {
   collection,
   getDocs,
   query,
   where,
   addDoc,
+  updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
 
@@ -29,7 +31,9 @@ function Login() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const savedCustomerId = localStorage.getItem("sugarCafeCustomerId");
+    const savedCustomerId = localStorage.getItem(
+      "sugarCafeCustomerId"
+    );
 
     if (savedCustomerId) {
       navigate("/home", { replace: true });
@@ -55,16 +59,6 @@ function Login() {
     try {
       setLoading(true);
 
-      /*
-       * =====================================================
-       * STEP 1
-       * Find customer by PHONE NUMBER
-       *
-       * This is the important part.
-       * Same phone = same customer forever.
-       * =====================================================
-       */
-
       const customersRef = collection(db, "customers");
 
       const customerQuery = query(
@@ -77,37 +71,50 @@ function Login() {
       let customerId;
       let customerData;
 
-      /*
-       * =====================================================
-       * EXISTING CUSTOMER
-       * =====================================================
-       */
+      // ============================================
+      // EXISTING CUSTOMER
+      // ============================================
 
       if (!customerSnapshot.empty) {
         const customerDoc = customerSnapshot.docs[0];
 
-        customerId = customerDoc.data().customerId;
         customerData = {
           id: customerDoc.id,
           ...customerDoc.data(),
         };
 
-        /*
-         * Safety:
-         * If old customer document somehow doesn't have
-         * customerId, generate one only once.
-         */
+        customerId = customerData.customerId;
 
+        // Old customer without ID
+        // Create it and save permanently.
         if (!customerId) {
           customerId = generateCustomerId();
+
+          await updateDoc(customerDoc.ref, {
+            customerId,
+            updatedAt: serverTimestamp(),
+          });
+
+          customerData.customerId = customerId;
+        }
+
+        // Keep customer's latest name
+        if (
+          cleanName &&
+          cleanName !== customerData.name
+        ) {
+          await updateDoc(customerDoc.ref, {
+            name: cleanName,
+            updatedAt: serverTimestamp(),
+          });
+
+          customerData.name = cleanName;
         }
       }
 
-      /*
-       * =====================================================
-       * NEW CUSTOMER
-       * =====================================================
-       */
+      // ============================================
+      // NEW CUSTOMER
+      // ============================================
 
       else {
         customerId = generateCustomerId();
@@ -132,11 +139,9 @@ function Login() {
         };
       }
 
-      /*
-       * =====================================================
-       * SAVE PERMANENT CUSTOMER SESSION
-       * =====================================================
-       */
+      // ============================================
+      // SAVE PERMANENT SESSION
+      // ============================================
 
       localStorage.setItem(
         "sugarCafeCustomerId",
@@ -151,10 +156,6 @@ function Login() {
           phone: cleanPhone,
         })
       );
-
-      /*
-       * Keep the existing redirect location if available.
-       */
 
       const redirectTo =
         location.state?.from || "/home";
@@ -176,29 +177,58 @@ function Login() {
 
   return (
     <div className="login-page">
+
       <div className="login-card">
 
-        <div className="login-logo">
-          🍰
+        {/* LOGO */}
+        <div className="login-brand">
+
+          <div className="login-logo">
+            🍰
+          </div>
+
+          <div className="login-brand-name">
+            SUGAR CAFÉ
+          </div>
+
         </div>
 
+        {/* HEADING */}
         <div className="login-heading">
-          <span>SUGAR CAFÉ</span>
 
-          <h1>Welcome Back</h1>
+          <div className="login-eyebrow">
+            WELCOME BACK
+          </div>
+
+          <h1>
+            Your table
+            <br />
+            is waiting.
+          </h1>
 
           <p>
-            Login to view your orders and track
+            Login to view your orders,
+            track deliveries and manage
             your Sugar Café account.
           </p>
+
         </div>
 
-        <form onSubmit={handleLogin}>
+        {/* FORM */}
+        <form
+          onSubmit={handleLogin}
+          className="login-form"
+        >
 
+          {/* NAME */}
           <div className="login-field">
-            <label>Your Name</label>
+
+            <label htmlFor="customer-name">
+              Your Name
+            </label>
 
             <input
+              id="customer-name"
               type="text"
               value={name}
               onChange={(e) =>
@@ -208,15 +238,25 @@ function Login() {
               autoComplete="name"
               disabled={loading}
             />
+
           </div>
 
+          {/* PHONE */}
           <div className="login-field">
-            <label>Mobile Number</label>
+
+            <label htmlFor="customer-phone">
+              Mobile Number
+            </label>
 
             <div className="phone-input">
-              <span>+91</span>
+
+              <div className="country-code">
+                <span>🇮🇳</span>
+                <strong>+91</strong>
+              </div>
 
               <input
+                id="customer-phone"
                 type="tel"
                 value={phone}
                 onChange={(e) =>
@@ -231,28 +271,63 @@ function Login() {
                 autoComplete="tel"
                 disabled={loading}
               />
+
             </div>
+
+            <div className="phone-hint">
+              Same number = same Sugar Café account
+            </div>
+
           </div>
 
+          {/* BUTTON */}
           <button
             type="submit"
             className="login-button"
             disabled={loading}
           >
-            {loading
-              ? "Checking Account..."
-              : "Continue"}
+
+            <span>
+              {loading
+                ? "Checking Account..."
+                : "Continue"}
+            </span>
+
+            {!loading && (
+              <span className="login-arrow">
+                →
+              </span>
+            )}
+
           </button>
 
         </form>
 
+        {/* SECURITY NOTE */}
         <div className="login-note">
-          Your mobile number is used to keep
-          your Sugar Café customer account
-          connected across devices.
+
+          <div className="login-note-icon">
+            🔒
+          </div>
+
+          <div>
+            <strong>Your account stays connected</strong>
+
+            <p>
+              Your mobile number keeps your
+              Sugar Café customer account
+              connected across devices.
+            </p>
+          </div>
+
+        </div>
+
+        <div className="login-footer">
+          Sugar Café • Good food, sweet moments
         </div>
 
       </div>
+
     </div>
   );
 }
