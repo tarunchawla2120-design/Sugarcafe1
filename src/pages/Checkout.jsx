@@ -39,6 +39,12 @@ function Checkout() {
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [placingOrder, setPlacingOrder] = useState(false);
 
+  // =====================================================
+  // SPECIAL NOTE
+  // =====================================================
+
+  const [specialNote, setSpecialNote] = useState("");
+
   const [paymentMethod, setPaymentMethod] =
     useState("Cash on Delivery");
 
@@ -940,7 +946,7 @@ function Checkout() {
       }
 
       // =================================================
-      // ⭐ CLEAR CART ONLY AFTER ORDER IS SUCCESSFULLY
+      // CLEAR CART ONLY AFTER ORDER IS SUCCESSFULLY
       // SAVED IN FIRESTORE
       // =================================================
 
@@ -1255,7 +1261,7 @@ function Checkout() {
       !customer?.customerPhone
     ) {
       alert(
-        "Mobile number is required to place an order."
+        "Mobile number is required to place the order."
       );
 
       return;
@@ -1349,6 +1355,13 @@ function Checkout() {
           customer.photoURL,
 
         address,
+
+        // =================================================
+        // SPECIAL NOTE
+        // =================================================
+
+        specialNote:
+          specialNote.trim(),
 
         latitude:
           marker.lat,
@@ -1478,7 +1491,9 @@ function Checkout() {
         Checkout
       </h2>
 
-      {/* DELIVERY ADDRESS */}
+      {/* =================================================
+          DELIVERY ADDRESS
+      ================================================= */}
 
       <div className="checkout-card">
 
@@ -1796,7 +1811,66 @@ function Checkout() {
 
       </div>
 
-      {/* PAYMENT */}
+      {/* =================================================
+          SPECIAL NOTE
+      ================================================= */}
+
+      <div className="checkout-card special-note-card">
+
+        <div className="special-note-heading">
+
+          <div>
+
+            <h3>
+              📝 Special Note
+            </h3>
+
+            <p>
+              Any special request or correction
+              for your order?
+            </p>
+
+          </div>
+
+          <span>
+            OPTIONAL
+          </span>
+
+        </div>
+
+        <textarea
+          value={specialNote}
+          onChange={(e) =>
+            setSpecialNote(
+              e.target.value.slice(
+                0,
+                300
+              )
+            )
+          }
+          placeholder="Example: Less spicy, no onion, extra cheese, birthday message, etc."
+          rows={4}
+          maxLength={300}
+        />
+
+        <div className="special-note-footer">
+
+          <small>
+            Please write any special request
+            you want the café to know.
+          </small>
+
+          <small>
+            {specialNote.length}/300
+          </small>
+
+        </div>
+
+      </div>
+
+      {/* =================================================
+          PAYMENT
+      ================================================= */}
 
       <div className="checkout-card">
 
@@ -1875,11 +1949,13 @@ function Checkout() {
             </strong>
 
             <p>
-              UPI, cards and net banking are processed securely by Razorpay.
+              UPI, cards and net banking are
+              processed securely by Razorpay.
             </p>
 
             <small>
-              No UTR entry or staff payment verification is required.
+              No UTR entry or staff payment
+              verification is required.
             </small>
 
           </div>
@@ -1887,7 +1963,9 @@ function Checkout() {
 
       </div>
 
-      {/* ORDER SUMMARY */}
+      {/* =================================================
+          ORDER SUMMARY
+      ================================================= */}
 
       <div className="checkout-card">
 
