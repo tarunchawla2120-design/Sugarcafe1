@@ -17,13 +17,25 @@ function Home() {
   const navigate = useNavigate();
 
   const [search, setSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedCategory, setSelectedCategory] =
+    useState("All");
   const [showPopup, setShowPopup] = useState(false);
 
-    const user = localStorage.getItem("sugarCafeUser");
+  /* =========================
+     CHECK CUSTOMER LOGIN
+  ========================= */
+
+  useEffect(() => {
+    const user =
+      localStorage.getItem("sugarCafeUser");
 
     if (!user) {
-      navigate("/");
+      navigate("/login", {
+        state: {
+          from: "/",
+        },
+        replace: true,
+      });
     }
   }, [navigate]);
 
@@ -47,13 +59,17 @@ function Home() {
       {/* CATEGORIES */}
       <Categories
         selectedCategory={selectedCategory}
-        setSelectedCategory={setSelectedCategory}
+        setSelectedCategory={
+          setSelectedCategory
+        }
       />
 
       {/* POPULAR ITEMS */}
       <PopularItems
         search={search}
-        selectedCategory={selectedCategory}
+        selectedCategory={
+          selectedCategory
+        }
       />
 
       {/* OFFER */}
@@ -64,14 +80,20 @@ function Home() {
 
       {/* BOTTOM NAV */}
       <BottomNav
-        onMenuClick={() => setShowPopup(true)}
+        onMenuClick={() =>
+          setShowPopup(true)
+        }
       />
 
       {/* CATEGORY POPUP */}
       <CategoryPopup
         open={showPopup}
-        onClose={() => setShowPopup(false)}
-        setSelectedCategory={setSelectedCategory}
+        onClose={() =>
+          setShowPopup(false)
+        }
+        setSelectedCategory={
+          setSelectedCategory
+        }
       />
 
       {/* ADMIN */}
