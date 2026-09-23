@@ -1,6 +1,17 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  addDoc,
+  updateDoc,
+  doc,
+  Timestamp,
+} from "firebase/firestore";
 import { FaPhoneAlt, FaCoffee, FaUser } from "react-icons/fa";
+import { db } from "../firebase";
 import "./Login.css";
 
 function Login() {
@@ -13,11 +24,21 @@ function Login() {
 
   const from = location.state?.from || "/profile";
 
-  const handleContinue = (e) => {
+  const generateCustomerId = () => {
+    const random = Math.random()
+      .toString(36)
+      .substring(2, 8)
+      .toUpperCase();
+
+    return `SC-${random}`;
+  };
+
+  const handleContinue = async (e) => {
     e.preventDefault();
 
     const cleanName = name.trim();
     const cleanPhone = phone.replace(/\D/g, "");
+    const fullPhone = `+91${cleanPhone}`;
 
     if (cleanName.length < 2) {
       alert("Please enter your name.");
@@ -32,18 +53,76 @@ function Login() {
     try {
       setLoading(true);
 
+      // Find existing customer
+      const customerQuery = query(
+        collection(db, "customers"),
+        where("phone", "==", fullPhone)
+      );
+
+      const snapshot = await getDocs(customerQuery);
+
+      let customerId = "";
+      let customerData = null;
+
+      if (!snapshot.empty) {
+        // Existing customer
+        const customerDoc = snapshot.docs[0];
+
+        customerId =
+          customerDoc.data().customerId ||
+          customerDoc.id;
+
+        customerData = customerDoc.data();
+
+        // Update latest name
+        await updateDoc(
+          doc(db, "customers", customerDoc.id),
+          {
+            name: cleanName,
+            updatedAt: Timestamp.now(),
+          }
+        );
+      } else {
+        // New customer
+        customerId = generateCustomerId();
+
+        const newCustomer = {
+          customerId,
+          name: cleanName,
+          phone: fullPhone,
+          email: "",
+          photoURL: "",
+          rewards: 0,
+          favourites: [],
+          addresses: [],
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        };
+
+        const newDoc = await addDoc(
+          collection(db, "customers"),
+          newCustomer
+        );
+
+        customerData = {
+          ...newCustomer,
+          firestoreId: newDoc.id,
+        };
+      }
+
+      // Save customer profile locally
       const profile = {
         name: cleanName,
-        phone: `+91${cleanPhone}`,
-        customerId: "",
+        phone: fullPhone,
+        customerId,
         uid: "",
-        email: "",
+        email: customerData?.email || "",
         phoneVerified: false,
-        rewards: 0,
-        favourites: [],
-        addresses: [],
-        guest: true,
-        createdAt: new Date().toISOString(),
+        rewards: customerData?.rewards || 0,
+        favourites: customerData?.favourites || [],
+        addresses: customerData?.addresses || [],
+        guest: false,
+        loggedIn: true,
       };
 
       localStorage.setItem(
@@ -51,11 +130,19 @@ function Login() {
         JSON.stringify(profile)
       );
 
+      localStorage.setItem(
+        "sugarCafeCustomerId",
+        customerId
+      );
+
       navigate(from, { replace: true });
 
     } catch (error) {
-      console.error("Guest profile error:", error);
-      alert("Unable to continue. Please try again.");
+      console.error("Customer login error:", error);
+
+      alert(
+        "Unable to create/login customer account. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -74,7 +161,7 @@ function Login() {
         <h2>Welcome to Sugar Café</h2>
 
         <p className="login-subtitle">
-          Enter your details to continue with your order.
+          Login or create your Sugar Café customer account.
         </p>
 
         <form onSubmit={handleContinue}>
@@ -115,15 +202,16 @@ function Login() {
             type="submit"
             disabled={loading}
           >
-            {loading ? "Continuing…" : "Continue"}
+            {loading ? "Please wait…" : "Continue"}
           </button>
 
         </form>
 
         <div className="login-note">
-          <strong>Guest Checkout</strong>
+          <strong>Your Customer Account</strong>
           <br />
-          No OTP, customer account or Customer ID is required.
+          Your details and order history will be saved
+          with your Customer ID.
         </div>
 
         <button
