@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   collection,
   query,
@@ -18,6 +18,7 @@ function Orders() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [expandedOrder, setExpandedOrder] = useState(null);
+  const [, setNow] = useState(Date.now());
 
   // =====================================================
   // CUSTOMER ID
@@ -29,24 +30,18 @@ function Orders() {
         localStorage.getItem("sugarCafeUser");
 
       const savedCustomerId =
-        localStorage.getItem(
-          "sugarCafeCustomerId"
-        );
+        localStorage.getItem("sugarCafeCustomerId");
 
       if (savedUser) {
-        const profile =
-          JSON.parse(savedUser);
+        const profile = JSON.parse(savedUser);
 
-        const id =
-          profile.customerId ||
-          savedCustomerId ||
-          "";
-
-        setCustomerId(id);
-      } else {
         setCustomerId(
-          savedCustomerId || ""
+          profile.customerId ||
+            savedCustomerId ||
+            ""
         );
+      } else {
+        setCustomerId(savedCustomerId || "");
       }
     } catch (err) {
       console.error(
@@ -56,6 +51,18 @@ function Orders() {
 
       setCustomerId("");
     }
+  }, []);
+
+  // =====================================================
+  // REALTIME CLOCK
+  // =====================================================
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => clearInterval(timer);
   }, []);
 
   // =====================================================
@@ -72,110 +79,86 @@ function Orders() {
     setLoading(true);
     setError("");
 
-    let unsubscribe;
+    const ordersQuery = query(
+      collection(db, "orders"),
+      where(
+        "customerId",
+        "==",
+        customerId
+      )
+    );
 
-    try {
-      const ordersQuery = query(
-        collection(db, "orders"),
-        where(
-          "customerId",
-          "==",
-          customerId
-        )
-      );
+    const unsubscribe = onSnapshot(
+      ordersQuery,
+      (snapshot) => {
+        const getTime = (value) => {
+          if (!value) return 0;
 
-      unsubscribe = onSnapshot(
-        ordersQuery,
-        (snapshot) => {
-          const orderList =
-            snapshot.docs
-              .map((orderDoc) => ({
-                id: orderDoc.id,
-                ...orderDoc.data(),
-              }))
-              .sort((a, b) => {
-                const getTime = (
-                  value
-                ) => {
-                  if (!value) return 0;
-
-                  if (
-                    typeof value.toMillis ===
-                    "function"
-                  ) {
-                    return value.toMillis();
-                  }
-
-                  if (
-                    typeof value.seconds ===
-                    "number"
-                  ) {
-                    return (
-                      value.seconds * 1000
-                    );
-                  }
-
-                  const date =
-                    new Date(value);
-
-                  return Number.isNaN(
-                    date.getTime()
-                  )
-                    ? 0
-                    : date.getTime();
-                };
-
-                return (
-                  getTime(b.createdAt) -
-                  getTime(a.createdAt)
-                );
-              });
-
-          setOrders(orderList);
-          setLoading(false);
-          setError("");
-
-          // Automatically open newest order
           if (
-            orderList.length > 0 &&
-            expandedOrder === null
+            typeof value.toMillis ===
+            "function"
           ) {
-            setExpandedOrder(
-              orderList[0].id
-            );
+            return value.toMillis();
           }
-        },
-        (firebaseError) => {
-          console.error(
-            "Orders listener error:",
-            firebaseError
-          );
 
-          setLoading(false);
+          if (
+            typeof value.seconds ===
+            "number"
+          ) {
+            return value.seconds * 1000;
+          }
 
-          setError(
-            "Unable to load your orders. Please try again."
-          );
-        }
-      );
-    } catch (err) {
-      console.error(
-        "Orders query error:",
-        err
-      );
+          const date = new Date(value);
 
-      setLoading(false);
+          return Number.isNaN(
+            date.getTime()
+          )
+            ? 0
+            : date.getTime();
+        };
 
-      setError(
-        "Unable to load your orders."
-      );
-    }
+        const orderList =
+          snapshot.docs
+            .map((orderDoc) => ({
+              id: orderDoc.id,
+              ...orderDoc.data(),
+            }))
+            .sort(
+              (a, b) =>
+                getTime(b.createdAt) -
+                getTime(a.createdAt)
+            );
 
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
+        setOrders(orderList);
+        setLoading(false);
+        setError("");
+
+        setExpandedOrder((current) => {
+          if (
+            current === null &&
+            orderList.length > 0
+          ) {
+            return orderList[0].id;
+          }
+
+          return current;
+        });
+      },
+      (firebaseError) => {
+        console.error(
+          "Orders listener error:",
+          firebaseError
+        );
+
+        setLoading(false);
+
+        setError(
+          "Unable to load your orders. Please try again."
+        );
       }
-    };
+    );
+
+    return () => unsubscribe();
   }, [customerId]);
 
   // =====================================================
@@ -192,39 +175,50 @@ function Orders() {
       normalizeStatus(status);
 
     if (
-      current === "rejected" ||
-      current === "cancelled" ||
-      current === "canceled"
+      [
+        "rejected",
+        "cancelled",
+        "canceled",
+      ].includes(current)
     ) {
       return "rejected";
     }
 
     if (
-      current === "delivered" ||
-      current === "completed"
+      [
+        "delivered",
+        "completed",
+      ].includes(current)
     ) {
       return "delivered";
     }
 
     if (
-      current === "dispatched" ||
-      current === "out_for_delivery"
+      [
+        "dispatched",
+        "out_for_delivery",
+        "out for delivery",
+      ].includes(current)
     ) {
       return "dispatched";
     }
 
     if (
-      current === "food ready" ||
-      current === "food_ready" ||
-      current === "ready"
+      [
+        "food ready",
+        "food_ready",
+        "ready",
+      ].includes(current)
     ) {
       return "ready";
     }
 
     if (
-      current === "preparing" ||
-      current === "accepted" ||
-      current === "confirmed"
+      [
+        "preparing",
+        "accepted",
+        "confirmed",
+      ].includes(current)
     ) {
       return "preparing";
     }
@@ -232,82 +226,194 @@ function Orders() {
     return "new";
   };
 
-  const getStatusInfo = (status) => {
-    const key =
-      getStatusKey(status);
+  const statusData = {
+    new: {
+      title:
+        "Waiting for Café Confirmation",
+      short:
+        "Waiting for Confirmation",
+      icon: "🕐",
+      color: "orange",
+      description:
+        "Your order has been received. Sugar Café staff will confirm it shortly.",
+    },
 
-    const statusMap = {
-      new: {
-        title:
-          "Waiting for Café Confirmation",
-        shortTitle:
-          "Waiting for Confirmation",
-        icon: "🕐",
-        color: "orange",
-        description:
-          "Your order has been received. Sugar Café staff will confirm it shortly.",
-      },
+    preparing: {
+      title:
+        "Order Confirmed",
+      short:
+        "Preparing",
+      icon: "👨‍🍳",
+      color: "green",
+      description:
+        "Sugar Café has accepted your order and the kitchen is preparing it.",
+    },
 
-      preparing: {
-        title:
-          "Order Confirmed",
-        shortTitle:
-          "Preparing",
-        icon: "👨‍🍳",
-        color: "green",
-        description:
-          "Sugar Café has accepted your order and is preparing your food.",
-      },
+    ready: {
+      title:
+        "Food Ready",
+      short:
+        "Food Ready",
+      icon: "🍽️",
+      color: "blue",
+      description:
+        "Your food is ready and will be dispatched shortly.",
+    },
 
-      ready: {
-        title:
-          "Food Ready",
-        shortTitle:
-          "Food Ready",
-        icon: "🍽️",
-        color: "blue",
-        description:
-          "Your food is ready and will be dispatched shortly.",
-      },
+    dispatched: {
+      title:
+        "Out for Delivery",
+      short:
+        "Out for Delivery",
+      icon: "🛵",
+      color: "purple",
+      description:
+        "Your order is on the way.",
+    },
 
-      dispatched: {
-        title:
-          "Out for Delivery",
-        shortTitle:
-          "Out for Delivery",
-        icon: "🛵",
-        color: "purple",
-        description:
-          "Your order is on the way.",
-      },
+    delivered: {
+      title:
+        "Delivered",
+      short:
+        "Delivered",
+      icon: "✅",
+      color: "green",
+      description:
+        "Your order has been delivered. Enjoy your meal!",
+    },
 
-      delivered: {
-        title:
-          "Delivered",
-        shortTitle:
-          "Delivered",
-        icon: "✅",
-        color: "green",
-        description:
-          "Your order has been delivered. Enjoy your meal!",
-      },
+    rejected: {
+      title:
+        "Order Rejected",
+      short:
+        "Rejected",
+      icon: "❌",
+      color: "red",
+      description:
+        "Unfortunately, Sugar Café could not accept this order.",
+    },
+  };
 
-      rejected: {
-        title:
-          "Order Rejected",
-        shortTitle:
-          "Rejected",
-        icon: "❌",
-        color: "red",
-        description:
-          "Unfortunately, Sugar Café could not accept this order.",
-      },
-    };
+  const getStatusInfo = (status) =>
+    statusData[
+      getStatusKey(status)
+    ] || statusData.new;
 
-    return (
-      statusMap[key] ||
-      statusMap.new
+  // =====================================================
+  // DATE / TIME
+  // =====================================================
+
+  const getMillis = (value) => {
+    if (!value) return 0;
+
+    if (
+      typeof value.toMillis ===
+      "function"
+    ) {
+      return value.toMillis();
+    }
+
+    if (
+      typeof value.seconds ===
+      "number"
+    ) {
+      return value.seconds * 1000;
+    }
+
+    const date = new Date(value);
+
+    return Number.isNaN(
+      date.getTime()
+    )
+      ? 0
+      : date.getTime();
+  };
+
+  const formatDate = (value) => {
+    const millis = getMillis(value);
+
+    if (!millis) {
+      return "Not available";
+    }
+
+    return new Date(
+      millis
+    ).toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const formatTime = (value) => {
+    const millis = getMillis(value);
+
+    if (!millis) {
+      return "—";
+    }
+
+    return new Date(
+      millis
+    ).toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  // =====================================================
+  // COUNTDOWN
+  // =====================================================
+
+  const getCountdown = (order) => {
+    if (
+      getStatusKey(order.status) !==
+      "preparing"
+    ) {
+      return null;
+    }
+
+    const end =
+      getMillis(
+        order.preparationEndAt
+      );
+
+    if (!end) {
+      return null;
+    }
+
+    const remaining = Math.max(
+      0,
+      end - Date.now()
     );
+
+    const totalSeconds =
+      Math.floor(
+        remaining / 1000
+      );
+
+    const minutes =
+      Math.floor(
+        totalSeconds / 60
+      );
+
+    const seconds =
+      totalSeconds % 60;
+
+    return {
+      expired:
+        remaining <= 0,
+
+      text: `${String(
+        minutes
+      ).padStart(2, "0")}:${String(
+        seconds
+      ).padStart(2, "0")}`,
+
+      minutes,
+      seconds,
+    };
   };
 
   // =====================================================
@@ -318,7 +424,10 @@ function Orders() {
     const currentKey =
       getStatusKey(order.status);
 
-    if (currentKey === "rejected") {
+    if (
+      currentKey ===
+      "rejected"
+    ) {
       return (
         <div className="tracking-rejected">
           <div className="tracking-rejected-icon">
@@ -343,42 +452,61 @@ function Orders() {
       {
         key: "new",
         title:
-          "Waiting for Confirmation",
+          "Order Received",
         subtitle:
-          "Order received",
-        icon: "🕐",
+          "Waiting for café confirmation",
+        icon: "📥",
+        time:
+          order.createdAt,
       },
+
       {
         key: "preparing",
-        title: "Preparing",
+        title:
+          "Order Confirmed",
         subtitle:
-          "Kitchen is preparing",
+          "Kitchen is preparing your food",
         icon: "👨‍🍳",
+        time:
+          order.acceptedAt ||
+          order.preparationStartedAt,
       },
+
       {
         key: "ready",
-        title: "Food Ready",
+        title:
+          "Food Ready",
         subtitle:
           "Ready for dispatch",
         icon: "🍽️",
+        time:
+          order.foodReadyAt,
       },
+
       {
         key: "dispatched",
-        title: "Out for Delivery",
+        title:
+          "Out for Delivery",
         subtitle:
-          "On the way",
+          "Order is on the way",
         icon: "🛵",
+        time:
+          order.dispatchedAt,
       },
+
       {
         key: "delivered",
-        title: "Delivered",
+        title:
+          "Delivered",
         subtitle:
           "Order completed",
         icon: "✅",
+        time:
+          order.deliveredAt,
       },
     ];
 
-    const indexes = {
+    const indexMap = {
       new: 0,
       preparing: 1,
       ready: 2,
@@ -387,7 +515,7 @@ function Orders() {
     };
 
     const currentIndex =
-      indexes[currentKey] ?? 0;
+      indexMap[currentKey] ?? 0;
 
     return (
       <div className="tracking-timeline">
@@ -397,7 +525,8 @@ function Orders() {
               index <= currentIndex;
 
             const active =
-              index === currentIndex;
+              index ===
+              currentIndex;
 
             return (
               <div
@@ -420,7 +549,8 @@ function Orders() {
                   </div>
 
                   {index <
-                    steps.length - 1 && (
+                    steps.length -
+                      1 && (
                     <div
                       className={`tracking-line ${
                         index <
@@ -440,6 +570,14 @@ function Orders() {
                   <span>
                     {step.subtitle}
                   </span>
+
+                  {step.time && (
+                    <small>
+                      {formatTime(
+                        step.time
+                      )}
+                    </small>
+                  )}
                 </div>
               </div>
             );
@@ -450,64 +588,13 @@ function Orders() {
   };
 
   // =====================================================
-  // DATE
-  // =====================================================
-
-  const formatDate = (value) => {
-    if (!value) {
-      return "Date unavailable";
-    }
-
-    try {
-      let date;
-
-      if (
-        typeof value.toDate ===
-        "function"
-      ) {
-        date = value.toDate();
-      } else if (
-        value.seconds
-      ) {
-        date = new Date(
-          value.seconds * 1000
-        );
-      } else {
-        date = new Date(value);
-      }
-
-      if (
-        Number.isNaN(
-          date.getTime()
-        )
-      ) {
-        return "Date unavailable";
-      }
-
-      return date.toLocaleString(
-        "en-IN",
-        {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        }
-      );
-    } catch {
-      return "Date unavailable";
-    }
-  };
-
-  // =====================================================
   // PRICE
   // =====================================================
 
-  const formatPrice = (value) => {
-    return `₹${Number(
+  const formatPrice = (value) =>
+    `₹${Number(
       value || 0
     ).toLocaleString("en-IN")}`;
-  };
 
   // =====================================================
   // PAYMENT
@@ -545,7 +632,7 @@ function Orders() {
   };
 
   // =====================================================
-  // ORDER ITEMS
+  // ITEMS
   // =====================================================
 
   const getItems = (order) => {
@@ -563,6 +650,38 @@ function Orders() {
 
     return [];
   };
+
+  // =====================================================
+  // ORDER COUNTS
+  // =====================================================
+
+  const activeOrders = useMemo(
+    () =>
+      orders.filter((order) => {
+        const key =
+          getStatusKey(
+            order.status
+          );
+
+        return (
+          key !== "delivered" &&
+          key !== "rejected"
+        );
+      }),
+    [orders]
+  );
+
+  const deliveredOrders =
+    useMemo(
+      () =>
+        orders.filter(
+          (order) =>
+            getStatusKey(
+              order.status
+            ) === "delivered"
+        ),
+      [orders]
+    );
 
   // =====================================================
   // LOADING
@@ -693,12 +812,11 @@ function Orders() {
   }
 
   // =====================================================
-  // MAIN PAGE
+  // MAIN
   // =====================================================
 
   return (
     <div className="orders-page">
-
       <div className="orders-container">
 
         {/* HEADER */}
@@ -752,23 +870,7 @@ function Orders() {
             </span>
 
             <strong>
-              {
-                orders.filter(
-                  (order) => {
-                    const key =
-                      getStatusKey(
-                        order.status
-                      );
-
-                    return (
-                      key !==
-                        "delivered" &&
-                      key !==
-                        "rejected"
-                    );
-                  }
-                ).length
-              }
+              {activeOrders.length}
             </strong>
           </div>
 
@@ -778,539 +880,702 @@ function Orders() {
             </span>
 
             <strong>
-              {
-                orders.filter(
-                  (order) =>
-                    getStatusKey(
-                      order.status
-                    ) ===
-                    "delivered"
-                ).length
-              }
+              {deliveredOrders.length}
             </strong>
           </div>
 
         </div>
 
+        {/* ACTIVE ORDER BANNER */}
+
+        {activeOrders.length >
+          0 && (
+          <div className="active-orders-banner">
+            <div className="active-pulse">
+              🔴
+            </div>
+
+            <div>
+              <strong>
+                {activeOrders.length ===
+                1
+                  ? "Your order is active"
+                  : `${activeOrders.length} active orders`}
+              </strong>
+
+              <span>
+                Order status is updating
+                automatically.
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* ORDERS */}
 
         <div className="orders-list">
 
-          {orders.map(
-            (order, index) => {
-              const statusInfo =
-                getStatusInfo(
-                  order.status
-                );
+          {orders.map((order) => {
+            const statusInfo =
+              getStatusInfo(
+                order.status
+              );
 
-              const items =
-                getItems(order);
+            const statusKey =
+              getStatusKey(
+                order.status
+              );
 
-              const total =
-                Number(
-                  order.total ??
-                    order.grandTotal ??
-                    order.finalTotal ??
-                    0
-                );
+            const items =
+              getItems(order);
 
-              const isExpanded =
-                expandedOrder ===
-                order.id;
+            const total =
+              Number(
+                order.total ??
+                  order.grandTotal ??
+                  order.finalTotal ??
+                  0
+              );
 
-              return (
-                <article
-                  className={`order-card ${
-                    isExpanded
-                      ? "expanded"
-                      : ""
-                  }`}
-                  key={order.id}
+            const isExpanded =
+              expandedOrder ===
+              order.id;
+
+            const countdown =
+              getCountdown(order);
+
+            const isActive =
+              statusKey !==
+                "delivered" &&
+              statusKey !==
+                "rejected";
+
+            return (
+              <article
+                className={`order-card ${
+                  isExpanded
+                    ? "expanded"
+                    : ""
+                } ${
+                  isActive
+                    ? "active-order-card"
+                    : ""
+                }`}
+                key={order.id}
+              >
+
+                {/* CARD HEADER */}
+
+                <button
+                  className="order-card-summary"
+                  onClick={() =>
+                    setExpandedOrder(
+                      isExpanded
+                        ? null
+                        : order.id
+                    )
+                  }
                 >
 
-                  {/* CARD HEADER */}
+                  <div className="summary-main">
 
-                  <button
-                    className="order-card-summary"
-                    onClick={() =>
-                      setExpandedOrder(
-                        isExpanded
-                          ? null
-                          : order.id
-                      )
-                    }
-                  >
+                    <div
+                      className={`status-mini ${statusInfo.color}`}
+                    >
+                      {
+                        statusInfo.icon
+                      }
+                    </div>
 
-                    <div className="summary-main">
+                    <div>
+                      <span className="order-number">
+                        #
+                        {order.orderNumber ||
+                          order.id}
+                      </span>
 
-                      <div
-                        className={`status-mini ${statusInfo.color}`}
-                      >
-                        {statusInfo.icon}
+                      <strong>
+                        {
+                          statusInfo.short
+                        }
+                      </strong>
+
+                      <small>
+                        {formatDate(
+                          order.createdAt
+                        )}
+                      </small>
+                    </div>
+
+                  </div>
+
+                  <div className="summary-right">
+
+                    <strong>
+                      {formatPrice(
+                        total
+                      )}
+                    </strong>
+
+                    <span
+                      className={`status-pill ${statusInfo.color}`}
+                    >
+                      {
+                        statusInfo.short
+                      }
+                    </span>
+
+                    <span className="expand-icon">
+                      {isExpanded
+                        ? "⌃"
+                        : "⌄"}
+                    </span>
+
+                  </div>
+
+                </button>
+
+                {/* DETAILS */}
+
+                {isExpanded && (
+                  <div className="order-details">
+
+                    {/* STATUS HERO */}
+
+                    <div
+                      className={`status-hero ${statusInfo.color}`}
+                    >
+
+                      <div className="status-hero-icon">
+                        {
+                          statusInfo.icon
+                        }
                       </div>
 
                       <div>
-                        <span className="order-number">
-                          #
-                          {order.orderNumber ||
-                            order.id}
+                        <span>
+                          CURRENT STATUS
                         </span>
 
-                        <strong>
+                        <h2>
                           {
-                            statusInfo.shortTitle
+                            statusInfo.title
                           }
-                        </strong>
+                        </h2>
 
-                        <small>
-                          {formatDate(
-                            order.createdAt
-                          )}
-                        </small>
+                        <p>
+                          {
+                            statusInfo.description
+                          }
+                        </p>
                       </div>
 
                     </div>
 
-                    <div className="summary-right">
+                    {/* COUNTDOWN */}
 
-                      <strong>
-                        {formatPrice(
-                          total
-                        )}
-                      </strong>
-
-                      <span
-                        className={`status-pill ${statusInfo.color}`}
-                      >
-                        {statusInfo.shortTitle}
-                      </span>
-
-                      <span className="expand-icon">
-                        {isExpanded
-                          ? "⌃"
-                          : "⌄"}
-                      </span>
-
-                    </div>
-
-                  </button>
-
-                  {/* DETAILS */}
-
-                  {isExpanded && (
-                    <div className="order-details">
-
-                      {/* STATUS HERO */}
-
+                    {countdown && (
                       <div
-                        className={`status-hero ${statusInfo.color}`}
+                        className={`preparation-countdown ${
+                          countdown.expired
+                            ? "expired"
+                            : ""
+                        }`}
                       >
 
-                        <div className="status-hero-icon">
-                          {
-                            statusInfo.icon
-                          }
+                        <div className="countdown-icon">
+                          ⏱️
+                        </div>
+
+                        <div className="countdown-info">
+                          <span>
+                            {countdown.expired
+                              ? "Preparation time completed"
+                              : "Kitchen preparation time"}
+                          </span>
+
+                          <strong>
+                            {countdown.expired
+                              ? "Food will be ready shortly"
+                              : countdown.text}
+                          </strong>
+
+                          {!countdown.expired && (
+                            <small>
+                              Sugar Café is preparing
+                              your order.
+                            </small>
+                          )}
+                        </div>
+
+                      </div>
+                    )}
+
+                    {/* TRACKING */}
+
+                    <section className="order-section tracking-section">
+
+                      <div className="section-heading">
+                        <div>
+                          <span>
+                            ORDER TRACKING
+                          </span>
+
+                          <h3>
+                            Live order status
+                          </h3>
+                        </div>
+
+                        {isActive && (
+                          <span className="live-badge">
+                            ● LIVE
+                          </span>
+                        )}
+                      </div>
+
+                      {renderTimeline(
+                        order
+                      )}
+
+                    </section>
+
+                    {/* ORDER TIME INFO */}
+
+                    <section className="order-section">
+
+                      <div className="section-heading">
+                        <div>
+                          <span>
+                            ORDER JOURNEY
+                          </span>
+
+                          <h3>
+                            Important times
+                          </h3>
+                        </div>
+                      </div>
+
+                      <div className="time-grid">
+
+                        <div>
+                          <span>
+                            Order Placed
+                          </span>
+
+                          <strong>
+                            {formatTime(
+                              order.createdAt
+                            )}
+                          </strong>
                         </div>
 
                         <div>
                           <span>
-                            CURRENT STATUS
+                            Accepted
                           </span>
 
-                          <h2>
-                            {
-                              statusInfo.title
-                            }
-                          </h2>
+                          <strong>
+                            {formatTime(
+                              order.acceptedAt ||
+                                order.preparationStartedAt
+                            )}
+                          </strong>
+                        </div>
 
-                          <p>
-                            {
-                              statusInfo.description
-                            }
-                          </p>
+                        <div>
+                          <span>
+                            Food Ready
+                          </span>
+
+                          <strong>
+                            {formatTime(
+                              order.foodReadyAt
+                            )}
+                          </strong>
+                        </div>
+
+                        <div>
+                          <span>
+                            Dispatched
+                          </span>
+
+                          <strong>
+                            {formatTime(
+                              order.dispatchedAt
+                            )}
+                          </strong>
+                        </div>
+
+                        <div>
+                          <span>
+                            Delivered
+                          </span>
+
+                          <strong>
+                            {formatTime(
+                              order.deliveredAt
+                            )}
+                          </strong>
                         </div>
 
                       </div>
 
-                      {/* TRACKING */}
+                    </section>
 
-                      <section className="order-section tracking-section">
+                    {/* CUSTOMER */}
 
-                        <div className="section-heading">
-                          <div>
-                            <span>
-                              ORDER TRACKING
-                            </span>
+                    <section className="order-section">
 
-                            <h3>
-                              Live order status
-                            </h3>
-                          </div>
-                        </div>
-
-                        {renderTimeline(
-                          order
-                        )}
-
-                      </section>
-
-                      {/* CUSTOMER */}
-
-                      <section className="order-section">
-
-                        <div className="section-heading">
-                          <div>
-                            <span>
-                              CUSTOMER
-                            </span>
-
-                            <h3>
-                              Customer Details
-                            </h3>
-                          </div>
-                        </div>
-
-                        <div className="customer-info-card">
-
-                          <div className="customer-avatar">
-                            {(
-                              order.customerName ||
-                              "C"
-                            )
-                              .charAt(0)
-                              .toUpperCase()}
-                          </div>
-
-                          <div>
-                            <strong>
-                              {order.customerName ||
-                                "Customer"}
-                            </strong>
-
-                            <span>
-                              {order.phone ||
-                                order.customerPhone ||
-                                "Mobile unavailable"}
-                            </span>
-
-                            <small>
-                              Customer ID:{" "}
-                              {order.customerId ||
-                                customerId}
-                            </small>
-                          </div>
-
-                        </div>
-
-                      </section>
-
-                      {/* ITEMS */}
-
-                      <section className="order-section">
-
-                        <div className="section-heading">
-                          <div>
-                            <span>
-                              ORDER
-                            </span>
-
-                            <h3>
-                              Ordered Items
-                            </h3>
-                          </div>
-
-                          <span className="item-count">
-                            {items.length}{" "}
-                            {items.length ===
-                            1
-                              ? "item"
-                              : "items"}
+                      <div className="section-heading">
+                        <div>
+                          <span>
+                            CUSTOMER
                           </span>
+
+                          <h3>
+                            Customer Details
+                          </h3>
+                        </div>
+                      </div>
+
+                      <div className="customer-info-card">
+
+                        <div className="customer-avatar">
+                          {(
+                            order.customerName ||
+                            "C"
+                          )
+                            .charAt(0)
+                            .toUpperCase()}
                         </div>
 
-                        <div className="items-card">
+                        <div>
+                          <strong>
+                            {order.customerName ||
+                              "Customer"}
+                          </strong>
 
+                          <span>
+                            {order.phone ||
+                              order.customerPhone ||
+                              "Mobile unavailable"}
+                          </span>
+
+                          <small>
+                            Customer ID:{" "}
+                            {order.customerId ||
+                              customerId}
+                          </small>
+                        </div>
+
+                      </div>
+
+                    </section>
+
+                    {/* ITEMS */}
+
+                    <section className="order-section">
+
+                      <div className="section-heading">
+                        <div>
+                          <span>
+                            ORDER
+                          </span>
+
+                          <h3>
+                            Ordered Items
+                          </h3>
+                        </div>
+
+                        <span className="item-count">
+                          {items.length}{" "}
                           {items.length ===
-                          0 ? (
-                            <div className="no-items">
-                              Order items
-                              unavailable.
-                            </div>
-                          ) : (
-                            items.map(
-                              (
-                                item,
-                                itemIndex
-                              ) => {
-                                const quantity =
-                                  Number(
-                                    item.quantity ||
-                                      item.qty ||
-                                      1
-                                  );
+                          1
+                            ? "item"
+                            : "items"}
+                        </span>
+                      </div>
 
-                                const price =
-                                  Number(
-                                    item.price ||
-                                      item.salePrice ||
-                                      0
-                                  );
+                      <div className="items-card">
 
-                                return (
-                                  <div
-                                    className="food-item"
-                                    key={
-                                      item.id ||
-                                      item.menuId ||
-                                      itemIndex
-                                    }
-                                  >
+                        {items.length ===
+                        0 ? (
+                          <div className="no-items">
+                            Order items
+                            unavailable.
+                          </div>
+                        ) : (
+                          items.map(
+                            (
+                              item,
+                              itemIndex
+                            ) => {
+                              const quantity =
+                                Number(
+                                  item.quantity ||
+                                    item.qty ||
+                                    1
+                                );
 
-                                    <div className="food-image">
-                                      {item.image ? (
-                                        <img
-                                          src={
-                                            item.image
-                                          }
-                                          alt=""
-                                        />
-                                      ) : (
-                                        <span>
-                                          🍽️
-                                        </span>
-                                      )}
-                                    </div>
+                              const price =
+                                Number(
+                                  item.price ||
+                                    item.salePrice ||
+                                    0
+                                );
 
-                                    <div className="food-info">
-                                      <strong>
-                                        {item.name ||
-                                          item.title ||
-                                          "Food Item"}
-                                      </strong>
+                              return (
+                                <div
+                                  className="food-item"
+                                  key={
+                                    item.id ||
+                                    item.menuId ||
+                                    itemIndex
+                                  }
+                                >
 
+                                  <div className="food-image">
+                                    {item.image ? (
+                                      <img
+                                        src={
+                                          item.image
+                                        }
+                                        alt=""
+                                      />
+                                    ) : (
                                       <span>
-                                        ₹
-                                        {price.toLocaleString(
-                                          "en-IN"
-                                        )}{" "}
-                                        ×{" "}
-                                        {quantity}
+                                        🍽️
                                       </span>
-                                    </div>
+                                    )}
+                                  </div>
 
-                                    <strong className="food-price">
-                                      {formatPrice(
-                                        price *
-                                          quantity
-                                      )}
+                                  <div className="food-info">
+                                    <strong>
+                                      {item.name ||
+                                        item.title ||
+                                        "Food Item"}
                                     </strong>
 
+                                    <span>
+                                      ₹
+                                      {price.toLocaleString(
+                                        "en-IN"
+                                      )}{" "}
+                                      ×{" "}
+                                      {quantity}
+                                    </span>
                                   </div>
-                                );
-                              }
-                            )
-                          )}
 
-                        </div>
+                                  <strong className="food-price">
+                                    {formatPrice(
+                                      price *
+                                        quantity
+                                    )}
+                                  </strong>
 
-                      </section>
-
-                      {/* ADDRESS */}
-
-                      <section className="order-section">
-
-                        <div className="section-heading">
-                          <div>
-                            <span>
-                              DELIVERY
-                            </span>
-
-                            <h3>
-                              Delivery Address
-                            </h3>
-                          </div>
-                        </div>
-
-                        <div className="address-card">
-                          <div className="address-icon">
-                            📍
-                          </div>
-
-                          <p>
-                            {order.address ||
-                              order.deliveryAddress ||
-                              "Address unavailable"}
-                          </p>
-                        </div>
-
-                      </section>
-
-                      {/* BILL */}
-
-                      <section className="order-section">
-
-                        <div className="section-heading">
-                          <div>
-                            <span>
-                              PAYMENT
-                            </span>
-
-                            <h3>
-                              Bill Details
-                            </h3>
-                          </div>
-                        </div>
-
-                        <div className="bill-card">
-
-                          <div>
-                            <span>
-                              Subtotal
-                            </span>
-
-                            <strong>
-                              {formatPrice(
-                                order.subtotal ??
-                                  0
-                              )}
-                            </strong>
-                          </div>
-
-                          <div>
-                            <span>
-                              Delivery
-                            </span>
-
-                            <strong>
-                              {formatPrice(
-                                order.deliveryCharge ??
-                                  0
-                              )}
-                            </strong>
-                          </div>
-
-                          {Number(
-                            order.discount ||
-                              0
-                          ) > 0 && (
-                            <div className="discount-row">
-                              <span>
-                                Discount
-                              </span>
-
-                              <strong>
-                                -
-                                {formatPrice(
-                                  order.discount
-                                )}
-                              </strong>
-                            </div>
-                          )}
-
-                          {Number(
-                            order.gst || 0
-                          ) > 0 && (
-                            <div>
-                              <span>
-                                GST
-                              </span>
-
-                              <strong>
-                                {formatPrice(
-                                  order.gst
-                                )}
-                              </strong>
-                            </div>
-                          )}
-
-                          <div className="bill-total">
-                            <span>
-                              Total
-                            </span>
-
-                            <strong>
-                              {formatPrice(
-                                total
-                              )}
-                            </strong>
-                          </div>
-
-                        </div>
-
-                        <div className="payment-status-card">
-
-                          <div>
-                            <span>
-                              Payment Method
-                            </span>
-
-                            <strong>
-                              {getPaymentText(
-                                order
-                              )}
-                            </strong>
-                          </div>
-
-                          <div>
-                            <span>
-                              Payment Status
-                            </span>
-
-                            <strong
-                              className={
-                                String(
-                                  order.paymentStatus ||
-                                    ""
-                                ).toLowerCase() ===
-                                "paid"
-                                  ? "paid"
-                                  : "pending"
-                              }
-                            >
-                              {order.paymentStatus ||
-                                "Pending"}
-                            </strong>
-                          </div>
-
-                        </div>
-
-                      </section>
-
-                      {/* FOOTER */}
-
-                      <div className="order-actions">
-
-                        <button
-                          className="track-button"
-                          onClick={() =>
-                            setExpandedOrder(
-                              order.id
-                            )
-                          }
-                        >
-                          📦 Tracking Active
-                        </button>
-
-                        <button
-                          className="home-outline-button"
-                          onClick={() =>
-                            navigate(
-                              "/home"
-                            )
-                          }
-                        >
-                          Order More
-                        </button>
+                                </div>
+                              );
+                            }
+                          )
+                        )}
 
                       </div>
 
-                    </div>
-                  )}
+                    </section>
 
-                </article>
-              );
-            }
-          )}
+                    {/* ADDRESS */}
+
+                    <section className="order-section">
+
+                      <div className="section-heading">
+                        <div>
+                          <span>
+                            DELIVERY
+                          </span>
+
+                          <h3>
+                            Delivery Address
+                          </h3>
+                        </div>
+                      </div>
+
+                      <div className="address-card">
+
+                        <div className="address-icon">
+                          📍
+                        </div>
+
+                        <p>
+                          {order.address ||
+                            order.deliveryAddress ||
+                            "Address unavailable"}
+                        </p>
+
+                      </div>
+
+                    </section>
+
+                    {/* BILL */}
+
+                    <section className="order-section">
+
+                      <div className="section-heading">
+                        <div>
+                          <span>
+                            PAYMENT
+                          </span>
+
+                          <h3>
+                            Bill Details
+                          </h3>
+                        </div>
+                      </div>
+
+                      <div className="bill-card">
+
+                        <div>
+                          <span>
+                            Subtotal
+                          </span>
+
+                          <strong>
+                            {formatPrice(
+                              order.subtotal ??
+                                0
+                            )}
+                          </strong>
+                        </div>
+
+                        <div>
+                          <span>
+                            Delivery
+                          </span>
+
+                          <strong>
+                            {formatPrice(
+                              order.deliveryCharge ??
+                                0
+                            )}
+                          </strong>
+                        </div>
+
+                        {Number(
+                          order.discount ||
+                            0
+                        ) > 0 && (
+                          <div className="discount-row">
+                            <span>
+                              Discount
+                            </span>
+
+                            <strong>
+                              -
+                              {formatPrice(
+                                order.discount
+                              )}
+                            </strong>
+                          </div>
+                        )}
+
+                        {Number(
+                          order.gst || 0
+                        ) > 0 && (
+                          <div>
+                            <span>
+                              GST
+                            </span>
+
+                            <strong>
+                              {formatPrice(
+                                order.gst
+                              )}
+                            </strong>
+                          </div>
+                        )}
+
+                        <div className="bill-total">
+                          <span>
+                            Total
+                          </span>
+
+                          <strong>
+                            {formatPrice(
+                              total
+                            )}
+                          </strong>
+                        </div>
+
+                      </div>
+
+                      <div className="payment-status-card">
+
+                        <div>
+                          <span>
+                            Payment Method
+                          </span>
+
+                          <strong>
+                            {getPaymentText(
+                              order
+                            )}
+                          </strong>
+                        </div>
+
+                        <div>
+                          <span>
+                            Payment Status
+                          </span>
+
+                          <strong
+                            className={
+                              String(
+                                order.paymentStatus ||
+                                  ""
+                              ).toLowerCase() ===
+                              "paid"
+                                ? "paid"
+                                : "pending"
+                            }
+                          >
+                            {order.paymentStatus ||
+                              "Pending"}
+                          </strong>
+                        </div>
+
+                      </div>
+
+                    </section>
+
+                    {/* ACTIONS */}
+
+                    <div className="order-actions">
+
+                      {isActive && (
+                        <div className="tracking-active-message">
+                          🔄 Your order status will
+                          update automatically.
+                        </div>
+                      )}
+
+                      <button
+                        className="home-outline-button"
+                        onClick={() =>
+                          navigate(
+                            "/home"
+                          )
+                        }
+                      >
+                        + Order More
+                      </button>
+
+                    </div>
+
+                  </div>
+                )}
+
+              </article>
+            );
+          })}
 
         </div>
 
