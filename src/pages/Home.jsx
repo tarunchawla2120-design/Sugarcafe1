@@ -20,8 +20,9 @@ function Home() {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [showPopup, setShowPopup] = useState(false);
-
+const [customerMenuOpen, setCustomerMenuOpen] = useState(false);
   useEffect(() => {
+  
     const user = localStorage.getItem("sugarCafeUser");
 
     if (!user) {
