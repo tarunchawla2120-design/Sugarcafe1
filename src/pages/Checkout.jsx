@@ -1398,9 +1398,9 @@ function Checkout() {
         );
       }
 
-      alert(
-        "🎉 Order Placed Successfully!"
-      );
+    alert(
+  "🕐 Order received! Sugar Café is reviewing your order."
+);
 
       navigate(
         "/success"
