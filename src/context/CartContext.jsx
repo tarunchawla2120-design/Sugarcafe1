@@ -1,38 +1,41 @@
 import { createContext, useContext, useState, useEffect } from "react";
 
-
-
 const CartContext = createContext();
 
 export const useCart = () => useContext(CartContext);
 
 export const CartProvider = ({ children }) => {
   const [cart, setCart] = useState(() => {
-  const savedCart = localStorage.getItem("sugarCafeCart");
-  return savedCart ? JSON.parse(savedCart) : [];
-});
-  
+    try {
+      const savedCart = localStorage.getItem("sugarCafeCart");
+      return savedCart ? JSON.parse(savedCart) : [];
+    } catch (error) {
+      console.error("Cart load error:", error);
+      return [];
+    }
+  });
 
+  // Add item
   const addToCart = (item) => {
-   console.log("Cart Updated"); 
-    const exist = cart.find((x) => x.id === item.id);
+    setCart((currentCart) => {
+      const exist = currentCart.find((x) => x.id === item.id);
 
-    if (exist) {
-      setCart(
-        cart.map((x) =>
+      if (exist) {
+        return currentCart.map((x) =>
           x.id === item.id
             ? { ...x, qty: x.qty + 1 }
             : x
-        )
-      );
-    } else {
-      setCart([...cart, { ...item, qty: 1 }]);
-    }
+        );
+      }
+
+      return [...currentCart, { ...item, qty: 1 }];
+    });
   };
 
+  // Increase quantity
   const increaseQty = (id) => {
-    setCart(
-      cart.map((item) =>
+    setCart((currentCart) =>
+      currentCart.map((item) =>
         item.id === id
           ? { ...item, qty: item.qty + 1 }
           : item
@@ -40,9 +43,10 @@ export const CartProvider = ({ children }) => {
     );
   };
 
+  // Decrease quantity
   const decreaseQty = (id) => {
-    setCart(
-      cart
+    setCart((currentCart) =>
+      currentCart
         .map((item) =>
           item.id === id
             ? { ...item, qty: item.qty - 1 }
@@ -52,19 +56,36 @@ export const CartProvider = ({ children }) => {
     );
   };
 
+  // Remove item
   const removeFromCart = (id) => {
-    setCart(cart.filter((item) => item.id !== id));
+    setCart((currentCart) =>
+      currentCart.filter((item) => item.id !== id)
+    );
   };
 
-  const totalItems = cart.reduce((a, b) => a + b.qty, 0);
+  // ⭐ Clear complete cart
+  const clearCart = () => {
+    setCart([]);
+    localStorage.removeItem("sugarCafeCart");
+  };
 
-  const totalPrice = cart.reduce(
-    (a, b) => a + b.price * b.qty,
+  // Total items
+  const totalItems = cart.reduce(
+    (total, item) => total + Number(item.qty || 0),
     0
   );
- useEffect(() => {
-  localStorage.setItem("sugarCafeCart", JSON.stringify(cart));
-}, [cart]); 
+
+  // Total price
+  const totalPrice = cart.reduce(
+    (total, item) =>
+      total + Number(item.price || 0) * Number(item.qty || 0),
+    0
+  );
+
+  // Save cart whenever it changes
+  useEffect(() => {
+    localStorage.setItem("sugarCafeCart", JSON.stringify(cart));
+  }, [cart]);
 
   return (
     <CartContext.Provider
@@ -74,6 +95,7 @@ export const CartProvider = ({ children }) => {
         increaseQty,
         decreaseQty,
         removeFromCart,
+        clearCart,
         totalItems,
         totalPrice,
       }}
@@ -82,6 +104,5 @@ export const CartProvider = ({ children }) => {
     </CartContext.Provider>
   );
 };
-
 
 export default CartProvider;
