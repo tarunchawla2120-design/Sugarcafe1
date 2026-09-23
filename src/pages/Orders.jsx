@@ -4,7 +4,6 @@ import {
   query,
   where,
   onSnapshot,
-  orderBy,
 } from "firebase/firestore";
 
 import { db } from "../firebase";
@@ -16,23 +15,19 @@ function Orders() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // =====================================================
-  // LOAD CUSTOMER ID
-  // =====================================================
-
+  // --------------------------------------------------
+  // GET CUSTOMER ID
+  // --------------------------------------------------
   useEffect(() => {
     try {
       const savedUser =
         localStorage.getItem("sugarCafeUser");
 
       const savedCustomerId =
-        localStorage.getItem(
-          "sugarCafeCustomerId"
-        );
+        localStorage.getItem("sugarCafeCustomerId");
 
       if (savedUser) {
-        const profile =
-          JSON.parse(savedUser);
+        const profile = JSON.parse(savedUser);
 
         const id =
           profile.customerId ||
@@ -41,9 +36,7 @@ function Orders() {
 
         setCustomerId(id);
       } else {
-        setCustomerId(
-          savedCustomerId || ""
-        );
+        setCustomerId(savedCustomerId || "");
       }
     } catch (err) {
       console.error(
@@ -55,10 +48,9 @@ function Orders() {
     }
   }, []);
 
-  // =====================================================
+  // --------------------------------------------------
   // LOAD CUSTOMER ORDERS
-  // =====================================================
-
+  // --------------------------------------------------
   useEffect(() => {
     if (!customerId) {
       setOrders([]);
@@ -72,56 +64,69 @@ function Orders() {
     let unsubscribe;
 
     try {
+      /*
+        IMPORTANT:
+
+        We only use where(customerId == customerId)
+        here.
+
+        We DO NOT use orderBy("createdAt", "desc")
+        because that can require a Firestore
+        composite index.
+      */
+
       const ordersQuery = query(
         collection(db, "orders"),
         where(
           "customerId",
           "==",
           customerId
-        ),
-        orderBy(
-          "createdAt",
-          "desc"
         )
       );
 
-      unsubscribe =
-        onSnapshot(
-          ordersQuery,
-          (snapshot) => {
-            const orderList =
-              snapshot.docs.map(
-                (orderDoc) => ({
-                  id: orderDoc.id,
-                  ...orderDoc.data(),
-                })
-              );
+      unsubscribe = onSnapshot(
+        ordersQuery,
+        (snapshot) => {
+          const orderList = snapshot.docs
+            .map((orderDoc) => ({
+              id: orderDoc.id,
+              ...orderDoc.data(),
+            }))
+            .sort((a, b) => {
+              const aTime =
+                a.createdAt?.toMillis
+                  ? a.createdAt.toMillis()
+                  : a.createdAt?.seconds
+                  ? a.createdAt.seconds * 1000
+                  : 0;
 
-            setOrders(orderList);
-            setLoading(false);
-          },
-          (firebaseError) => {
-            console.error(
-              "Orders listener error:",
-              firebaseError
-            );
+              const bTime =
+                b.createdAt?.toMillis
+                  ? b.createdAt.toMillis()
+                  : b.createdAt?.seconds
+                  ? b.createdAt.seconds * 1000
+                  : 0;
 
-            setLoading(false);
+              return bTime - aTime;
+            });
 
-            if (
-              firebaseError.code ===
-              "failed-precondition"
-            ) {
-              setError(
-                "Orders database index is being prepared. Please refresh after a moment."
-              );
-            } else {
-              setError(
-                "Unable to load your orders. Please try again."
-              );
-            }
-          }
-        );
+          setOrders(orderList);
+          setLoading(false);
+          setError("");
+        },
+        (firebaseError) => {
+          console.error(
+            "Orders listener error:",
+            firebaseError
+          );
+
+          setLoading(false);
+
+          setError(
+            "Unable to load your orders. Please try again."
+          );
+        }
+      );
     } catch (err) {
       console.error(
         "Orders query error:",
@@ -129,6 +134,7 @@ function Orders() {
       );
 
       setLoading(false);
+
       setError(
         "Unable to load your orders."
       );
@@ -141,227 +147,323 @@ function Orders() {
     };
   }, [customerId]);
 
-  // =====================================================
-  // STATUS
-  // =====================================================
+  // --------------------------------------------------
+  // STATUS HELPERS
+  // --------------------------------------------------
 
-  const getStatusIndex = (
-    status
-  ) => {
-    const value =
+  const getStatusIndex = (status) => {
+    const currentStatus =
       String(status || "")
-        .toLowerCase();
+        .toLowerCase()
+        .trim();
 
     if (
-      value === "new" ||
-      value === "pending" ||
-      value === "accepted"
+      currentStatus === "rejected" ||
+      currentStatus === "cancelled" ||
+      currentStatus === "canceled"
     ) {
-      return 0;
+      return -1;
     }
 
     if (
-      value === "preparing" ||
-      value === "processing"
-    ) {
-      return 1;
-    }
-
-    if (
-      value === "ready" ||
-      value === "food ready"
-    ) {
-      return 2;
-    }
-
-    if (
-      value === "dispatched" ||
-      value === "out for delivery"
-    ) {
-      return 3;
-    }
-
-    if (
-      value === "delivered" ||
-      value === "completed"
+      currentStatus === "delivered" ||
+      currentStatus === "completed"
     ) {
       return 4;
     }
 
     if (
-      value === "rejected" ||
-      value === "cancelled" ||
-      value === "canceled"
+      currentStatus === "dispatched" ||
+      currentStatus === "out_for_delivery"
     ) {
-      return -1;
+      return 3;
+    }
+
+    if (
+      currentStatus === "ready" ||
+      currentStatus === "food_ready"
+    ) {
+      return 2;
+    }
+
+    if (
+      currentStatus === "preparing" ||
+      currentStatus === "accepted" ||
+      currentStatus === "confirmed"
+    ) {
+      return 1;
     }
 
     return 0;
   };
 
-  const getStatusText = (
-    status
-  ) => {
-    const value =
+  const getStatusText = (status) => {
+    const currentStatus =
       String(status || "")
-        .toLowerCase();
+        .toLowerCase()
+        .trim();
 
-    if (
-      value === "new" ||
-      value === "pending"
-    ) {
-      return "Order Received";
+    switch (currentStatus) {
+      case "pending":
+        return "Order Placed";
+
+      case "accepted":
+        return "Order Accepted";
+
+      case "preparing":
+        return "Preparing Your Order";
+
+      case "ready":
+        return "Food Ready";
+
+      case "dispatched":
+        return "Out for Delivery";
+
+      case "out_for_delivery":
+        return "Out for Delivery";
+
+      case "delivered":
+        return "Delivered";
+
+      case "completed":
+        return "Completed";
+
+      case "rejected":
+        return "Order Rejected";
+
+      case "cancelled":
+      case "canceled":
+        return "Order Cancelled";
+
+      default:
+        return "Order Placed";
     }
-
-    if (
-      value === "accepted" ||
-      value === "preparing" ||
-      value === "processing"
-    ) {
-      return "Preparing";
-    }
-
-    if (
-      value === "ready" ||
-      value === "food ready"
-    ) {
-      return "Food Ready";
-    }
-
-    if (
-      value === "dispatched" ||
-      value === "out for delivery"
-    ) {
-      return "Out for Delivery";
-    }
-
-    if (
-      value === "delivered" ||
-      value === "completed"
-    ) {
-      return "Delivered";
-    }
-
-    if (
-      value === "rejected" ||
-      value === "cancelled" ||
-      value === "canceled"
-    ) {
-      return "Cancelled";
-    }
-
-    return status || "Order Received";
   };
 
-  // =====================================================
-  // DATE
-  // =====================================================
+  // --------------------------------------------------
+  // DATE FORMAT
+  // --------------------------------------------------
 
-  const formatDate = (
-    createdAt
-  ) => {
+  const formatDate = (value) => {
+    if (!value) {
+      return "Date unavailable";
+    }
+
     try {
-      if (
-        createdAt?.toDate
-      ) {
-        return createdAt
-          .toDate()
-          .toLocaleString("en-IN", {
-            dateStyle: "medium",
-            timeStyle: "short",
-          });
-      }
+      let date;
 
       if (
-        createdAt?.seconds
+        typeof value?.toDate === "function"
       ) {
-        return new Date(
-          createdAt.seconds * 1000
-        ).toLocaleString("en-IN", {
-          dateStyle: "medium",
-          timeStyle: "short",
-        });
+        date = value.toDate();
+      } else if (
+        value?.seconds
+      ) {
+        date = new Date(
+          value.seconds * 1000
+        );
+      } else {
+        date = new Date(value);
       }
 
-      if (createdAt) {
-        return new Date(
-          createdAt
-        ).toLocaleString("en-IN", {
-          dateStyle: "medium",
-          timeStyle: "short",
-        });
+      if (Number.isNaN(date.getTime())) {
+        return "Date unavailable";
       }
 
-      return "";
+      return date.toLocaleString(
+        "en-IN",
+        {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        }
+      );
     } catch {
-      return "";
+      return "Date unavailable";
     }
   };
 
-  // =====================================================
-  // NO CUSTOMER ACCOUNT
-  // =====================================================
+  // --------------------------------------------------
+  // PRICE FORMAT
+  // --------------------------------------------------
 
-  if (!loading && !customerId) {
+  const formatPrice = (value) => {
+    const amount = Number(value || 0);
+
+    return `₹${amount.toLocaleString(
+      "en-IN"
+    )}`;
+  };
+
+  // --------------------------------------------------
+  // PAYMENT TEXT
+  // --------------------------------------------------
+
+  const getPaymentText = (order) => {
+    const method =
+      String(
+        order?.paymentMethod ||
+          order?.paymentMode ||
+          ""
+      ).toLowerCase();
+
+    if (
+      method.includes("razorpay") ||
+      method.includes("upi") ||
+      method.includes("online")
+    ) {
+      return "Online Payment";
+    }
+
+    if (
+      method.includes("cod") ||
+      method.includes("cash")
+    ) {
+      return "Cash on Delivery";
+    }
+
     return (
-      <div className="orders-page">
+      order?.paymentMethod ||
+      "Payment"
+    );
+  };
 
-        <div className="no-orders">
+  // --------------------------------------------------
+  // STATUS TIMELINE
+  // --------------------------------------------------
 
-          <div className="no-orders-icon">
-            👤
+  const renderTimeline = (order) => {
+    const currentIndex =
+      getStatusIndex(order.status);
+
+    const steps = [
+      {
+        title: "Order Placed",
+        icon: "📝",
+      },
+      {
+        title: "Preparing",
+        icon: "👨‍🍳",
+      },
+      {
+        title: "Food Ready",
+        icon: "🍽️",
+      },
+      {
+        title: "Out for Delivery",
+        icon: "🛵",
+      },
+      {
+        title: "Delivered",
+        icon: "✅",
+      },
+    ];
+
+    if (currentIndex === -1) {
+      return (
+        <div className="order-status-box">
+          <div className="order-status-rejected">
+            ❌ {getStatusText(order.status)}
           </div>
-
-          <h2>
-            Login to see your orders
-          </h2>
-
-          <p>
-            Your orders will automatically
-            appear here after you login.
-          </p>
-
         </div>
+      );
+    }
 
+    return (
+      <div className="order-timeline">
+        {steps.map((step, index) => {
+          const completed =
+            index <= currentIndex;
+
+          return (
+            <div
+              className={`timeline-step ${
+                completed
+                  ? "completed"
+                  : ""
+              }`}
+              key={step.title}
+            >
+              <div className="timeline-icon">
+                {step.icon}
+              </div>
+
+              <div className="timeline-title">
+                {step.title}
+              </div>
+
+              {index <
+                steps.length - 1 && (
+                <div
+                  className={`timeline-line ${
+                    index <
+                    currentIndex
+                      ? "completed"
+                      : ""
+                  }`}
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
     );
-  }
+  };
 
-  // =====================================================
+  // --------------------------------------------------
   // LOADING
-  // =====================================================
+  // --------------------------------------------------
 
   if (loading) {
     return (
       <div className="orders-page">
-
-        <div className="no-orders">
-
-          <div className="no-orders-icon">
-            ⏳
-          </div>
-
-          <h2>
-            Loading your orders...
-          </h2>
-
+        <div className="orders-loading">
+          <div className="orders-spinner" />
+          <h2>Loading your orders...</h2>
+          <p>
+            Please wait while we fetch your
+            orders.
+          </p>
         </div>
-
       </div>
     );
   }
 
-  // =====================================================
+  // --------------------------------------------------
+  // NO CUSTOMER
+  // --------------------------------------------------
+
+  if (!customerId) {
+    return (
+      <div className="orders-page">
+        <div className="orders-empty">
+          <div className="orders-empty-icon">
+            👤
+          </div>
+
+          <h2>Login to see your orders</h2>
+
+          <p>
+            Please login with your mobile
+            number to view your Sugar Café
+            orders.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // --------------------------------------------------
   // ERROR
-  // =====================================================
+  // --------------------------------------------------
 
   if (error) {
     return (
       <div className="orders-page">
-
-        <div className="no-orders">
-
-          <div className="no-orders-icon">
+        <div className="orders-error">
+          <div className="orders-error-icon">
             ⚠️
           </div>
 
@@ -369,369 +471,356 @@ function Orders() {
             Unable to load orders
           </h2>
 
-          <p>
-            {error}
-          </p>
+          <p>{error}</p>
 
+          <button
+            className="orders-retry-btn"
+            onClick={() =>
+              window.location.reload()
+            }
+          >
+            Refresh
+          </button>
         </div>
-
       </div>
     );
   }
 
-  // =====================================================
+  // --------------------------------------------------
   // NO ORDERS
-  // =====================================================
+  // --------------------------------------------------
 
-  if (!orders.length) {
+  if (orders.length === 0) {
     return (
       <div className="orders-page">
-
-        <div className="no-orders">
-
-          <div className="no-orders-icon">
-            📦
+        <div className="orders-empty">
+          <div className="orders-empty-icon">
+            ☕
           </div>
 
-          <h2>
-            No Orders Yet
-          </h2>
+          <h2>No orders yet</h2>
 
           <p>
-            Your completed and current
-            orders will appear here.
+            Your Sugar Café orders will
+            appear here after you place
+            your first order.
           </p>
-
         </div>
-
       </div>
     );
   }
 
-  // =====================================================
-  // ORDER PAGE
-  // =====================================================
+  // --------------------------------------------------
+  // ORDERS PAGE
+  // --------------------------------------------------
 
   return (
     <div className="orders-page">
+      <div className="orders-container">
 
-      <div className="orders-header">
+        <div className="orders-header">
+          <h1>My Orders</h1>
 
-        <h2>
-          My Orders
-        </h2>
+          <p>
+            Customer ID:{" "}
+            <strong>
+              {customerId}
+            </strong>
+          </p>
+        </div>
 
-        <p>
-          Customer ID:{" "}
-          <strong>
-            {customerId}
-          </strong>
-        </p>
+        <div className="orders-count">
+          {orders.length}{" "}
+          {orders.length === 1
+            ? "Order"
+            : "Orders"}
+        </div>
 
-      </div>
+        {orders.map((order) => {
+          const items =
+            Array.isArray(order.items)
+              ? order.items
+              : [];
 
-      {orders.map((order) => {
+          const total =
+            Number(
+              order.total ??
+                order.grandTotal ??
+                order.finalTotal ??
+                0
+            );
 
-        const statusIndex =
-          getStatusIndex(
-            order.status
-          );
+          return (
+            <div
+              className="order-card"
+              key={order.id}
+            >
 
-        const cancelled =
-          statusIndex === -1;
+              {/* ORDER HEADER */}
 
-        return (
-          <div
-            className="tracked-order-card"
-            key={order.id}
-          >
+              <div className="order-card-header">
 
-            {/* HEADER */}
+                <div>
+                  <span className="order-label">
+                    Order
+                  </span>
 
-            <div className="tracked-order-header">
+                  <h2>
+                    #
+                    {order.orderNumber ||
+                      order.id}
+                  </h2>
+                </div>
 
-              <div>
-                <strong>
-                  {order.orderNumber ||
-                    `Order #${order.id.slice(
-                      0,
-                      6
-                    )}`}
-                </strong>
-
-                <small>
+                <div className="order-date">
                   {formatDate(
                     order.createdAt
                   )}
-                </small>
+                </div>
+
               </div>
 
-              <div className="order-total">
-                ₹
-                {Number(
-                  order.total || 0
-                )}
+              {/* STATUS */}
+
+              <div className="order-current-status">
+                <span>
+                  Current Status
+                </span>
+
+                <strong>
+                  {getStatusText(
+                    order.status
+                  )}
+                </strong>
               </div>
 
-            </div>
+              {renderTimeline(order)}
 
-            {/* STATUS */}
+              {/* CUSTOMER */}
 
-            <div className="order-current-status">
+              <div className="order-section">
+                <h3>
+                  👤 Customer
+                </h3>
 
-              <strong>
-                {cancelled
-                  ? "❌ Cancelled"
-                  : getStatusText(
-                      order.status
-                    )}
-              </strong>
+                <div className="order-info-grid">
 
-            </div>
+                  <div>
+                    <span>Name</span>
+                    <strong>
+                      {order.customerName ||
+                        "Customer"}
+                    </strong>
+                  </div>
 
-            {/* TRACKING */}
+                  <div>
+                    <span>Mobile</span>
+                    <strong>
+                      {order.phone ||
+                        order.customerPhone ||
+                        "—"}
+                    </strong>
+                  </div>
 
-            {!cancelled && (
-              <div className="tracking-timeline">
+                  <div>
+                    <span>
+                      Customer ID
+                    </span>
+                    <strong>
+                      {order.customerId ||
+                        customerId}
+                    </strong>
+                  </div>
 
-                {[
-                  {
-                    icon: "🆕",
-                    text: "Order Received",
-                  },
-                  {
-                    icon: "👨‍🍳",
-                    text: "Preparing",
-                  },
-                  {
-                    icon: "✅",
-                    text: "Food Ready",
-                  },
-                  {
-                    icon: "🛵",
-                    text: "Out for Delivery",
-                  },
-                  {
-                    icon: "🎉",
-                    text: "Delivered",
-                  },
-                ].map(
-                  (step, index) => {
+                </div>
+              </div>
 
-                    const active =
-                      index <=
-                      statusIndex;
+              {/* ITEMS */}
 
-                    return (
-                      <div
-                        className={`tracking-step ${
-                          active
-                            ? "active"
-                            : ""
-                        }`}
-                        key={
-                          step.text
-                        }
-                      >
+              <div className="order-section">
+                <h3>
+                  🛍️ Ordered Items
+                </h3>
 
-                        <div className="tracking-icon">
-                          {step.icon}
-                        </div>
+                <div className="order-items">
 
+                  {items.length === 0 ? (
+                    <p>
+                      Order items unavailable.
+                    </p>
+                  ) : (
+                    items.map(
+                      (item, index) => {
+                        const quantity =
+                          Number(
+                            item.quantity ||
+                              item.qty ||
+                              1
+                          );
+
+                        const price =
+                          Number(
+                            item.price ||
+                              item.salePrice ||
+                              0
+                          );
+
+                        return (
+                          <div
+                            className="order-item"
+                            key={
+                              item.id ||
+                              item.menuId ||
+                              index
+                            }
+                          >
+                            <div>
+                              <strong>
+                                {item.name ||
+                                  item.title ||
+                                  "Item"}
+                              </strong>
+
+                              <span>
+                                ×{" "}
+                                {quantity}
+                              </span>
+                            </div>
+
+                            <strong>
+                              {formatPrice(
+                                price *
+                                  quantity
+                              )}
+                            </strong>
+                          </div>
+                        );
+                      }
+                    )
+                  )}
+
+                </div>
+              </div>
+
+              {/* ADDRESS */}
+
+              <div className="order-section">
+                <h3>
+                  📍 Delivery Address
+                </h3>
+
+                <div className="order-address">
+                  {order.address ||
+                    order.deliveryAddress ||
+                    "Address unavailable"}
+                </div>
+              </div>
+
+              {/* BILL */}
+
+              <div className="order-section">
+                <h3>
+                  💳 Bill Details
+                </h3>
+
+                <div className="order-bill">
+
+                  {order.subtotal !==
+                    undefined && (
+                    <div>
+                      <span>
+                        Subtotal
+                      </span>
+
+                      <strong>
+                        {formatPrice(
+                          order.subtotal
+                        )}
+                      </strong>
+                    </div>
+                  )}
+
+                  {order.deliveryCharge !==
+                    undefined && (
+                    <div>
+                      <span>
+                        Delivery
+                      </span>
+
+                      <strong>
+                        {formatPrice(
+                          order.deliveryCharge
+                        )}
+                      </strong>
+                    </div>
+                  )}
+
+                  {order.discount !==
+                    undefined &&
+                    Number(
+                      order.discount
+                    ) > 0 && (
+                      <div>
                         <span>
-                          {step.text}
+                          Discount
                         </span>
 
-                      </div>
-                    );
-                  }
-                )}
-
-              </div>
-            )}
-
-            {/* CUSTOMER */}
-
-            <div className="tracked-section">
-
-              <h4>
-                Customer
-              </h4>
-
-              <p>
-                👤{" "}
-                {order.customerName ||
-                  "Customer"}
-              </p>
-
-              {order.phone && (
-                <p>
-                  📱 {order.phone}
-                </p>
-              )}
-
-            </div>
-
-            {/* ITEMS */}
-
-            <div className="tracked-section">
-
-              <h4>
-                Items
-              </h4>
-
-              {Array.isArray(
-                order.items
-              ) &&
-                order.items.map(
-                  (item, index) => (
-                    <div
-                      className="tracked-item"
-                      key={`${item.id || item.name}-${index}`}
-                    >
-
-                      <span>
-                        {item.name}
-                        {" × "}
-                        {Number(
-                          item.qty ||
-                            item.quantity ||
-                            1
-                        )}
-                      </span>
-
-                      <span>
-                        ₹
-                        {Number(
-                          item.price ||
-                            0
-                        ) *
-                          Number(
-                            item.qty ||
-                              item.quantity ||
-                              1
+                        <strong>
+                          -
+                          {formatPrice(
+                            order.discount
                           )}
-                      </span>
+                        </strong>
+                      </div>
+                    )}
 
-                    </div>
-                  )
-                )}
+                  <div className="order-total">
+                    <span>
+                      Total
+                    </span>
 
-            </div>
+                    <strong>
+                      {formatPrice(
+                        total
+                      )}
+                    </strong>
+                  </div>
 
-            {/* ADDRESS */}
-
-            {order.address && (
-              <div className="tracked-section">
-
-                <h4>
-                  Delivery Address
-                </h4>
-
-                <p>
-                  📍 {order.address}
-                </p>
-
-              </div>
-            )}
-
-            {/* BILL */}
-
-            <div className="tracked-section">
-
-              <h4>
-                Bill Details
-              </h4>
-
-              <div className="bill-row">
-                <span>
-                  Subtotal
-                </span>
-
-                <span>
-                  ₹
-                  {Number(
-                    order.subtotal || 0
-                  )}
-                </span>
+                </div>
               </div>
 
-              <div className="bill-row">
-                <span>
-                  Delivery
-                </span>
+              {/* PAYMENT */}
 
-                <span>
-                  ₹
-                  {Number(
-                    order.deliveryCharge ||
-                      0
-                  )}
-                </span>
-              </div>
+              <div className="order-payment">
+                <div>
+                  <span>
+                    Payment
+                  </span>
 
-              <div className="bill-row">
-                <span>
-                  GST
-                </span>
+                  <strong>
+                    {getPaymentText(
+                      order
+                    )}
+                  </strong>
+                </div>
 
-                <span>
-                  ₹
-                  {Number(
-                    order.gst || 0
-                  )}
-                </span>
-              </div>
+                <div>
+                  <span>
+                    Payment Status
+                  </span>
 
-              <div className="bill-row bill-total">
-                <span>
-                  Total
-                </span>
-
-                <span>
-                  ₹
-                  {Number(
-                    order.total || 0
-                  )}
-                </span>
+                  <strong>
+                    {order.paymentStatus ||
+                      "Pending"}
+                  </strong>
+                </div>
               </div>
 
             </div>
+          );
+        })}
 
-            {/* PAYMENT */}
-
-            <div className="tracked-payment">
-
-              <strong>
-                Payment
-              </strong>
-
-              <span>
-                {order.paymentMethod ||
-                  "Cash on Delivery"}
-              </span>
-
-              <span
-                className={
-                  String(
-                    order.paymentStatus ||
-                      ""
-                  ).toLowerCase() ===
-                  "paid"
-                    ? "payment-paid"
-                    : "payment-pending"
-                }
-              >
-                {order.paymentStatus ||
-                  "Pending"}
-              </span>
-
-            </div>
-
-          </div>
-        );
-      })}
-
+      </div>
     </div>
   );
 }
