@@ -1,118 +1,377 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
-import { auth, db } from "../firebase";
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+} from "firebase/firestore";
+import { FaUser, FaPhoneAlt, FaMapMarkerAlt } from "react-icons/fa";
+import { db } from "../firebase";
+import "./Profile.css";
 
 function Profile() {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-  const [ordersCount, setOrdersCount] = useState(0);
+
+  const [profile, setProfile] = useState(null);
+  const [orderCount, setOrderCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  // =====================================================
+  // LOAD CUSTOMER PROFILE
+  // =====================================================
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (!firebaseUser) {
-        navigate("/login", { replace: true, state: { from: "/profile" } });
+    try {
+      const savedUser =
+        localStorage.getItem("sugarCafeUser");
+
+      if (!savedUser) {
+        setProfile(null);
+        setLoading(false);
         return;
       }
 
-      try {
-        const saved = localStorage.getItem("sugarCafeUser");
-        const localProfile = saved ? JSON.parse(saved) : {};
-        const userSnapshot = await getDoc(doc(db, "users", firebaseUser.uid));
-        const firestoreProfile = userSnapshot.exists() ? userSnapshot.data() : {};
-        const customerId =
-          firestoreProfile.customerId ||
-          localProfile.customerId ||
-          `SC-CUST-${firebaseUser.uid.slice(-8).toUpperCase()}`;
+      const data = JSON.parse(savedUser);
 
-        const ordersSnapshot = await getDocs(
-          query(collection(db, "orders"), where("userId", "==", firebaseUser.uid))
-        );
+      const customerId =
+        data.customerId ||
+        localStorage.getItem("sugarCafeCustomerId") ||
+        "";
 
-        const profile = {
-          ...localProfile,
-          ...firestoreProfile,
-          uid: firebaseUser.uid,
-          customerId,
-          name: firestoreProfile.name || localProfile.name || "Sugar Customer",
-          phone: firebaseUser.phoneNumber || firestoreProfile.phone || localProfile.phone || "",
-          email: firebaseUser.email || firestoreProfile.email || localProfile.email || "",
-          addresses: firestoreProfile.addresses || localProfile.addresses || [],
-        };
+      const updatedProfile = {
+        ...data,
+        customerId,
+        addresses: Array.isArray(data.addresses)
+          ? data.addresses
+          : [],
+      };
 
-        if (firebaseUser.isAnonymous && (!profile.name || profile.name === "Sugar Customer" || !profile.phone)) {
-          navigate("/login", { replace: true, state: { from: "/profile" } });
-          return;
-        }
+      setProfile(updatedProfile);
+      setLoading(false);
 
-        setUser(profile);
-        setOrdersCount(ordersSnapshot.size);
-        localStorage.setItem("sugarCafeUser", JSON.stringify(profile));
-      } catch (error) {
-        console.error("Profile loading error:", error);
-      } finally {
-        setLoading(false);
+      // =================================================
+      // REAL-TIME ORDER COUNT
+      // =================================================
+
+      if (!customerId) {
+        setOrderCount(0);
+        return;
       }
-    });
 
-    return () => unsubscribe();
-  }, [navigate]);
+      const ordersQuery = query(
+        collection(db, "orders"),
+        where("customerId", "==", customerId)
+      );
 
-  const handleLogout = async () => {
-    await signOut(auth);
-    localStorage.removeItem("sugarCafeUser");
+      const unsubscribe = onSnapshot(
+        ordersQuery,
+        (snapshot) => {
+          setOrderCount(snapshot.size);
+        },
+        (error) => {
+          console.error(
+            "Profile orders error:",
+            error
+          );
+
+          setOrderCount(0);
+        }
+      );
+
+      return () => unsubscribe();
+    } catch (error) {
+      console.error(
+        "Profile loading error:",
+        error
+      );
+
+      setProfile(null);
+      setLoading(false);
+    }
+  }, []);
+
+  // =====================================================
+  // LOGOUT
+  // =====================================================
+
+  const handleLogout = () => {
+    const confirmLogout =
+      window.confirm(
+        "Are you sure you want to logout?"
+      );
+
+    if (!confirmLogout) {
+      return;
+    }
+
+    localStorage.removeItem(
+      "sugarCafeUser"
+    );
+
+    localStorage.removeItem(
+      "sugarCafeCustomerId"
+    );
+
+    setProfile(null);
+    setOrderCount(0);
+
     navigate("/");
   };
 
+  // =====================================================
+  // LOADING
+  // =====================================================
+
   if (loading) {
-    return <div style={styles.page}><div style={styles.card}>Loading profile...</div></div>;
+    return (
+      <div className="profile-page">
+        <div className="profile-card">
+          <h2>
+            Loading profile...
+          </h2>
+        </div>
+      </div>
+    );
   }
 
-  if (!user) return null;
+  // =====================================================
+  // NOT LOGGED IN
+  // =====================================================
 
-  return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        <div style={styles.avatar}>👤</div>
-        <h2>{user.name}</h2>
-        <div style={styles.customerId}>{user.customerId}</div>
+  if (!profile) {
+    return (
+      <div className="profile-page">
 
-        {user.phone && <p style={styles.info}>📱 {user.phone}</p>}
-        <p style={styles.verify}>
-          {user.phoneVerified ? "✓ Mobile verified" : "• Mobile saved (not OTP-verified)"}
-        </p>
-        {user.email && <p style={styles.info}>✉️ {user.email}</p>}
+        <div className="profile-card profile-login-card">
 
-        <div style={styles.stats}>
-          <div><strong>{ordersCount}</strong><span>Orders</span></div>
-          <div><strong>{(user.addresses || []).length}</strong><span>Saved Addresses</span></div>
+          <div className="profile-avatar">
+            <FaUser />
+          </div>
+
+          <h2>
+            Welcome to Sugar Café
+          </h2>
+
+          <p>
+            Login to create your customer
+            account and see your orders.
+          </p>
+
+          <button
+            className="profile-primary-btn"
+            onClick={() =>
+              navigate("/login", {
+                state: {
+                  from: "/profile",
+                },
+              })
+            }
+          >
+            Login / Create Account
+          </button>
+
         </div>
 
-        <button style={styles.orders} onClick={() => navigate("/orders")}>My Orders</button>
-        <button style={styles.back} onClick={() => navigate("/")}>Back to Home</button>
-        <button style={styles.logout} onClick={handleLogout}>Logout</button>
       </div>
+    );
+  }
+
+  // =====================================================
+  // PROFILE
+  // =====================================================
+
+  return (
+    <div className="profile-page">
+
+      <div className="profile-card">
+
+        {/* AVATAR */}
+
+        <div className="profile-avatar">
+          <FaUser />
+        </div>
+
+        {/* NAME */}
+
+        <h2>
+          {profile.name ||
+            "Sugar Café Customer"}
+        </h2>
+
+        <p className="profile-welcome">
+          Welcome back! 👋
+        </p>
+
+        {/* CUSTOMER DETAILS */}
+
+        <div className="profile-details">
+
+          <div className="profile-detail-row">
+
+            <FaPhoneAlt />
+
+            <div>
+              <small>
+                Mobile Number
+              </small>
+
+              <strong>
+                {profile.phone ||
+                  "Not available"}
+              </strong>
+            </div>
+
+          </div>
+
+          <div className="profile-detail-row">
+
+            <FaUser />
+
+            <div>
+              <small>
+                Customer ID
+              </small>
+
+              <strong>
+                {profile.customerId ||
+                  "Not available"}
+              </strong>
+            </div>
+
+          </div>
+
+        </div>
+
+        {/* QUICK ACTIONS */}
+
+        <div className="profile-actions">
+
+          <button
+            className="profile-action-btn"
+            onClick={() =>
+              navigate("/orders")
+            }
+          >
+            <span className="profile-action-icon">
+              📦
+            </span>
+
+            <span>
+              <strong>
+                My Orders
+              </strong>
+
+              <small>
+                {orderCount}{" "}
+                {orderCount === 1
+                  ? "Order"
+                  : "Orders"}
+              </small>
+            </span>
+          </button>
+
+          <button
+            className="profile-action-btn"
+            onClick={() =>
+              navigate("/orders")
+            }
+          >
+            <span className="profile-action-icon">
+              🚚
+            </span>
+
+            <span>
+              <strong>
+                Track My Orders
+              </strong>
+
+              <small>
+                View live order status
+              </small>
+            </span>
+          </button>
+
+        </div>
+
+        {/* SAVED ADDRESSES */}
+
+        <div className="profile-section">
+
+          <div className="profile-section-title">
+            <FaMapMarkerAlt />
+
+            <strong>
+              Saved Addresses
+            </strong>
+          </div>
+
+          {profile.addresses &&
+          profile.addresses.length > 0 ? (
+            profile.addresses
+              .slice(0, 3)
+              .map(
+                (saved, index) => (
+                  <div
+                    className="profile-address"
+                    key={
+                      saved.id ||
+                      index
+                    }
+                  >
+                    <strong>
+                      {saved.label ||
+                        "Delivery Address"}
+                    </strong>
+
+                    <span>
+                      {saved.fullAddress ||
+                        saved.address ||
+                        "Address"}
+                    </span>
+                  </div>
+                )
+              )
+          ) : (
+            <p className="profile-empty">
+              No saved addresses yet.
+            </p>
+          )}
+
+        </div>
+
+        {/* ACCOUNT INFO */}
+
+        <div className="profile-account-box">
+
+          <strong>
+            Your Sugar Café Account
+          </strong>
+
+          <p>
+            Your Customer ID is connected
+            to your orders. You can use
+            this account to view your
+            previous and new orders.
+          </p>
+
+        </div>
+
+        {/* LOGOUT */}
+
+        <button
+          className="profile-logout-btn"
+          onClick={
+            handleLogout
+          }
+        >
+          Logout
+        </button>
+
+      </div>
+
     </div>
   );
 }
-
-const styles = {
-  page: { minHeight: "100vh", background: "#f8f8f8", display: "flex", justifyContent: "center", alignItems: "center", padding: "20px", boxSizing: "border-box" },
-  card: { width: "100%", maxWidth: "420px", background: "#fff", borderRadius: "20px", padding: "35px 25px", textAlign: "center", boxShadow: "0 5px 25px rgba(0,0,0,0.10)" },
-  avatar: { width: "80px", height: "80px", margin: "0 auto 15px", borderRadius: "50%", background: "#ffe5e5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "38px" },
-  customerId: { display: "inline-block", padding: "6px 10px", borderRadius: "8px", background: "#fff7ed", color: "#9a3412", fontSize: "13px", fontWeight: "700" },
-  info: { color: "#666", margin: "8px 0" },
-  verify: { color: "#777", fontSize: "13px", margin: "6px 0" },
-  stats: { display: "flex", gap: "10px", marginTop: "22px" },
-  orders: { width: "100%", padding: "14px", marginTop: "22px", border: "none", borderRadius: "12px", background: "#ff6b35", color: "#fff", fontSize: "16px", fontWeight: "600", cursor: "pointer" },
-  back: { width: "100%", padding: "14px", marginTop: "10px", border: "1px solid #ddd", borderRadius: "12px", background: "#fff", fontSize: "16px", cursor: "pointer" },
-  logout: { width: "100%", padding: "14px", marginTop: "10px", border: "none", borderRadius: "12px", background: "#e53935", color: "#fff", fontSize: "16px", fontWeight: "600", cursor: "pointer" },
-};
-
-// Stats children styling is kept inline to avoid changing the existing global CSS.
-const originalStats = styles.stats;
-styles.stats = { ...originalStats, justifyContent: "space-between" };
 
 export default Profile;
