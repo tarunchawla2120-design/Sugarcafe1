@@ -38,7 +38,6 @@ function Login() {
 
     const cleanName = name.trim();
     const cleanPhone = phone.replace(/\D/g, "");
-    const fullPhone = `+91${cleanPhone}`;
 
     if (cleanName.length < 2) {
       alert("Please enter your name.");
@@ -53,6 +52,8 @@ function Login() {
     try {
       setLoading(true);
 
+      const fullPhone = `+91${cleanPhone}`;
+
       // Find existing customer
       const customerQuery = query(
         collection(db, "customers"),
@@ -62,31 +63,36 @@ function Login() {
       const snapshot = await getDocs(customerQuery);
 
       let customerId = "";
-      let customerData = null;
+      let customerData = {};
 
       if (!snapshot.empty) {
-        // Existing customer
+        // EXISTING CUSTOMER
         const customerDoc = snapshot.docs[0];
+        const existingData = customerDoc.data();
 
         customerId =
-          customerDoc.data().customerId ||
-          customerDoc.id;
+          existingData.customerId ||
+          generateCustomerId();
 
-        customerData = customerDoc.data();
+        customerData = {
+          ...existingData,
+          customerId,
+        };
 
-        // Update latest name
+        // Make sure old customer also gets an ID
         await updateDoc(
           doc(db, "customers", customerDoc.id),
           {
+            customerId,
             name: cleanName,
             updatedAt: Timestamp.now(),
           }
         );
       } else {
-        // New customer
+        // NEW CUSTOMER
         customerId = generateCustomerId();
 
-        const newCustomer = {
+        customerData = {
           customerId,
           name: cleanName,
           phone: fullPhone,
@@ -99,28 +105,30 @@ function Login() {
           updatedAt: Timestamp.now(),
         };
 
-        const newDoc = await addDoc(
+        await addDoc(
           collection(db, "customers"),
-          newCustomer
+          customerData
         );
-
-        customerData = {
-          ...newCustomer,
-          firestoreId: newDoc.id,
-        };
       }
 
-      // Save customer profile locally
+      // Save customer locally
       const profile = {
         name: cleanName,
         phone: fullPhone,
         customerId,
         uid: "",
-        email: customerData?.email || "",
+        email: customerData.email || "",
+        photoURL: customerData.photoURL || "",
         phoneVerified: false,
-        rewards: customerData?.rewards || 0,
-        favourites: customerData?.favourites || [],
-        addresses: customerData?.addresses || [],
+        rewards: Number(customerData.rewards || 0),
+        favourites: Array.isArray(customerData.favourites)
+          ? customerData.favourites
+          : [],
+        addresses: Array.isArray(customerData.addresses)
+          ? customerData.addresses
+          : [],
+        defaultAddress:
+          customerData.defaultAddress || null,
         guest: false,
         loggedIn: true,
       };
@@ -136,7 +144,6 @@ function Login() {
       );
 
       navigate(from, { replace: true });
-
     } catch (error) {
       console.error("Customer login error:", error);
 
@@ -210,8 +217,8 @@ function Login() {
         <div className="login-note">
           <strong>Your Customer Account</strong>
           <br />
-          Your details and order history will be saved
-          with your Customer ID.
+          Your Customer ID and order history will be saved
+          for future visits.
         </div>
 
         <button
