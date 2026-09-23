@@ -213,3 +213,93 @@ body{
   font-weight: 700;
   margin-bottom: 8px;
 }
+/* =====================================================
+   SPECIAL NOTE
+===================================================== */
+
+.special-note-card {
+  position: relative;
+}
+
+.special-note-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.special-note-heading h3 {
+  margin: 0;
+}
+
+.special-note-heading p {
+  margin: 4px 0 0;
+  color: #8a7f77;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.special-note-heading > span {
+  flex-shrink: 0;
+  padding: 5px 8px;
+  border-radius: 100px;
+  background: #f7f3ef;
+  color: #9a9089;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+}
+
+.special-note-card textarea {
+  width: 100%;
+  min-height: 95px;
+  box-sizing: border-box;
+  resize: vertical;
+
+  padding: 12px;
+
+  border: 1px solid #e6ddd5;
+  border-radius: 12px;
+
+  background: #faf8f5;
+  color: #2d2520;
+
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+
+  outline: none;
+
+  transition: 0.2s ease;
+}
+
+.special-note-card textarea::placeholder {
+  color: #aaa099;
+}
+
+.special-note-card textarea:focus {
+  background: #fff;
+  border-color: #ff9a75;
+  box-shadow:
+    0 0 0 3px rgba(255, 107, 53, 0.08);
+}
+
+.special-note-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.special-note-footer small {
+  color: #9a9089;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.special-note-footer small:last-child {
+  white-space: nowrap;
+  font-weight: 700;
+}
