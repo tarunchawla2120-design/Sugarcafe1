@@ -12,6 +12,7 @@ import ApprovedReviews from "../components/ApprovedReviews";
 import BottomNav from "../components/BottomNav";
 import CategoryPopup from "../components/CategoryPopup";
 import AppLayout from "../components/AppLayout";
+import CustomerMenu from "../components/CustomerMenu";
 
 function Home() {
   const navigate = useNavigate();
