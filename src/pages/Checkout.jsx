@@ -81,6 +81,32 @@ function Checkout() {
     clearCart,
   } = useCart();
 
+  /* =====================================================
+     ORDER TYPE
+  ===================================================== */
+
+  const [orderType, setOrderType] = useState(() => {
+    return (
+      localStorage.getItem("sugarCafeOrderType") ||
+      "Delivery"
+    );
+  });
+
+  const isTakeaway =
+    orderType === "Takeaway";
+
+  /* =====================================================
+     TAKEAWAY STORE
+  ===================================================== */
+
+  const TAKEAWAY_STORE = {
+    name: "Sugar Crown – NTPC",
+    address:
+      "NTPC Gate, Sada Colony, Jamnipali, Korba, Chhattisgarh – 495450",
+    lat: 22.417212,
+    lng: 82.665984,
+  };
+
   const [address, setAddress] =
     useState("");
 
@@ -307,6 +333,7 @@ function Checkout() {
   let deliveryCharge = 0;
 
   if (
+    !isTakeaway &&
     totalPrice > 0 &&
     deliveryAvailable
   ) {
@@ -345,7 +372,6 @@ function Checkout() {
 
   /* =====================================================
      REVERSE GEOCODING
-     COORDINATES → ADDRESS
   ===================================================== */
 
   const reverseGeocode = async (
@@ -389,7 +415,6 @@ function Checkout() {
 
   /* =====================================================
      MANUAL ADDRESS
-     ADDRESS → COORDINATES
   ===================================================== */
 
   const useManualAddress = async () => {
@@ -441,10 +466,6 @@ function Checkout() {
         return;
       }
 
-      /*
-        Prefer a result from Korba
-      */
-
       const korbaResult =
         results.find((item) =>
           String(
@@ -492,10 +513,6 @@ function Checkout() {
         })
       );
 
-      /*
-        Move map immediately
-      */
-
       if (mapRef.current) {
         mapRef.current.setView(
           [lat, lng],
@@ -505,7 +522,6 @@ function Checkout() {
           }
         );
       }
-
     } catch (error) {
       console.error(
         "Manual address error:",
@@ -589,7 +605,6 @@ function Checkout() {
               }
             );
           }
-
         } catch (error) {
           console.error(
             "Location processing error:",
@@ -1323,14 +1338,21 @@ function Checkout() {
   ===================================================== */
 
   const placeOrder = async () => {
-    if (!store.deliveryAvailable) {
-      alert(
-        store.announcement ||
-          `Delivery orders are available only from ${store.orderTimingLabel}.`
-      );
 
-      return;
+    /* DELIVERY CHECK ONLY FOR DELIVERY */
+
+    if (!isTakeaway) {
+      if (!store.deliveryAvailable) {
+        alert(
+          store.announcement ||
+            `Delivery orders are available only from ${store.orderTimingLabel}.`
+        );
+
+        return;
+      }
     }
+
+    /* PAYMENT CHECK */
 
     if (
       paymentMethod ===
@@ -1363,6 +1385,8 @@ function Checkout() {
 
       return;
     }
+
+    /* CUSTOMER LOGIN */
 
     if (
       !customerProfile ||
@@ -1417,20 +1441,24 @@ function Checkout() {
       return;
     }
 
-    if (!address.trim()) {
-      alert(
-        "Please select your delivery address."
-      );
+    /* DELIVERY ADDRESS ONLY FOR DELIVERY */
 
-      return;
-    }
+    if (!isTakeaway) {
+      if (!address.trim()) {
+        alert(
+          "Please select your delivery address."
+        );
 
-    if (!deliveryAvailable) {
-      alert(
-        `Sorry! We currently deliver within ${MAX_DELIVERY_DISTANCE} km of our shop.`
-      );
+        return;
+      }
 
-      return;
+      if (!deliveryAvailable) {
+        alert(
+          `Sorry! We currently deliver within ${MAX_DELIVERY_DISTANCE} km of our shop.`
+        );
+
+        return;
+      }
     }
 
     try {
@@ -1485,24 +1513,43 @@ function Checkout() {
         photoURL:
           customer.photoURL,
 
-        address,
+        /* TAKEAWAY STORE OR DELIVERY ADDRESS */
+
+        address: isTakeaway
+          ? TAKEAWAY_STORE.address
+          : address,
+
+        storeName: isTakeaway
+          ? TAKEAWAY_STORE.name
+          : store.cafeName ||
+            "Sugar Cafe",
+
+        storeAddress: isTakeaway
+          ? TAKEAWAY_STORE.address
+          : "",
 
         specialNote:
           specialNote.trim(),
 
-        latitude:
-          marker.lat,
+        latitude: isTakeaway
+          ? TAKEAWAY_STORE.lat
+          : marker.lat,
 
-        longitude:
-          marker.lng,
+        longitude: isTakeaway
+          ? TAKEAWAY_STORE.lng
+          : marker.lng,
 
-        distance:
-          Number(
-            distance.toFixed(2)
-          ),
+        distance: isTakeaway
+          ? 0
+          : Number(
+              distance.toFixed(2)
+            ),
 
-        orderType:
-          "Delivery",
+        /* IMPORTANT */
+
+        orderType: isTakeaway
+          ? "Takeaway"
+          : "Delivery",
 
         paymentMethod,
 
@@ -1564,8 +1611,34 @@ function Checkout() {
           Timestamp.now(),
       };
 
+      /* ADDRESS OBJECT */
+
       const selectedAddress =
-        await saveCustomerAddress();
+        isTakeaway
+          ? {
+              id: `takeaway-${Date.now()}`,
+
+              label:
+                "Pickup Store",
+
+              address:
+                TAKEAWAY_STORE.address,
+
+              fullAddress:
+                TAKEAWAY_STORE.address,
+
+              latitude:
+                TAKEAWAY_STORE.lat,
+
+              longitude:
+                TAKEAWAY_STORE.lng,
+
+              savedAt:
+                new Date().toISOString(),
+            }
+          : await saveCustomerAddress();
+
+      /* PAYMENT */
 
       if (
         paymentMethod ===
@@ -1584,7 +1657,9 @@ function Checkout() {
       }
 
       alert(
-        "🕐 Order received! Sugar Café is reviewing your order."
+        isTakeaway
+          ? "🛍️ Takeaway order received! Sugar Café is preparing your order."
+          : "🕐 Order received! Sugar Café is reviewing your order."
       );
 
       navigate("/success");
@@ -1619,392 +1694,568 @@ function Checkout() {
       </h2>
 
       {/* =================================================
-          DELIVERY ADDRESS
+          ORDER TYPE
       ================================================= */}
 
       <div className="checkout-card">
 
         <h3>
-          📍 Delivery Address
+          🛍️ Order Type
         </h3>
 
-        {customerProfile && (
-          <div className="checkout-customer-box">
-
-            <div>
-              👤{" "}
-              <strong>
-                {customerProfile.name ||
-                  "Customer"}
-              </strong>
-            </div>
-
-            <div>
-              📱{" "}
-              {customerProfile.phone}
-            </div>
-
-            {customerProfile.customerId && (
-              <div>
-                🆔{" "}
-                {customerProfile.customerId}
-              </div>
-            )}
-
-          </div>
-        )}
-
-        {/* SAVED ADDRESSES */}
-
-        {savedAddresses.length >
-          0 && (
-          <div className="saved-addresses">
-
-            <strong>
-              Saved Addresses
-            </strong>
-
-            {savedAddresses.map(
-              (saved) => (
-                <button
-                  type="button"
-                  key={
-                    saved.id ||
-                    `${saved.latitude}-${saved.longitude}-${saved.address}`
-                  }
-                  className="saved-address-btn"
-                  onClick={() => {
-                    const lat =
-                      Number(
-                        saved.latitude
-                      );
-
-                    const lng =
-                      Number(
-                        saved.longitude
-                      );
-
-                    if (
-                      !Number.isFinite(
-                        lat
-                      ) ||
-                      !Number.isFinite(
-                        lng
-                      )
-                    ) {
-                      return;
-                    }
-
-                    setAddress(
-                      saved.fullAddress ||
-                        saved.address ||
-                        ""
-                    );
-
-                    setMarker({
-                      lat,
-                      lng,
-                    });
-
-                    setMapCenter({
-                      lat,
-                      lng,
-                    });
-
-                    localStorage.setItem(
-                      "userLocation",
-                      JSON.stringify(
-                        saved
-                      )
-                    );
-                  }}
-                >
-                  📍{" "}
-                  {saved.label ||
-                    "Address"}
-
-                  <br />
-
-                  <span>
-                    {saved.fullAddress ||
-                      saved.address}
-                  </span>
-                </button>
-              )
-            )}
-
-          </div>
-        )}
-
-        {/* =================================================
-            SEARCH ADDRESS
-        ================================================= */}
-
-        <input
-          type="text"
-          placeholder="🔍 Search your delivery address"
-          value={address}
-          onChange={(e) =>
-            setAddress(
-              e.target.value
-            )
-          }
+        <div
           style={{
-            width:
-              "100%",
-            padding:
-              "12px",
-            marginTop:
-              "5px",
-            borderRadius:
-              "10px",
-            border:
-              "1px solid #ddd",
-            boxSizing:
-              "border-box",
-            fontSize:
-              "15px",
+            display: "grid",
+            gridTemplateColumns:
+              "1fr 1fr",
+            gap: "10px",
+            marginTop: "12px",
           }}
-        />
+        >
 
-        {/* =================================================
-            MANUAL ADDRESS
-        ================================================= */}
-
-        <div className="manual-address-box">
-
-          <label htmlFor="manual-delivery-address">
-            Or enter address manually
-          </label>
-
-          <textarea
-            id="manual-delivery-address"
-            value={
-              manualAddress
-            }
-            onChange={(e) =>
-              setManualAddress(
-                e.target.value
-              )
-            }
-            placeholder="House/Flat No., Area, Landmark, City, PIN"
-            rows={3}
-          />
+          {/* DELIVERY */}
 
           <button
             type="button"
-            onClick={
-              useManualAddress
-            }
-            disabled={
-              geocodingManual
-            }
-            className="manual-address-btn"
+            onClick={() => {
+              setOrderType(
+                "Delivery"
+              );
+
+              localStorage.setItem(
+                "sugarCafeOrderType",
+                "Delivery"
+              );
+            }}
+            style={{
+              padding: "14px",
+              borderRadius: "10px",
+              border:
+                orderType ===
+                "Delivery"
+                  ? "2px solid #ff4d4f"
+                  : "1px solid #ddd",
+              background:
+                orderType ===
+                "Delivery"
+                  ? "#fff1f2"
+                  : "#fff",
+              fontWeight: "700",
+              cursor: "pointer",
+            }}
           >
-            {geocodingManual
-              ? "Checking address..."
-              : "✓ Use This Manual Address"}
+            🚚 Delivery
+          </button>
+
+          {/* TAKEAWAY */}
+
+          <button
+            type="button"
+            onClick={() => {
+              setOrderType(
+                "Takeaway"
+              );
+
+              localStorage.setItem(
+                "sugarCafeOrderType",
+                "Takeaway"
+              );
+            }}
+            style={{
+              padding: "14px",
+              borderRadius: "10px",
+              border:
+                orderType ===
+                "Takeaway"
+                  ? "2px solid #16a34a"
+                  : "1px solid #ddd",
+              background:
+                orderType ===
+                "Takeaway"
+                  ? "#f0fdf4"
+                  : "#fff",
+              fontWeight: "700",
+              cursor: "pointer",
+            }}
+          >
+            🛍️ Takeaway
           </button>
 
         </div>
 
-        {/* =================================================
-            CURRENT LOCATION
-        ================================================= */}
+        {/* TAKEAWAY STORE */}
 
-        <button
-          type="button"
-          onClick={
-            getCurrentLocation
-          }
-          style={{
-            marginTop:
-              "10px",
+        {isTakeaway && (
+          <div
+            style={{
+              marginTop: "14px",
+              padding: "12px",
+              borderRadius: "10px",
+              background:
+                "#f0fdf4",
+              color: "#166534",
+            }}
+          >
 
-            width:
-              "100%",
+            <strong>
+              🏪{" "}
+              {TAKEAWAY_STORE.name}
+            </strong>
 
-            padding:
-              "12px",
+            <br />
 
-            borderRadius:
-              "10px",
+            <small>
+              {TAKEAWAY_STORE.address}
+            </small>
 
-            border:
-              "none",
+            <br />
 
-            background:
-              "#ff4d4f",
+            <small>
+              Your order will be
+              prepared for pickup.
+            </small>
 
-            color:
-              "#fff",
+          </div>
+        )}
 
-            cursor:
-              "pointer",
+      </div>
 
-            fontSize:
-              "15px",
+      {/* =================================================
+          DELIVERY ADDRESS
+          HIDDEN FOR TAKEAWAY
+      ================================================= */}
 
-            fontWeight:
-              "600",
-          }}
-        >
-          {loadingLocation
-            ? "Getting Location..."
-            : "📍 Use My Current Location"}
-        </button>
+      {!isTakeaway && (
+        <div className="checkout-card">
 
-        {/* =================================================
-            OPENSTREETMAP
-        ================================================= */}
+          <h3>
+            📍 Delivery Address
+          </h3>
 
-        <div
-          style={{
-            width:
-              "100%",
+          {/* CUSTOMER */}
 
-            height:
-              "300px",
+          {customerProfile && (
+            <div className="checkout-customer-box">
 
-            marginTop:
-              "15px",
+              <div>
+                👤{" "}
+                <strong>
+                  {customerProfile.name ||
+                    "Customer"}
+                </strong>
+              </div>
 
-            borderRadius:
-              "10px",
+              <div>
+                📱{" "}
+                {customerProfile.phone}
+              </div>
 
-            overflow:
-              "hidden",
-          }}
-        >
+              {customerProfile.customerId && (
+                <div>
+                  🆔{" "}
+                  {customerProfile.customerId}
+                </div>
+              )}
 
-          <MapContainer
-            center={[
-              mapCenter.lat,
-              mapCenter.lng,
-            ]}
-            zoom={14}
-            scrollWheelZoom={true}
+            </div>
+          )}
+
+          {/* SAVED ADDRESSES */}
+
+          {savedAddresses.length >
+            0 && (
+            <div className="saved-addresses">
+
+              <strong>
+                Saved Addresses
+              </strong>
+
+              {savedAddresses.map(
+                (saved) => (
+                  <button
+                    type="button"
+                    key={
+                      saved.id ||
+                      `${saved.latitude}-${saved.longitude}-${saved.address}`
+                    }
+                    className="saved-address-btn"
+                    onClick={() => {
+                      const lat =
+                        Number(
+                          saved.latitude
+                        );
+
+                      const lng =
+                        Number(
+                          saved.longitude
+                        );
+
+                      if (
+                        !Number.isFinite(
+                          lat
+                        ) ||
+                        !Number.isFinite(
+                          lng
+                        )
+                      ) {
+                        return;
+                      }
+
+                      setAddress(
+                        saved.fullAddress ||
+                          saved.address ||
+                          ""
+                      );
+
+                      setMarker({
+                        lat,
+                        lng,
+                      });
+
+                      setMapCenter({
+                        lat,
+                        lng,
+                      });
+
+                      localStorage.setItem(
+                        "userLocation",
+                        JSON.stringify(
+                          saved
+                        )
+                      );
+                    }}
+                  >
+                    📍{" "}
+                    {saved.label ||
+                      "Address"}
+
+                    <br />
+
+                    <span>
+                      {saved.fullAddress ||
+                        saved.address}
+                    </span>
+
+                  </button>
+                )
+              )}
+
+            </div>
+          )}
+
+          {/* SEARCH ADDRESS */}
+
+          <input
+            type="text"
+            placeholder="🔍 Search your delivery address"
+            value={address}
+            onChange={(e) =>
+              setAddress(
+                e.target.value
+              )
+            }
+            style={{
+              width:
+                "100%",
+              padding:
+                "12px",
+              marginTop:
+                "5px",
+              borderRadius:
+                "10px",
+              border:
+                "1px solid #ddd",
+              boxSizing:
+                "border-box",
+              fontSize:
+                "15px",
+            }}
+          />
+
+          {/* MANUAL ADDRESS */}
+
+          <div className="manual-address-box">
+
+            <label htmlFor="manual-delivery-address">
+              Or enter address manually
+            </label>
+
+            <textarea
+              id="manual-delivery-address"
+              value={
+                manualAddress
+              }
+              onChange={(e) =>
+                setManualAddress(
+                  e.target.value
+                )
+              }
+              placeholder="House/Flat No., Area, Landmark, City, PIN"
+              rows={3}
+            />
+
+            <button
+              type="button"
+              onClick={
+                useManualAddress
+              }
+              disabled={
+                geocodingManual
+              }
+              className="manual-address-btn"
+            >
+              {geocodingManual
+                ? "Checking address..."
+                : "✓ Use This Manual Address"}
+            </button>
+
+          </div>
+
+          {/* CURRENT LOCATION */}
+
+          <button
+            type="button"
+            onClick={
+              getCurrentLocation
+            }
+            style={{
+              marginTop:
+                "10px",
+
+              width:
+                "100%",
+
+              padding:
+                "12px",
+
+              borderRadius:
+                "10px",
+
+              border:
+                "none",
+
+              background:
+                "#ff4d4f",
+
+              color:
+                "#fff",
+
+              cursor:
+                "pointer",
+
+              fontSize:
+                "15px",
+
+              fontWeight:
+                "600",
+            }}
+          >
+            {loadingLocation
+              ? "Getting Location..."
+              : "📍 Use My Current Location"}
+          </button>
+
+          {/* MAP */}
+
+          <div
             style={{
               width:
                 "100%",
 
               height:
-                "100%",
+                "300px",
+
+              marginTop:
+                "15px",
+
+              borderRadius:
+                "10px",
+
+              overflow:
+                "hidden",
             }}
-            whenCreated={
-              onMapLoad
-            }
           >
 
-            <TileLayer
-              attribution='&copy; OpenStreetMap contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-
-            <MapMover
-              position={
-                mapCenter
-              }
-            />
-
-            <Marker
-              position={[
-                marker.lat,
-                marker.lng,
+            <MapContainer
+              center={[
+                mapCenter.lat,
+                mapCenter.lng,
               ]}
-              icon={
-                locationIcon
+              zoom={14}
+              scrollWheelZoom={
+                true
               }
-              draggable={true}
-              eventHandlers={{
-                dragend:
-                  onMarkerDragEnd,
+              style={{
+                width:
+                  "100%",
+
+                height:
+                  "100%",
               }}
-            />
+              whenCreated={
+                onMapLoad
+              }
+            >
 
-          </MapContainer>
+              <TileLayer
+                attribution='&copy; OpenStreetMap contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+
+              <MapMover
+                position={
+                  mapCenter
+                }
+              />
+
+              <Marker
+                position={[
+                  marker.lat,
+                  marker.lng,
+                ]}
+                icon={
+                  locationIcon
+                }
+                draggable={
+                  true
+                }
+                eventHandlers={{
+                  dragend:
+                    onMarkerDragEnd,
+                }}
+              />
+
+            </MapContainer>
+
+          </div>
+
+          <div
+            style={{
+              marginTop:
+                "8px",
+
+              fontSize:
+                "13px",
+
+              color:
+                "#777",
+
+              textAlign:
+                "center",
+            }}
+          >
+            📍 Drag the pin to your
+            exact delivery location
+          </div>
+
+          {/* DELIVERY STATUS */}
+
+          <div
+            style={{
+              marginTop:
+                "12px",
+
+              padding:
+                "12px",
+
+              borderRadius:
+                "10px",
+
+              background:
+                deliveryAvailable
+                  ? "#f0fdf4"
+                  : "#fff1f2",
+
+              color:
+                deliveryAvailable
+                  ? "#15803d"
+                  : "#dc2626",
+
+              fontWeight:
+                "600",
+            }}
+          >
+
+            {deliveryAvailable ? (
+              <>
+                📍 Delivery available
+                <br />
+
+                Distance:{" "}
+                {distance.toFixed(
+                  1
+                )}{" "}
+                km
+
+                <br />
+
+                Delivery charge: ₹
+                {deliveryCharge}
+              </>
+            ) : (
+              <>
+                ⚠️ Delivery unavailable
+                <br />
+
+                Your location is{" "}
+                {distance.toFixed(
+                  1
+                )}{" "}
+                km away.
+
+                <br />
+
+                We deliver within{" "}
+                {
+                  MAX_DELIVERY_DISTANCE
+                }{" "}
+                km.
+              </>
+            )}
+
+          </div>
 
         </div>
+      )}
 
-        <div
-          style={{
-            marginTop:
-              "8px",
+      {/* =================================================
+          TAKEAWAY CUSTOMER INFO
+      ================================================= */}
 
-            fontSize:
-              "13px",
+      {isTakeaway &&
+        customerProfile && (
+          <div className="checkout-card">
 
-            color:
-              "#777",
+            <h3>
+              👤 Customer Details
+            </h3>
 
-            textAlign:
-              "center",
-          }}
-        >
-          📍 Drag the pin to your exact delivery location
-        </div>
+            <div className="checkout-customer-box">
 
-        {/* =================================================
-            DELIVERY STATUS
-        ================================================= */}
+              <div>
+                👤{" "}
+                <strong>
+                  {customerProfile.name ||
+                    "Customer"}
+                </strong>
+              </div>
 
-        <div
-          style={{
-            marginTop:
-              "12px",
+              <div>
+                📱{" "}
+                {customerProfile.phone}
+              </div>
 
-            padding:
-              "12px",
+              {customerProfile.customerId && (
+                <div>
+                  🆔{" "}
+                  {customerProfile.customerId}
+                </div>
+              )}
 
-            borderRadius:
-              "10px",
+            </div>
 
-            background:
-              deliveryAvailable
-                ? "#f0fdf4"
-                : "#fff1f2",
-
-            color:
-              deliveryAvailable
-                ? "#15803d"
-                : "#dc2626",
-
-            fontWeight:
-              "600",
-          }}
-        >
-
-          {deliveryAvailable ? (
-            <>
-              📍 Delivery available
-              <br />
-
-              Distance:{" "}
-              {distance.toFixed(1)} km
-
-              <br />
-
-              Delivery charge: ₹
-              {deliveryCharge}
-            </>
-          ) : (
-            <>
-              ⚠️ Delivery unavailable
-              <br />
-
-              Your location is{" "}
-              {distance.toFixed(1)} km away.
-
-              <br />
-
-              We deliver within{" "}
-              {MAX_DELIVERY_DISTANCE} km.
-            </>
-          )}
-
-        </div>
-
-      </div>
+          </div>
+        )}
 
       {/* =================================================
           SPECIAL NOTE
@@ -2183,7 +2434,9 @@ function Checkout() {
 
         <p>
           <span>
-            Delivery
+            {isTakeaway
+              ? "Pickup"
+              : "Delivery"}
           </span>
 
           <span>
@@ -2203,6 +2456,30 @@ function Checkout() {
 
         <hr />
 
+        {isTakeaway && (
+          <div
+            style={{
+              marginBottom:
+                "12px",
+              padding:
+                "10px",
+              borderRadius:
+                "8px",
+              background:
+                "#f0fdf4",
+              color:
+                "#166534",
+              fontSize:
+                "14px",
+              fontWeight:
+                "600",
+            }}
+          >
+            🛍️ Takeaway from{" "}
+            {TAKEAWAY_STORE.name}
+          </div>
+        )}
+
         <h2>
           ₹{grandTotal}
         </h2>
@@ -2213,19 +2490,26 @@ function Checkout() {
             placeOrder
           }
           disabled={
-            !store.deliveryAvailable ||
             placingOrder ||
-            !deliveryAvailable
+            (
+              !isTakeaway &&
+              (
+                !store.deliveryAvailable ||
+                !deliveryAvailable
+              )
+            )
           }
         >
 
           {placingOrder
             ? "Placing Order..."
+            : isTakeaway
+            ? "Place Takeaway Order"
             : !store.deliveryAvailable
             ? `Delivery available ${store.orderTimingLabel}`
             : !deliveryAvailable
             ? "Delivery Not Available"
-            : "Place Order"}
+            : "Place Delivery Order"}
 
         </button>
 
