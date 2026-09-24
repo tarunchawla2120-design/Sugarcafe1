@@ -197,20 +197,22 @@ function Login() {
         <div className="login-heading">
 
           <div className="login-eyebrow">
-            WELCOME BACK
+              WELCOME 
           </div>
 
           <h1>
-            Your table
-            <br />
-            is waiting.
-          </h1>
+  First Online Café
+</h1>
 
-          <p>
-            Login to view your orders,
-            track deliveries and manage
-            your Sugar Café account.
-          </p>
+<p className="login-main-tagline">
+  Delicious food now just a click away
+</p>
+
+<p>
+  Login to view your orders,
+  track deliveries and manage
+  your Sugar Café account.
+</p>
 
         </div>
 
