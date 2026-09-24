@@ -1,10 +1,15 @@
 import { useState, useRef, useEffect } from "react";
+
 import {
-  GoogleMap,
+  MapContainer,
+  TileLayer,
   Marker,
-  LoadScript,
-  Autocomplete,
-} from "@react-google-maps/api";
+  useMap,
+} from "react-leaflet";
+
+import L from "leaflet";
+
+import "leaflet/dist/leaflet.css";
 
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
@@ -25,6 +30,47 @@ import { db } from "../firebase";
 import "./Checkout.css";
 import { useStoreSettings } from "../context/StoreContext";
 
+/* =====================================================
+   LEAFLET LOCATION ICON
+===================================================== */
+
+const locationIcon = L.divIcon({
+  className: "checkout-location-pin",
+  html: `
+    <div class="checkout-pin-marker">
+      <div class="checkout-pin-dot"></div>
+    </div>
+  `,
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+});
+
+/* =====================================================
+   MAP MOVER
+===================================================== */
+
+function MapMover({ position }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!position) return;
+
+    map.setView(
+      [position.lat, position.lng],
+      16,
+      {
+        animate: true,
+      }
+    );
+  }, [position, map]);
+
+  return null;
+}
+
+/* =====================================================
+   CHECKOUT
+===================================================== */
+
 function Checkout() {
   const navigate = useNavigate();
   const store = useStoreSettings();
@@ -35,20 +81,20 @@ function Checkout() {
     clearCart,
   } = useCart();
 
-  const [address, setAddress] = useState("");
-  const [loadingLocation, setLoadingLocation] = useState(false);
-  const [placingOrder, setPlacingOrder] = useState(false);
+  const [address, setAddress] =
+    useState("");
 
-  // =====================================================
-  // SPECIAL NOTE
-  // =====================================================
+  const [loadingLocation, setLoadingLocation] =
+    useState(false);
 
-  const [specialNote, setSpecialNote] = useState("");
+  const [placingOrder, setPlacingOrder] =
+    useState(false);
+
+  const [specialNote, setSpecialNote] =
+    useState("");
 
   const [paymentMethod, setPaymentMethod] =
     useState("Cash on Delivery");
-
-  const [autocomplete, setAutocomplete] = useState(null);
 
   const [customerProfile, setCustomerProfile] =
     useState(null);
@@ -61,6 +107,10 @@ function Checkout() {
 
   const [geocodingManual, setGeocodingManual] =
     useState(false);
+
+  /* =====================================================
+     SHOP LOCATION
+  ===================================================== */
 
   const SHOP_LOCATION = {
     lat: 22.417212,
@@ -75,32 +125,44 @@ function Checkout() {
 
   const mapRef = useRef(null);
 
-  const googleApiKey =
-    import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  /* =====================================================
+     DELIVERY SETTINGS
+  ===================================================== */
 
   const MAX_DELIVERY_DISTANCE =
-    Number(store.maxDeliveryDistanceKm ?? 10);
+    Number(
+      store.maxDeliveryDistanceKm ?? 10
+    );
 
   const DELIVERY_PER_KM =
-    Number(store.deliveryPerKm ?? 20);
+    Number(
+      store.deliveryPerKm ?? 20
+    );
 
   const MIN_DELIVERY_CHARGE =
-    Number(store.minDeliveryCharge ?? 20);
+    Number(
+      store.minDeliveryCharge ?? 20
+    );
 
   const MAX_DELIVERY_CHARGE =
-    Number(store.maxDeliveryCharge ?? 300);
+    Number(
+      store.maxDeliveryCharge ?? 300
+    );
 
-  // =====================================================
-  // LOAD CUSTOMER
-  // =====================================================
+  /* =====================================================
+     LOAD CUSTOMER
+  ===================================================== */
 
   useEffect(() => {
     try {
       const savedUser =
-        localStorage.getItem("sugarCafeUser");
+        localStorage.getItem(
+          "sugarCafeUser"
+        );
 
       if (savedUser) {
-        const data = JSON.parse(savedUser);
+        const data =
+          JSON.parse(savedUser);
 
         const profile = {
           ...data,
@@ -112,16 +174,25 @@ function Checkout() {
             ) ||
             "",
 
-          name: data.name || "",
-          phone: data.phone || "",
-          email: data.email || "",
-          photoURL: data.photoURL || "",
+          name:
+            data.name || "",
 
-          addresses: Array.isArray(data.addresses)
-            ? data.addresses
-            : [],
+          phone:
+            data.phone || "",
+
+          email:
+            data.email || "",
+
+          photoURL:
+            data.photoURL || "",
+
+          addresses:
+            Array.isArray(data.addresses)
+              ? data.addresses
+              : [],
 
           guest: false,
+
           loggedIn: true,
         };
 
@@ -133,7 +204,9 @@ function Checkout() {
       }
 
       const savedLocation =
-        localStorage.getItem("userLocation");
+        localStorage.getItem(
+          "userLocation"
+        );
 
       if (savedLocation) {
         const loc =
@@ -144,8 +217,11 @@ function Checkout() {
           loc.longitude != null
         ) {
           const saved = {
-            lat: Number(loc.latitude),
-            lng: Number(loc.longitude),
+            lat:
+              Number(loc.latitude),
+
+            lng:
+              Number(loc.longitude),
           };
 
           setMarker(saved);
@@ -157,7 +233,7 @@ function Checkout() {
           ) {
             setAddress(
               loc.fullAddress ||
-              loc.address
+                loc.address
             );
           }
         }
@@ -170,9 +246,9 @@ function Checkout() {
     }
   }, []);
 
-  // =====================================================
-  // DISTANCE
-  // =====================================================
+  /* =====================================================
+     DISTANCE
+  ===================================================== */
 
   const calculateDistance = (
     lat1,
@@ -183,18 +259,22 @@ function Checkout() {
     const R = 6371;
 
     const dLat =
-      ((lat2 - lat1) * Math.PI) / 180;
+      ((lat2 - lat1) * Math.PI) /
+      180;
 
     const dLon =
-      ((lon2 - lon1) * Math.PI) / 180;
+      ((lon2 - lon1) * Math.PI) /
+      180;
 
     const a =
       Math.sin(dLat / 2) ** 2 +
       Math.cos(
-        (lat1 * Math.PI) / 180
+        (lat1 * Math.PI) /
+          180
       ) *
         Math.cos(
-          (lat2 * Math.PI) / 180
+          (lat2 * Math.PI) /
+            180
         ) *
         Math.sin(dLon / 2) ** 2;
 
@@ -217,11 +297,12 @@ function Checkout() {
     );
 
   const deliveryAvailable =
-    distance <= MAX_DELIVERY_DISTANCE;
+    distance <=
+    MAX_DELIVERY_DISTANCE;
 
-  // =====================================================
-  // DELIVERY CHARGE
-  // =====================================================
+  /* =====================================================
+     DELIVERY CHARGE
+  ===================================================== */
 
   let deliveryCharge = 0;
 
@@ -262,9 +343,186 @@ function Checkout() {
     Number(discount) +
     Number(gst);
 
-  // =====================================================
-  // CURRENT LOCATION
-  // =====================================================
+  /* =====================================================
+     REVERSE GEOCODING
+     COORDINATES → ADDRESS
+  ===================================================== */
+
+  const reverseGeocode = async (
+    latitude,
+    longitude
+  ) => {
+    try {
+      const response =
+        await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&accept-language=en`,
+          {
+            headers: {
+              Accept:
+                "application/json",
+            },
+          }
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          "Address lookup failed"
+        );
+      }
+
+      const data =
+        await response.json();
+
+      return (
+        data.display_name ||
+        `${latitude}, ${longitude}`
+      );
+    } catch (error) {
+      console.error(
+        "Reverse geocoding error:",
+        error
+      );
+
+      return `${latitude}, ${longitude}`;
+    }
+  };
+
+  /* =====================================================
+     MANUAL ADDRESS
+     ADDRESS → COORDINATES
+  ===================================================== */
+
+  const useManualAddress = async () => {
+    const value =
+      manualAddress.trim();
+
+    if (!value) {
+      alert(
+        "Please enter your complete delivery address."
+      );
+      return;
+    }
+
+    setGeocodingManual(true);
+
+    try {
+      const queryText =
+        `${value}, Korba, Chhattisgarh, India`;
+
+      const response =
+        await fetch(
+          `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(
+            queryText
+          )}&limit=5&addressdetails=1&countrycodes=in`,
+          {
+            headers: {
+              Accept:
+                "application/json",
+            },
+          }
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          "Address search failed"
+        );
+      }
+
+      const results =
+        await response.json();
+
+      if (
+        !Array.isArray(results) ||
+        results.length === 0
+      ) {
+        alert(
+          "Address nahi mila. Please House/Area/Landmark ke saath thoda complete address enter karein."
+        );
+        return;
+      }
+
+      /*
+        Prefer a result from Korba
+      */
+
+      const korbaResult =
+        results.find((item) =>
+          String(
+            item.display_name || ""
+          )
+            .toLowerCase()
+            .includes("korba")
+        ) || results[0];
+
+      const lat =
+        Number(korbaResult.lat);
+
+      const lng =
+        Number(korbaResult.lon);
+
+      if (
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lng)
+      ) {
+        throw new Error(
+          "Invalid location received"
+        );
+      }
+
+      const formatted =
+        korbaResult.display_name ||
+        value;
+
+      const newLocation = {
+        lat,
+        lng,
+      };
+
+      setMarker(newLocation);
+      setMapCenter(newLocation);
+      setAddress(formatted);
+
+      localStorage.setItem(
+        "userLocation",
+        JSON.stringify({
+          latitude: lat,
+          longitude: lng,
+          address: formatted,
+          fullAddress: formatted,
+        })
+      );
+
+      /*
+        Move map immediately
+      */
+
+      if (mapRef.current) {
+        mapRef.current.setView(
+          [lat, lng],
+          16,
+          {
+            animate: true,
+          }
+        );
+      }
+
+    } catch (error) {
+      console.error(
+        "Manual address error:",
+        error
+      );
+
+      alert(
+        "Address check nahi ho paya. Please thoda complete address enter karke dobara try karein."
+      );
+    } finally {
+      setGeocodingManual(false);
+    }
+  };
+
+  /* =====================================================
+     CURRENT LOCATION
+  ===================================================== */
 
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -289,40 +547,49 @@ function Checkout() {
             lng: longitude,
           };
 
-          setMapCenter(newLocation);
-          setMarker(newLocation);
+          setMapCenter(
+            newLocation
+          );
+
+          setMarker(
+            newLocation
+          );
+
+          const detectedAddress =
+            await reverseGeocode(
+              latitude,
+              longitude
+            );
+
+          setAddress(
+            detectedAddress
+          );
 
           localStorage.setItem(
             "userLocation",
             JSON.stringify({
               latitude,
               longitude,
+              address:
+                detectedAddress,
+              fullAddress:
+                detectedAddress,
             })
           );
 
-          try {
-            const response =
-              await fetch(
-                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-              );
-
-            const data =
-              await response.json();
-
-            setAddress(
-              data.display_name ||
-                `${latitude}, ${longitude}`
-            );
-          } catch (error) {
-            console.error(
-              "Address lookup error:",
-              error
-            );
-
-            setAddress(
-              `${latitude}, ${longitude}`
+          if (mapRef.current) {
+            mapRef.current.setView(
+              [
+                latitude,
+                longitude,
+              ],
+              16,
+              {
+                animate: true,
+              }
             );
           }
+
         } catch (error) {
           console.error(
             "Location processing error:",
@@ -381,221 +648,69 @@ function Checkout() {
     );
   };
 
-  // =====================================================
-  // MANUAL ADDRESS
-  // =====================================================
+  /* =====================================================
+     MAP LOAD
+  ===================================================== */
 
-  const useManualAddress = () => {
-    const value =
-      manualAddress.trim();
-
-    if (!value) {
-      alert(
-        "Please enter your complete delivery address."
-      );
-      return;
-    }
-
-    if (
-      !window.google?.maps?.Geocoder
-    ) {
-      alert(
-        "Address search is still loading. Please try again."
-      );
-      return;
-    }
-
-    setGeocodingManual(true);
-
-    const geocoder =
-      new window.google.maps.Geocoder();
-
-    geocoder.geocode(
-      {
-        address:
-          `${value}, Korba, Chhattisgarh, India`,
-      },
-      (results, status) => {
-        setGeocodingManual(false);
-
-        if (
-          status !== "OK" ||
-          !results?.[0]?.geometry?.location
-        ) {
-          alert(
-            "Address nahi mila. Please thoda aur complete address enter karein."
-          );
-          return;
-        }
-
-        const location =
-          results[0].geometry.location;
-
-        const lat =
-          location.lat();
-
-        const lng =
-          location.lng();
-
-        const formatted =
-          results[0].formatted_address ||
-          value;
-
-        setMarker({
-          lat,
-          lng,
-        });
-
-        setMapCenter({
-          lat,
-          lng,
-        });
-
-        setAddress(formatted);
-
-        localStorage.setItem(
-          "userLocation",
-          JSON.stringify({
-            latitude: lat,
-            longitude: lng,
-            address: formatted,
-          })
-        );
-
-        if (mapRef.current) {
-          mapRef.current.panTo({
-            lat,
-            lng,
-          });
-
-          mapRef.current.setZoom(16);
-        }
-      }
-    );
-  };
-
-  // =====================================================
-  // MAP
-  // =====================================================
-
-  const onLoad = (map) => {
+  const onMapLoad = (map) => {
     mapRef.current = map;
   };
 
-  // =====================================================
-  // MARKER DRAG
-  // =====================================================
+  /* =====================================================
+     MARKER DRAG
+  ===================================================== */
 
-  const onMarkerDragEnd = async (e) => {
+  const onMarkerDragEnd = async (
+    event
+  ) => {
+    const position =
+      event.target.getLatLng();
+
     const lat =
-      e.latLng.lat();
+      position.lat;
 
     const lng =
-      e.latLng.lng();
+      position.lng;
 
     const newLocation = {
       lat,
       lng,
     };
 
-    setMarker(newLocation);
-    setMapCenter(newLocation);
+    setMarker(
+      newLocation
+    );
+
+    setMapCenter(
+      newLocation
+    );
+
+    const newAddress =
+      await reverseGeocode(
+        lat,
+        lng
+      );
+
+    setAddress(
+      newAddress
+    );
 
     localStorage.setItem(
       "userLocation",
       JSON.stringify({
         latitude: lat,
         longitude: lng,
+        address:
+          newAddress,
+        fullAddress:
+          newAddress,
       })
     );
-
-    try {
-      const response =
-        await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
-        );
-
-      const data =
-        await response.json();
-
-      setAddress(
-        data.display_name ||
-          `${lat}, ${lng}`
-      );
-    } catch (error) {
-      console.error(
-        "Address error:",
-        error
-      );
-
-      setAddress(
-        `${lat}, ${lng}`
-      );
-    }
   };
 
-  // =====================================================
-  // GOOGLE SEARCH
-  // =====================================================
-
-  const onPlaceChanged = () => {
-    if (!autocomplete) {
-      return;
-    }
-
-    const place =
-      autocomplete.getPlace();
-
-    if (
-      !place ||
-      !place.geometry ||
-      !place.geometry.location
-    ) {
-      alert(
-        "Please select an address from the Google suggestions."
-      );
-      return;
-    }
-
-    const lat =
-      place.geometry.location.lat();
-
-    const lng =
-      place.geometry.location.lng();
-
-    const newLocation = {
-      lat,
-      lng,
-    };
-
-    const selectedAddress =
-      place.formatted_address || "";
-
-    setMarker(newLocation);
-    setMapCenter(newLocation);
-    setAddress(selectedAddress);
-
-    localStorage.setItem(
-      "userLocation",
-      JSON.stringify({
-        latitude: lat,
-        longitude: lng,
-        address: selectedAddress,
-      })
-    );
-
-    if (mapRef.current) {
-      mapRef.current.panTo(
-        newLocation
-      );
-
-      mapRef.current.setZoom(16);
-    }
-  };
-
-  // =====================================================
-  // CUSTOMER DATA
-  // =====================================================
+  /* =====================================================
+     CUSTOMER DATA
+  ===================================================== */
 
   const getCustomerData = () => {
     if (!customerProfile) {
@@ -631,9 +746,9 @@ function Checkout() {
     };
   };
 
-  // =====================================================
-  // RAZORPAY
-  // =====================================================
+  /* =====================================================
+     RAZORPAY
+  ===================================================== */
 
   const loadRazorpay = () =>
     new Promise((resolve) => {
@@ -661,19 +776,30 @@ function Checkout() {
       );
     });
 
-  // =====================================================
-  // SAVE CUSTOMER ADDRESS
-  // =====================================================
+  /* =====================================================
+     SAVE CUSTOMER ADDRESS
+  ===================================================== */
 
   const saveCustomerAddress =
     async () => {
       const selectedAddress = {
         id: `${Date.now()}`,
-        label: "Delivery Address",
-        address: address.trim(),
-        fullAddress: address.trim(),
-        latitude: Number(marker.lat),
-        longitude: Number(marker.lng),
+
+        label:
+          "Delivery Address",
+
+        address:
+          address.trim(),
+
+        fullAddress:
+          address.trim(),
+
+        latitude:
+          Number(marker.lat),
+
+        longitude:
+          Number(marker.lng),
+
         savedAt:
           new Date().toISOString(),
       };
@@ -707,11 +833,15 @@ function Checkout() {
               (item) =>
                 item.address ===
                   selectedAddress.address &&
-                Number(item.latitude) ===
+                Number(
+                  item.latitude
+                ) ===
                   Number(
                     selectedAddress.latitude
                   ) &&
-                Number(item.longitude) ===
+                Number(
+                  item.longitude
+                ) ===
                   Number(
                     selectedAddress.longitude
                   )
@@ -756,7 +886,6 @@ function Checkout() {
             updatedAddresses
           );
 
-          // Update Firebase customer
           if (customerId) {
             try {
               const customerQuery =
@@ -781,7 +910,8 @@ function Checkout() {
                 !customerSnapshot.empty
               ) {
                 const customerDoc =
-                  customerSnapshot.docs[0];
+                  customerSnapshot
+                    .docs[0];
 
                 await updateDoc(
                   doc(
@@ -801,7 +931,9 @@ function Checkout() {
                   }
                 );
               }
-            } catch (firebaseError) {
+            } catch (
+              firebaseError
+            ) {
               console.error(
                 "Firebase address update error:",
                 firebaseError
@@ -819,23 +951,21 @@ function Checkout() {
       return selectedAddress;
     };
 
-  // =====================================================
-  // SAVE ORDER
-  // =====================================================
+  /* =====================================================
+     SAVE COMPLETED ORDER
+  ===================================================== */
 
   const saveCompletedOrder =
     async (
       orderData,
       selectedAddress
     ) => {
-      // Create order in Firestore first
       const orderRef =
         await addDoc(
           collection(db, "orders"),
           orderData
         );
 
-      // Save last order details
       localStorage.setItem(
         "lastOrderId",
         orderRef.id
@@ -851,7 +981,6 @@ function Checkout() {
         orderData.paymentStatus
       );
 
-      // Keep customer profile
       const savedUser =
         localStorage.getItem(
           "sugarCafeUser"
@@ -877,17 +1006,20 @@ function Checkout() {
               ? profile.addresses
               : [];
 
-          // Prevent duplicate address
           const alreadyExists =
             existingAddresses.some(
               (item) =>
                 item.address ===
                   selectedAddress.address &&
-                Number(item.latitude) ===
+                Number(
+                  item.latitude
+                ) ===
                   Number(
                     selectedAddress.latitude
                   ) &&
-                Number(item.longitude) ===
+                Number(
+                  item.longitude
+                ) ===
                   Number(
                     selectedAddress.longitude
                   )
@@ -945,19 +1077,14 @@ function Checkout() {
         }
       }
 
-      // =================================================
-      // CLEAR CART ONLY AFTER ORDER IS SUCCESSFULLY
-      // SAVED IN FIRESTORE
-      // =================================================
-
       clearCart();
 
       return orderRef;
     };
 
-  // =====================================================
-  // API RESPONSE
-  // =====================================================
+  /* =====================================================
+     API RESPONSE
+  ===================================================== */
 
   const readApiResponse =
     async (response) => {
@@ -984,9 +1111,9 @@ function Checkout() {
       }
     };
 
-  // =====================================================
-  // ONLINE PAYMENT
-  // =====================================================
+  /* =====================================================
+     ONLINE PAYMENT
+  ===================================================== */
 
   const startOnlinePayment =
     async ({
@@ -998,7 +1125,8 @@ function Checkout() {
         await fetch(
           `${
             import.meta.env
-              .VITE_PAYMENT_API_URL || ""
+              .VITE_PAYMENT_API_URL ||
+            ""
           }/api/payment/create-order`,
           {
             method: "POST",
@@ -1073,7 +1201,9 @@ function Checkout() {
               },
 
               handler:
-                async (response) => {
+                async (
+                  response
+                ) => {
                   try {
                     const verifyResponse =
                       await fetch(
@@ -1160,12 +1290,13 @@ function Checkout() {
                 },
 
               modal: {
-                ondismiss: () =>
-                  reject(
-                    new Error(
-                      "Payment cancelled."
-                    )
-                  ),
+                ondismiss:
+                  () =>
+                    reject(
+                      new Error(
+                        "Payment cancelled."
+                      )
+                    ),
               },
             });
 
@@ -1187,9 +1318,9 @@ function Checkout() {
       );
     };
 
-  // =====================================================
-  // PLACE ORDER
-  // =====================================================
+  /* =====================================================
+     PLACE ORDER
+  ===================================================== */
 
   const placeOrder = async () => {
     if (!store.deliveryAvailable) {
@@ -1356,10 +1487,6 @@ function Checkout() {
 
         address,
 
-        // =================================================
-        // SPECIAL NOTE
-        // =================================================
-
         specialNote:
           specialNote.trim(),
 
@@ -1480,9 +1607,9 @@ function Checkout() {
     }
   };
 
-  // =====================================================
-  // PAGE
-  // =====================================================
+  /* =====================================================
+     PAGE
+  ===================================================== */
 
   return (
     <div className="checkout-page">
@@ -1609,177 +1736,239 @@ function Checkout() {
           </div>
         )}
 
-        <LoadScript
-          googleMapsApiKey={
-            googleApiKey
-          }
-          libraries={[
-            "places",
-          ]}
-        >
+        {/* =================================================
+            SEARCH ADDRESS
+        ================================================= */}
 
-          <Autocomplete
-            onLoad={(auto) =>
-              setAutocomplete(
-                auto
+        <input
+          type="text"
+          placeholder="🔍 Search your delivery address"
+          value={address}
+          onChange={(e) =>
+            setAddress(
+              e.target.value
+            )
+          }
+          style={{
+            width:
+              "100%",
+            padding:
+              "12px",
+            marginTop:
+              "5px",
+            borderRadius:
+              "10px",
+            border:
+              "1px solid #ddd",
+            boxSizing:
+              "border-box",
+            fontSize:
+              "15px",
+          }}
+        />
+
+        {/* =================================================
+            MANUAL ADDRESS
+        ================================================= */}
+
+        <div className="manual-address-box">
+
+          <label htmlFor="manual-delivery-address">
+            Or enter address manually
+          </label>
+
+          <textarea
+            id="manual-delivery-address"
+            value={
+              manualAddress
+            }
+            onChange={(e) =>
+              setManualAddress(
+                e.target.value
               )
             }
-            onPlaceChanged={
-              onPlaceChanged
-            }
-          >
-
-            <input
-              type="text"
-              placeholder="🔍 Search your delivery address"
-              value={address}
-              onChange={(e) =>
-                setAddress(
-                  e.target.value
-                )
-              }
-              style={{
-                width:
-                  "100%",
-                padding:
-                  "12px",
-                marginTop:
-                  "5px",
-                borderRadius:
-                  "10px",
-                border:
-                  "1px solid #ddd",
-                boxSizing:
-                  "border-box",
-                fontSize:
-                  "15px",
-              }}
-            />
-
-          </Autocomplete>
-
-          <div className="manual-address-box">
-
-            <label htmlFor="manual-delivery-address">
-              Or enter address manually
-            </label>
-
-            <textarea
-              id="manual-delivery-address"
-              value={
-                manualAddress
-              }
-              onChange={(e) =>
-                setManualAddress(
-                  e.target.value
-                )
-              }
-              placeholder="House/Flat No., Area, Landmark, City, PIN"
-              rows={3}
-            />
-
-            <button
-              type="button"
-              onClick={
-                useManualAddress
-              }
-              disabled={
-                geocodingManual
-              }
-              className="manual-address-btn"
-            >
-              {geocodingManual
-                ? "Checking address..."
-                : "✓ Use This Manual Address"}
-            </button>
-
-          </div>
+            placeholder="House/Flat No., Area, Landmark, City, PIN"
+            rows={3}
+          />
 
           <button
             type="button"
             onClick={
-              getCurrentLocation
+              useManualAddress
             }
-            style={{
-              marginTop:
-                "10px",
-              width:
-                "100%",
-              padding:
-                "12px",
-              borderRadius:
-                "10px",
-              border:
-                "none",
-              background:
-                "#ff4d4f",
-              color:
-                "#fff",
-              cursor:
-                "pointer",
-              fontSize:
-                "15px",
-              fontWeight:
-                "600",
-            }}
+            disabled={
+              geocodingManual
+            }
+            className="manual-address-btn"
           >
-            {loadingLocation
-              ? "Getting Location..."
-              : "📍 Use My Current Location"}
+            {geocodingManual
+              ? "Checking address..."
+              : "✓ Use This Manual Address"}
           </button>
 
-          <GoogleMap
-            mapContainerStyle={{
+        </div>
+
+        {/* =================================================
+            CURRENT LOCATION
+        ================================================= */}
+
+        <button
+          type="button"
+          onClick={
+            getCurrentLocation
+          }
+          style={{
+            marginTop:
+              "10px",
+
+            width:
+              "100%",
+
+            padding:
+              "12px",
+
+            borderRadius:
+              "10px",
+
+            border:
+              "none",
+
+            background:
+              "#ff4d4f",
+
+            color:
+              "#fff",
+
+            cursor:
+              "pointer",
+
+            fontSize:
+              "15px",
+
+            fontWeight:
+              "600",
+          }}
+        >
+          {loadingLocation
+            ? "Getting Location..."
+            : "📍 Use My Current Location"}
+        </button>
+
+        {/* =================================================
+            OPENSTREETMAP
+        ================================================= */}
+
+        <div
+          style={{
+            width:
+              "100%",
+
+            height:
+              "300px",
+
+            marginTop:
+              "15px",
+
+            borderRadius:
+              "10px",
+
+            overflow:
+              "hidden",
+          }}
+        >
+
+          <MapContainer
+            center={[
+              mapCenter.lat,
+              mapCenter.lng,
+            ]}
+            zoom={14}
+            scrollWheelZoom={true}
+            style={{
               width:
                 "100%",
+
               height:
-                "300px",
-              marginTop:
-                "15px",
-              borderRadius:
-                "10px",
+                "100%",
             }}
-            center={
-              mapCenter
-            }
-            zoom={14}
-            onLoad={
-              onLoad
+            whenCreated={
+              onMapLoad
             }
           >
 
-            <Marker
+            <TileLayer
+              attribution='&copy; OpenStreetMap contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+
+            <MapMover
               position={
-                marker
-              }
-              draggable
-              onDragEnd={
-                onMarkerDragEnd
+                mapCenter
               }
             />
 
-          </GoogleMap>
+            <Marker
+              position={[
+                marker.lat,
+                marker.lng,
+              ]}
+              icon={
+                locationIcon
+              }
+              draggable={true}
+              eventHandlers={{
+                dragend:
+                  onMarkerDragEnd,
+              }}
+            />
 
-        </LoadScript>
+          </MapContainer>
 
-        {/* DELIVERY STATUS */}
+        </div>
+
+        <div
+          style={{
+            marginTop:
+              "8px",
+
+            fontSize:
+              "13px",
+
+            color:
+              "#777",
+
+            textAlign:
+              "center",
+          }}
+        >
+          📍 Drag the pin to your exact delivery location
+        </div>
+
+        {/* =================================================
+            DELIVERY STATUS
+        ================================================= */}
 
         <div
           style={{
             marginTop:
               "12px",
+
             padding:
               "12px",
+
             borderRadius:
               "10px",
+
             background:
               deliveryAvailable
                 ? "#f0fdf4"
                 : "#fff1f2",
+
             color:
               deliveryAvailable
                 ? "#15803d"
                 : "#dc2626",
+
             fontWeight:
               "600",
           }}
@@ -1789,9 +1978,12 @@ function Checkout() {
             <>
               📍 Delivery available
               <br />
+
               Distance:{" "}
               {distance.toFixed(1)} km
+
               <br />
+
               Delivery charge: ₹
               {deliveryCharge}
             </>
@@ -1799,9 +1991,12 @@ function Checkout() {
             <>
               ⚠️ Delivery unavailable
               <br />
+
               Your location is{" "}
               {distance.toFixed(1)} km away.
+
               <br />
+
               We deliver within{" "}
               {MAX_DELIVERY_DISTANCE} km.
             </>
@@ -1839,7 +2034,9 @@ function Checkout() {
         </div>
 
         <textarea
-          value={specialNote}
+          value={
+            specialNote
+          }
           onChange={(e) =>
             setSpecialNote(
               e.target.value.slice(
@@ -1936,6 +2133,7 @@ function Checkout() {
             <small>
               UPI / Card / Net Banking via Razorpay
             </small>
+
           </span>
 
         </label>
