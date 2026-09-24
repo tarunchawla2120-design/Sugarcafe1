@@ -29,52 +29,53 @@ function MenuManager({ showModal, setShowModal }) {
   // =========================
   // DEFAULT CATEGORIES
   // =========================
-const defaultCategories = [
-  {
-    name: "Pizza",
-    image: "/categories/pizza.jpg",
-  },
-  {
-    name: "Burger",
-    image: "/categories/burger.jpg",
-  },
-  {
-    name: "Sandwich",
-    image: "/categories/sandwich.jpg",
-  },
-  {
-    name: "Wrap Roll",
-    image: "/categories/wraproll.jpg",
-  },
-  {
-    name: "Pasta",
-    image: "/categories/pasta.jpg",
-  },
-  {
-    name: "Fries",
-    image: "/categories/fries.jpg",
-  },
-  {
-    name: "Shakes",
-    image: "/categories/shakes.jpg",
-  },
-  {
-    name: "Cheese Puff",
-    image: "/categories/cheesepuff.jpg",
-  },
-  {
-    name: "Maggie",
-    image: "/categories/maggie.jpg",
-  },
-  {
-    name: "Dessert",
-    image: "/categories/dessert.jpg",
-  },
-  {
-    name: "Beverage",
-    image: "/categories/beverage.jpg",
-  },
-];
+
+  const defaultCategories = [
+    {
+      name: "Pizza",
+      image: "/categories/pizza.jpg",
+    },
+    {
+      name: "Burger",
+      image: "/categories/burger.jpg",
+    },
+    {
+      name: "Sandwich",
+      image: "/categories/sandwich.jpg",
+    },
+    {
+      name: "Wrap Roll",
+      image: "/categories/wraproll.jpg",
+    },
+    {
+      name: "Pasta",
+      image: "/categories/pasta.jpg",
+    },
+    {
+      name: "Fries",
+      image: "/categories/fries.jpg",
+    },
+    {
+      name: "Shakes",
+      image: "/categories/shakes.jpg",
+    },
+    {
+      name: "Cheese Puff",
+      image: "/categories/cheesepuff.jpg",
+    },
+    {
+      name: "Maggie",
+      image: "/categories/maggie.jpg",
+    },
+    {
+      name: "Dessert",
+      image: "/categories/dessert.jpg",
+    },
+    {
+      name: "Beverage",
+      image: "/categories/beverage.jpg",
+    },
+  ];
 
   // =========================
   // LOAD PRODUCTS
@@ -121,9 +122,15 @@ const defaultCategories = [
       for (const defaultCategory of defaultCategories) {
         const exists = existingCategories.some(
           (cat) =>
-            (cat.name || cat.category || cat.title || "")
+            (
+              cat.name ||
+              cat.category ||
+              cat.title ||
+              ""
+            )
               .toLowerCase()
-              .trim() === defaultCategory.name.toLowerCase()
+              .trim() ===
+            defaultCategory.name.toLowerCase()
         );
 
         if (!exists) {
@@ -166,7 +173,6 @@ const defaultCategories = [
       console.log("ALL CATEGORIES:", data);
 
       setCategories(data);
-
     } catch (error) {
       console.error(
         "CATEGORY LOAD ERROR:",
@@ -175,9 +181,75 @@ const defaultCategories = [
     }
   };
 
+  // =========================
+  // TOGGLE MENU AVAILABILITY
+  // =========================
+
   const toggleAvailability = async (id, available) => {
-    try { await updateDoc(doc(db,"menu",id), { available: !available, updatedAt: Timestamp.now() }); loadProducts(); }
-    catch(e){ alert("Menu availability update nahi hua"); }
+    if (!id) {
+      console.error(
+        "Availability update failed: No menu ID"
+      );
+      return;
+    }
+
+    try {
+      // Current status:
+      // true  = ON
+      // false = OFF
+      //
+      // Toggle it:
+      // ON  -> OFF
+      // OFF -> ON
+
+      const newAvailability = !available;
+
+      console.log(
+        "Updating menu availability:",
+        id,
+        "Old:",
+        available,
+        "New:",
+        newAvailability
+      );
+
+      await updateDoc(
+        doc(db, "menu", id),
+        {
+          available: newAvailability,
+          updatedAt: Timestamp.now(),
+        }
+      );
+
+      // Update UI immediately
+      setProducts((currentProducts) =>
+        currentProducts.map((product) =>
+          product.id === id
+            ? {
+                ...product,
+                available: newAvailability,
+              }
+            : product
+        )
+      );
+
+      console.log(
+        "MENU AVAILABILITY UPDATED:",
+        newAvailability
+      );
+    } catch (error) {
+      console.error(
+        "MENU AVAILABILITY UPDATE ERROR:",
+        error
+      );
+
+      alert(
+        "Menu availability update nahi hua. Please try again."
+      );
+
+      // Reload from Firestore in case update failed
+      loadProducts();
+    }
   };
 
   // =========================
@@ -210,7 +282,6 @@ const defaultCategories = [
       );
 
       loadProducts();
-
     } catch (error) {
       console.error(
         "DELETE ERROR:",
@@ -241,7 +312,6 @@ const defaultCategories = [
       }
 
       if (editingId) {
-
         await updateDoc(
           doc(db, "menu", editingId),
           {
@@ -251,15 +321,14 @@ const defaultCategories = [
             description:
               description.trim(),
             image: image,
+            updatedAt: Timestamp.now(),
           }
         );
 
         alert(
           "Menu Item Updated Successfully"
         );
-
       } else {
-
         await addDoc(
           collection(db, "menu"),
           {
@@ -269,7 +338,13 @@ const defaultCategories = [
             description:
               description.trim(),
             image: image,
+
+            // New menu items ON by default
+            available: true,
+
             createdAt:
+              Timestamp.now(),
+            updatedAt:
               Timestamp.now(),
           }
         );
@@ -290,7 +365,6 @@ const defaultCategories = [
       setShowModal(false);
 
       loadProducts();
-
     } catch (error) {
       console.error(
         "SAVE ERROR:",
@@ -312,13 +386,24 @@ const defaultCategories = [
     loadCategories();
   }, []);
 
+  // =========================
+  // UI
+  // =========================
+
   return (
     <>
       <MenuTable
         products={products}
         onDelete={deleteItem}
-        onEdit={(item) => {
 
+        // IMPORTANT:
+        // This connects the ON/OFF button
+        // inside MenuTable to Firestore.
+        onToggleAvailability={
+          toggleAvailability
+        }
+
+        onEdit={(item) => {
           setEditingId(item.id);
 
           setItemName(
@@ -347,31 +432,22 @@ const defaultCategories = [
 
       <AddMenuModal
         show={showModal}
-
         onClose={() => {
           setShowModal(false);
           setEditingId(null);
         }}
-
         onSave={saveItem}
-
         itemName={itemName}
         setItemName={setItemName}
-
         price={price}
         setPrice={setPrice}
-
         category={category}
         setCategory={setCategory}
-
         description={description}
         setDescription={setDescription}
-
         image={image}
         setImage={setImage}
-
         categories={categories}
-
         editingId={editingId}
       />
     </>
