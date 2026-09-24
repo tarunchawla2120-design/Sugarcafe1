@@ -7,11 +7,19 @@ import { useStoreSettings } from "../context/StoreContext";
 function ProductCard({ product }) {
   const { addToCart } = useCart();
   const store = useStoreSettings();
-  const available = product.available !== false && store.isOpen && store.acceptingOrders;
 
   if (!product) return null;
 
-  // Only these products will show Bestseller
+  // Product availability
+  const available =
+    product.available !== false &&
+    store.isOpen &&
+    store.acceptingOrders;
+
+  // =========================
+  // BESTSELLER PRODUCTS
+  // =========================
+
   const bestsellerItems = [
     "Exotic Cheese Pizza",
     "Cold Coffee with Ice Cream",
@@ -29,7 +37,10 @@ function ProductCard({ product }) {
       (product.name || "").trim().toLowerCase()
   );
 
-  // Different fixed ratings for different products
+  // =========================
+  // PRODUCT RATING
+  // =========================
+
   const getRating = (name = "") => {
     const ratings = [4.5, 4.6, 4.7, 4.8, 4.9];
 
@@ -42,51 +53,97 @@ function ProductCard({ product }) {
     return ratings[total % ratings.length];
   };
 
-  const rating = product.rating || getRating(product.name);
+  const rating =
+    product.rating || getRating(product.name);
+
+  // =========================
+  // UNAVAILABLE TEXT
+  // =========================
+
+  const unavailableText = !store.isOpen
+    ? "🔒 Closed"
+    : !store.acceptingOrders
+    ? "⏸ Unavailable"
+    : "⏸ Unavailable";
 
   return (
-    <div className={`product-card ${!available ? "product-unavailable" : ""}`}>
+    <div
+      className={`product-card ${
+        !available ? "product-unavailable" : ""
+      }`}
+    >
 
-      {/* Product Image */}
+      {/* =========================
+          PRODUCT IMAGE
+      ========================= */}
+
       <div className="product-image-box">
 
         <img
-          src={product.image || "/food-placeholder.jpg"}
+          src={
+            product.image ||
+            "/food-placeholder.jpg"
+          }
           alt={product.name}
           className="product-image"
         />
 
-        {/* Bestseller */}
-        {!available && <span className="product-badge">{store.isOpen ? "⏸ Unavailable" : "🔒 Closed"}</span>}
+        {/* OFF OVERLAY */}
+
+        {!available && (
+          <div className="unavailable-overlay">
+            <span className="unavailable-badge">
+              {unavailableText}
+            </span>
+          </div>
+        )}
+
+        {/* BESTSELLER */}
+
         {isBestseller && available && (
           <span className="product-badge">
             ⭐ Bestseller
           </span>
         )}
 
-        {/* Wishlist */}
-        <button className="wishlist-btn">
+        {/* WISHLIST */}
+
+        <button
+          className="wishlist-btn"
+          type="button"
+        >
           <FaHeart />
         </button>
 
       </div>
 
-      {/* Product Information */}
+      {/* =========================
+          PRODUCT INFORMATION
+      ========================= */}
+
       <div className="product-info">
 
         <div className="product-title">
 
-          <h3>{product.name}</h3>
+          <h3>
+            {product.name}
+          </h3>
 
           <div className="rating">
+
             <FaStar />
-            <span>{rating}</span>
+
+            <span>
+              {rating}
+            </span>
+
           </div>
 
         </div>
 
         <p>
-          {product.description || "Delicious and freshly prepared."}
+          {product.description ||
+            "Delicious and freshly prepared."}
         </p>
 
         <div className="product-bottom">
@@ -105,13 +162,29 @@ function ProductCard({ product }) {
 
           </div>
 
+          {/* ADD BUTTON */}
+
           <button
-            className="add-btn"
+            className={`add-btn ${
+              !available
+                ? "add-btn-disabled"
+                : ""
+            }`}
             disabled={!available}
-            onClick={() => available && addToCart(product)}
+            type="button"
+            onClick={() =>
+              available &&
+              addToCart(product)
+            }
           >
             <FaPlus />
-            <span>{available ? "Add" : "Unavailable"}</span>
+
+            <span>
+              {available
+                ? "Add"
+                : "Unavailable"}
+            </span>
+
           </button>
 
         </div>
