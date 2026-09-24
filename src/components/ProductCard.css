@@ -19,9 +19,8 @@
 
 
 /* =========================
-   IMAGE BOX - DEFAULT
-   FOR ALL PRODUCTS EXCEPT
-   SHAKES / BEVERAGES / BURGERS
+   IMAGE BOX
+   SAME SIZE FOR ALL PRODUCTS
 ========================= */
 
 .product-image-box {
@@ -44,17 +43,17 @@
 
 
 /* =========================
-   LARGE IMAGE PRODUCTS
-   FULL IMAGE / NO CROP
+   ALL PRODUCT IMAGES
+   FULL IMAGE - NO CROP
 ========================= */
 
-.product-card-large-image .product-image {
+.product-image {
   width: 100%;
   height: 100%;
 
   object-fit: contain;
 
-  padding: 0;
+  padding: 8px;
 
   display: block;
 
@@ -63,26 +62,21 @@
 
 
 /* =========================
-   SMALL IMAGE PRODUCTS
-   SHAKES / BEVERAGES / BURGERS
-   KEEP OLD SIZE
+   OVERRIDE OLD LARGE / SMALL
+   CLASSES
 ========================= */
 
+.product-card-large-image .product-image-box,
 .product-card-small-image .product-image-box {
-  height: 215px;
+  height: 285px;
 }
 
+.product-card-large-image .product-image,
 .product-card-small-image .product-image {
   width: 100%;
   height: 100%;
-
   object-fit: contain;
-
-  padding: 15px;
-
-  display: block;
-
-  transition: transform 0.4s ease;
+  padding: 8px;
 }
 
 
@@ -421,44 +415,28 @@
 
 
   /* =========================
-     LARGE PRODUCTS
-     BIGGER IMAGE
+     ALL PRODUCTS
+     SAME IMAGE SIZE
   ========================= */
 
-  .product-card-large-image
-    .product-image-box {
+  .product-image-box {
     height: 235px;
   }
 
-  .product-card-large-image
-    .product-image {
+  .product-card-large-image .product-image-box,
+  .product-card-small-image .product-image-box {
+    height: 235px;
+  }
+
+  .product-image,
+  .product-card-large-image .product-image,
+  .product-card-small-image .product-image {
     width: 100%;
     height: 100%;
 
     object-fit: contain;
 
-    padding: 0;
-  }
-
-
-  /* =========================
-     SHAKES / BEVERAGES / BURGERS
-     EXACTLY OLD SIZE
-  ========================= */
-
-  .product-card-small-image
-    .product-image-box {
-    height: 155px;
-  }
-
-  .product-card-small-image
-    .product-image {
-    width: 100%;
-    height: 100%;
-
-    object-fit: contain;
-
-    padding: 10px;
+    padding: 6px;
   }
 
 
