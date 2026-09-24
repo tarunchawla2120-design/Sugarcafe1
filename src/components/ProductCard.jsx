@@ -10,11 +10,34 @@ function ProductCard({ product }) {
 
   if (!product) return null;
 
-  // Product availability
+  // =========================
+  // PRODUCT AVAILABILITY
+  // =========================
+
   const available =
     product.available !== false &&
     store.isOpen &&
     store.acceptingOrders;
+
+  // =========================
+  // CATEGORY IMAGE SIZE
+  // SHAKES / BEVERAGES / BURGERS
+  // WILL KEEP OLD SIZE
+  // =========================
+
+  const category = String(
+    product.category || ""
+  )
+    .trim()
+    .toLowerCase();
+
+  const keepSmallImage =
+    category === "shake" ||
+    category === "shakes" ||
+    category === "beverage" ||
+    category === "beverages" ||
+    category === "burger" ||
+    category === "burgers";
 
   // =========================
   // BESTSELLER PRODUCTS
@@ -70,6 +93,10 @@ function ProductCard({ product }) {
     <div
       className={`product-card ${
         !available ? "product-unavailable" : ""
+      } ${
+        keepSmallImage
+          ? "product-card-small-image"
+          : "product-card-large-image"
       }`}
     >
 
