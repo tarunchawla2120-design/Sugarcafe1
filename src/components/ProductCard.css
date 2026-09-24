@@ -19,32 +19,79 @@
 
 
 /* =========================
-   IMAGE
+   IMAGE BOX - DEFAULT
+   FOR ALL PRODUCTS EXCEPT
+   SHAKES / BEVERAGES / BURGERS
 ========================= */
 
 .product-image-box {
   position: relative;
   width: 100%;
-  height: 215px;
+  height: 285px;
+
   background: linear-gradient(
     180deg,
     #fff8f1 0%,
     #ffffff 100%
   );
+
   overflow: hidden;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.product-image {
+
+/* =========================
+   LARGE IMAGE PRODUCTS
+   FULL IMAGE / NO CROP
+========================= */
+
+.product-card-large-image .product-image {
   width: 100%;
   height: 100%;
+
   object-fit: contain;
-  padding: 15px;
+
+  padding: 0;
+
   display: block;
+
   transition: transform 0.4s ease;
 }
 
+
+/* =========================
+   SMALL IMAGE PRODUCTS
+   SHAKES / BEVERAGES / BURGERS
+   KEEP OLD SIZE
+========================= */
+
+.product-card-small-image .product-image-box {
+  height: 215px;
+}
+
+.product-card-small-image .product-image {
+  width: 100%;
+  height: 100%;
+
+  object-fit: contain;
+
+  padding: 15px;
+
+  display: block;
+
+  transition: transform 0.4s ease;
+}
+
+
+/* =========================
+   HOVER
+========================= */
+
 .product-card:hover .product-image {
-  transform: scale(1.06);
+  transform: scale(1.03);
 }
 
 
@@ -345,12 +392,6 @@
    OFF CARD
 ========================= */
 
-/*
-   IMPORTANT:
-   Whole card opacity is NOT reduced.
-   Only the food image gets the overlay.
-*/
-
 .product-unavailable {
   opacity: 1;
 }
@@ -378,13 +419,52 @@
     border-radius: 18px;
   }
 
-  .product-image-box {
+
+  /* =========================
+     LARGE PRODUCTS
+     BIGGER IMAGE
+  ========================= */
+
+  .product-card-large-image
+    .product-image-box {
+    height: 235px;
+  }
+
+  .product-card-large-image
+    .product-image {
+    width: 100%;
+    height: 100%;
+
+    object-fit: contain;
+
+    padding: 0;
+  }
+
+
+  /* =========================
+     SHAKES / BEVERAGES / BURGERS
+     EXACTLY OLD SIZE
+  ========================= */
+
+  .product-card-small-image
+    .product-image-box {
     height: 155px;
   }
 
-  .product-image {
+  .product-card-small-image
+    .product-image {
+    width: 100%;
+    height: 100%;
+
+    object-fit: contain;
+
     padding: 10px;
   }
+
+
+  /* =========================
+     OVERLAY
+  ========================= */
 
   .unavailable-overlay {
     background: rgba(0, 0, 0, 0.30);
@@ -396,6 +476,11 @@
     font-size: 10px;
   }
 
+
+  /* =========================
+     BADGE
+  ========================= */
+
   .product-badge {
     top: 9px;
     left: 9px;
@@ -404,6 +489,11 @@
 
     font-size: 9px;
   }
+
+
+  /* =========================
+     WISHLIST
+  ========================= */
 
   .wishlist-btn {
     width: 34px;
@@ -415,6 +505,11 @@
     font-size: 14px;
   }
 
+
+  /* =========================
+     INFO
+  ========================= */
+
   .product-info {
     padding: 12px;
   }
@@ -422,6 +517,11 @@
   .product-title h3 {
     font-size: 15px;
   }
+
+
+  /* =========================
+     RATING
+  ========================= */
 
   .rating {
     padding: 4px 6px;
@@ -435,6 +535,11 @@
     font-size: 8px;
   }
 
+
+  /* =========================
+     DESCRIPTION
+  ========================= */
+
   .product-info p {
     font-size: 11.5px;
 
@@ -443,6 +548,11 @@
     height: 33px;
   }
 
+
+  /* =========================
+     PRICE
+  ========================= */
+
   .price {
     font-size: 18px;
   }
@@ -450,6 +560,11 @@
   .old-price {
     font-size: 11px;
   }
+
+
+  /* =========================
+     ADD BUTTON
+  ========================= */
 
   .add-btn {
     min-width: 62px;
