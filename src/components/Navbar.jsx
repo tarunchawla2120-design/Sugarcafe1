@@ -384,10 +384,9 @@ function Navbar() {
             <div className="order-tab-title">
               Delivery
             </div>
-
-            <div className="order-tab-subtitle">
-              30 Mins
-            </div>
+<div className="order-tab-subtitle">
+  Under 25 Mins
+</div>
           </button>
 
           {/* TAKEAWAY */}
