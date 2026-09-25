@@ -1,513 +1,553 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import "./SugarCafeRewardCard.css";
 
-const MINIMUM_ORDER_AMOUNT = 500;
+/* =========================================================
+   HELPERS
+========================================================= */
 
-// ---------------------------------------------------------
-// REWARDS
-// ---------------------------------------------------------
+function getRewardFromOrders(orders = []) {
+  const candidates = orders
+    .filter((order) => order?.loyaltyReward)
+    .sort((a, b) => {
+      const getTime = (o) => {
+        if (o?.createdAt?.toMillis) {
+          return o.createdAt.toMillis();
+        }
 
-const REWARDS = [
-  {
-    type: "free_item",
-    title: "FREE FRENCH FRIES",
-    subtitle: "Enjoy a complimentary French Fries",
-    icon: "🍟",
-  },
-  {
-    type: "free_item",
-    title: "FREE BEVERAGE",
-    subtitle: "Get one complimentary Beverage",
-    icon: "🥤",
-  },
-  {
-    type: "free_item",
-    title: "FREE DESSERT",
-    subtitle: "Enjoy a complimentary Dessert",
-    icon: "🍰",
-  },
-  {
-    type: "free_item",
-    title: "FREE CHEESE PUFF",
-    subtitle: "Get one complimentary Cheese Puff",
-    icon: "🥐",
-  },
-  {
-    type: "free_item",
-    title: "FREE SHAKE",
-    subtitle: "Enjoy a complimentary Shake",
-    icon: "🥤",
-  },
-  {
-    type: "discount",
-    title: "5% OFF",
-    subtitle: "Get 5% off on your next eligible bill",
-    icon: "🎁",
-  },
-  {
-    type: "discount",
-    title: "10% OFF",
-    subtitle: "Get 10% off on your next eligible bill",
-    icon: "🎉",
-  },
-];
+        if (o?.createdAt?.toDate) {
+          return o.createdAt.toDate().getTime();
+        }
 
-// ---------------------------------------------------------
-// HELPERS
-// ---------------------------------------------------------
+        return new Date(o?.createdAt || 0).getTime() || 0;
+      };
 
-function getOrderTime(order) {
-  if (order?.createdAt?.toMillis) {
-    return order.createdAt.toMillis();
+      return getTime(b) - getTime(a);
+    });
+
+  return candidates[0] || null;
+}
+
+function getRewardTitle(reward) {
+  if (!reward) return "Your Reward";
+
+  if (reward.type === "discount") {
+    return `${reward.discountPercent || 5}% OFF`;
   }
 
-  if (order?.createdAt?.toDate) {
-    return order.createdAt.toDate().getTime();
-  }
-
-  if (order?.createdAt) {
-    const time = new Date(order.createdAt).getTime();
-
-    if (!Number.isNaN(time)) {
-      return time;
-    }
-  }
-
-  return 0;
+  return reward.itemName
+    ? `FREE ${String(
+        reward.itemName
+      ).toUpperCase()}`
+    : "FREE ITEM";
 }
 
-function isCompletedOrder(order) {
-  const status = String(order?.status || "")
-    .toLowerCase()
-    .trim();
-
-  return (
-    status === "delivered" ||
-    status === "completed"
-  );
-}
-
-function getQualifyingAmount(order) {
-  // Food bill/subtotal is used for the ₹500 qualification.
-  // Falls back to total for older orders where subtotal is missing.
-  return Number(
-    order?.subtotal ??
-    order?.total ??
-    order?.grandTotal ??
-    order?.finalTotal ??
-    0
-  );
-}
-
-function isQualifyingOrder(order) {
-  return (
-    isCompletedOrder(order) &&
-    getQualifyingAmount(order) >= MINIMUM_ORDER_AMOUNT
-  );
-}
-
-// ---------------------------------------------------------
-// DETERMINISTIC REWARD
-// Same customer + same cycle = same reward.
-// No backend / paid messaging / Blaze required.
-// ---------------------------------------------------------
-
-function getRewardForCycle(customerId, cycleNumber) {
-  const text = `${customerId || "customer"}-${cycleNumber}`;
-
-  let hash = 0;
-
-  for (let i = 0; i < text.length; i++) {
-    hash =
-      (hash << 5) -
-      hash +
-      text.charCodeAt(i);
-
-    hash |= 0;
-  }
-
-  const index =
-    Math.abs(hash) % REWARDS.length;
-
-  return REWARDS[index];
-}
-
-// ---------------------------------------------------------
-// STORAGE
-// ---------------------------------------------------------
-
-function getClaimKey(customerId, cycleNumber) {
-  return `sugarCafeRewardClaimed:${customerId}:cycle:${cycleNumber}`;
-}
-
-function getScratchKey(customerId, cycleNumber) {
-  return `sugarCafeRewardScratch:${customerId}:cycle:${cycleNumber}`;
-}
-
-function getClaimed(customerId, cycleNumber) {
-  try {
-    return (
-      localStorage.getItem(
-        getClaimKey(customerId, cycleNumber)
-      ) === "true"
-    );
-  } catch {
-    return false;
-  }
-}
-
-function setClaimed(customerId, cycleNumber) {
-  try {
-    localStorage.setItem(
-      getClaimKey(customerId, cycleNumber),
-      "true"
-    );
-  } catch (error) {
-    console.error(
-      "Reward claim storage error:",
-      error
-    );
-  }
-}
-
-function getScratchProgress(
-  customerId,
-  cycleNumber
-) {
-  try {
-    const value = Number(
-      localStorage.getItem(
-        getScratchKey(
-          customerId,
-          cycleNumber
-        )
-      )
-    );
-
-    return Number.isFinite(value)
-      ? Math.min(Math.max(value, 0), 100)
-      : 0;
-  } catch {
-    return 0;
-  }
-}
-
-function saveScratchProgress(
-  customerId,
-  cycleNumber,
-  value
-) {
-  try {
-    localStorage.setItem(
-      getScratchKey(
-        customerId,
-        cycleNumber
-      ),
-      String(value)
-    );
-  } catch (error) {
-    console.error(
-      "Scratch progress storage error:",
-      error
-    );
-  }
-}
-
-// =========================================================
-// COMPONENT
-// =========================================================
+/* =========================================================
+   COMPONENT
+========================================================= */
 
 export default function SugarCafeRewardCard({
   orders = [],
   customerId = "",
+  activeRewardOrder = null,
+  qualifyingOrders = [],
 }) {
-  const [scratchProgress, setScratchProgress] =
-    useState(0);
+  const canvasRef = useRef(null);
+  const scratchAreaRef = useRef(null);
 
-  const [revealed, setRevealed] =
-    useState(false);
+  const isDrawingRef = useRef(false);
+  const lastPointRef = useRef(null);
 
-  const [claimed, setClaimedState] =
-    useState(false);
+  const [progress, setProgress] = useState(0);
+  const [revealed, setRevealed] = useState(false);
+  const [celebrate, setCelebrate] = useState(false);
 
-  const [showReward, setShowReward] =
-    useState(false);
+  /* =======================================================
+     FIND ACTIVE REWARD
+  ======================================================= */
 
-  // -------------------------------------------------------
-  // SORT ORDERS
-  // -------------------------------------------------------
+  const rewardOrder =
+    activeRewardOrder ||
+    getRewardFromOrders(orders);
 
-  const sortedOrders = useMemo(() => {
-    return [...orders].sort(
-      (a, b) =>
-        getOrderTime(a) -
-        getOrderTime(b)
-    );
-  }, [orders]);
+  const reward =
+    rewardOrder?.loyaltyReward || null;
 
-  // -------------------------------------------------------
-  // QUALIFYING ORDERS
-  // -------------------------------------------------------
+  const hasReward =
+    Boolean(reward && rewardOrder);
 
-  const qualifyingOrders = useMemo(() => {
-    return sortedOrders.filter(
-      isQualifyingOrder
-    );
-  }, [sortedOrders]);
+  /* =======================================================
+     QUALIFYING PROGRESS
+  ======================================================= */
 
   const qualifyingCount =
-    qualifyingOrders.length;
-
-  // -------------------------------------------------------
-  // COMPLETED 6-ORDER CYCLES
-  // -------------------------------------------------------
+    qualifyingOrders?.length ||
+    0;
 
   const completedCycles = Math.floor(
     qualifyingCount / 6
   );
 
-  // -------------------------------------------------------
-  // FIND THE CURRENT REWARD CYCLE
-  //
-  // Example:
-  //
-  // 0-5 qualifying orders = no reward
-  // 6 qualifying orders   = cycle 1 ready
-  // 7-11                  = cycle 1 reward
-  // 12 qualifying orders  = cycle 2 ready
-  // -------------------------------------------------------
-
-  const currentCycle =
-    completedCycles;
-
-  const rewardReady =
-    currentCycle > 0;
-
-  // -------------------------------------------------------
-  // CHECK WHETHER THE NEXT/7TH ORDER EXISTS
-  //
-  // We don't reveal the scratch card immediately
-  // after order #6.
-  //
-  // Once any order is placed after the 6th qualifying
-  // order, that order becomes the 7th/reward order.
-  // -------------------------------------------------------
-
-  const rewardOrderExists = useMemo(() => {
-    if (!rewardReady) {
-      return false;
-    }
-
-    const sixthOrderIndex =
-      currentCycle * 6 - 1;
-
-    const sixthQualifyingOrder =
-      qualifyingOrders[
-        sixthOrderIndex
-      ];
-
-    if (!sixthQualifyingOrder) {
-      return false;
-    }
-
-    const sixthOrderTime =
-      getOrderTime(
-        sixthQualifyingOrder
-      );
-
-    return sortedOrders.some((order) => {
-      return (
-        getOrderTime(order) >
-        sixthOrderTime
-      );
-    });
-  }, [
-    rewardReady,
-    currentCycle,
-    qualifyingOrders,
-    sortedOrders,
-  ]);
-
-  // -------------------------------------------------------
-  // LOAD CURRENT REWARD STATE
-  // -------------------------------------------------------
-
-  useEffect(() => {
-    if (!customerId || !currentCycle) {
-      setScratchProgress(0);
-      setRevealed(false);
-      setClaimedState(false);
-      return;
-    }
-
-    const isClaimed = getClaimed(
-      customerId,
-      currentCycle
-    );
-
-    const savedProgress =
-      getScratchProgress(
-        customerId,
-        currentCycle
-      );
-
-    setClaimedState(isClaimed);
-    setScratchProgress(savedProgress);
-
-    if (savedProgress >= 100) {
-      setRevealed(true);
-    } else {
-      setRevealed(false);
-    }
-  }, [
-    customerId,
-    currentCycle,
-  ]);
-
-  // -------------------------------------------------------
-  // RESET / RELOAD WHEN NEW REWARD ORDER APPEARS
-  // -------------------------------------------------------
-
-  useEffect(() => {
-    if (
-      !rewardOrderExists ||
-      !currentCycle ||
-      !customerId
-    ) {
-      return;
-    }
-
-    const isClaimed = getClaimed(
-      customerId,
-      currentCycle
-    );
-
-    if (isClaimed) {
-      setClaimedState(true);
-      return;
-    }
-
-    const progress =
-      getScratchProgress(
-        customerId,
-        currentCycle
-      );
-
-    setScratchProgress(progress);
-
-    if (progress >= 100) {
-      setRevealed(true);
-    }
-  }, [
-    rewardOrderExists,
-    currentCycle,
-    customerId,
-  ]);
-
-  // -------------------------------------------------------
-  // PROGRESS
-  // -------------------------------------------------------
-
-  const progressCount =
+  const progressInCycle =
     qualifyingCount % 6;
 
-  const displayProgress =
-    progressCount === 0
-      ? 6
-      : progressCount;
+  const ordersUntilReward =
+    progressInCycle === 0
+      ? 0
+      : 6 - progressInCycle;
 
-  const progressPercent =
-    (displayProgress / 6) * 100;
+  /* =======================================================
+     REWARD IMAGE
+  ======================================================= */
 
-  // -------------------------------------------------------
-  // REWARD
-  // -------------------------------------------------------
+  const rewardImage =
+    reward?.itemImage ||
+    reward?.image ||
+    "";
 
-  const reward = currentCycle
-    ? getRewardForCycle(
-        customerId,
-        currentCycle
-      )
-    : null;
+  const rewardItemName =
+    reward?.itemName ||
+    "Reward Item";
 
-  // -------------------------------------------------------
-  // SCRATCH
-  // -------------------------------------------------------
+  const rewardTitle =
+    getRewardTitle(reward);
 
-  const scratch = () => {
-    if (
-      !rewardOrderExists ||
-      claimed ||
-      revealed
-    ) {
-      return;
-    }
+  /* =======================================================
+     DRAW SCRATCH SURFACE
+  ======================================================= */
 
-    const nextProgress =
-      Math.min(
-        scratchProgress + 25,
-        100
+  const drawScratchSurface = () => {
+    const canvas = canvasRef.current;
+    const area = scratchAreaRef.current;
+
+    if (!canvas || !area) return;
+
+    const rect =
+      area.getBoundingClientRect();
+
+    const dpr =
+      window.devicePixelRatio || 1;
+
+    canvas.width =
+      rect.width * dpr;
+
+    canvas.height =
+      rect.height * dpr;
+
+    canvas.style.width =
+      `${rect.width}px`;
+
+    canvas.style.height =
+      `${rect.height}px`;
+
+    const ctx =
+      canvas.getContext("2d");
+
+    ctx.scale(dpr, dpr);
+
+    /* Premium metallic scratch surface */
+
+    const gradient =
+      ctx.createLinearGradient(
+        0,
+        0,
+        rect.width,
+        rect.height
       );
 
-    setScratchProgress(
-      nextProgress
+    gradient.addColorStop(
+      0,
+      "#c9c9c9"
     );
 
-    saveScratchProgress(
-      customerId,
-      currentCycle,
-      nextProgress
+    gradient.addColorStop(
+      0.25,
+      "#f1f1f1"
     );
 
-    if (nextProgress >= 100) {
-      setRevealed(true);
+    gradient.addColorStop(
+      0.5,
+      "#bdbdbd"
+    );
+
+    gradient.addColorStop(
+      0.75,
+      "#eeeeee"
+    );
+
+    gradient.addColorStop(
+      1,
+      "#b4b4b4"
+    );
+
+    ctx.fillStyle = gradient;
+
+    ctx.fillRect(
+      0,
+      0,
+      rect.width,
+      rect.height
+    );
+
+    /* Fine metallic texture */
+
+    for (
+      let i = 0;
+      i < 900;
+      i++
+    ) {
+      const x =
+        Math.random() *
+        rect.width;
+
+      const y =
+        Math.random() *
+        rect.height;
+
+      const alpha =
+        Math.random() * 0.16;
+
+      ctx.fillStyle =
+        `rgba(255,255,255,${alpha})`;
+
+      ctx.fillRect(
+        x,
+        y,
+        1,
+        1
+      );
     }
+
+    /* Premium pattern */
+
+    ctx.globalAlpha = 0.18;
+
+    ctx.fillStyle = "#ffffff";
+
+    ctx.font =
+      "bold 18px Arial";
+
+    ctx.textAlign = "center";
+
+    ctx.fillText(
+      "SUGARCAFE",
+      rect.width / 2,
+      rect.height / 2 - 15
+    );
+
+    ctx.font =
+      "bold 12px Arial";
+
+    ctx.fillText(
+      "SCRATCH TO REVEAL",
+      rect.width / 2,
+      rect.height / 2 + 12
+    );
+
+    ctx.globalAlpha = 1;
   };
 
-  // -------------------------------------------------------
-  // CLAIM / USE REWARD
-  // -------------------------------------------------------
+  /* =======================================================
+     INITIALIZE CANVAS
+  ======================================================= */
 
-  const handleClaimReward = () => {
-    if (
-      !revealed ||
-      claimed ||
-      !customerId ||
-      !currentCycle
-    ) {
+  useEffect(() => {
+    if (!hasReward || revealed) {
       return;
     }
 
-    setClaimed(
-      customerId,
-      currentCycle
+    const timer =
+      setTimeout(
+        drawScratchSurface,
+        80
+      );
+
+    window.addEventListener(
+      "resize",
+      drawScratchSurface
     );
 
-    setClaimedState(true);
-    setShowReward(false);
+    return () => {
+      clearTimeout(timer);
+
+      window.removeEventListener(
+        "resize",
+        drawScratchSurface
+      );
+    };
+  }, [
+    hasReward,
+    revealed,
+  ]);
+
+  /* =======================================================
+     SCRATCH POSITION
+  ======================================================= */
+
+  const getPoint = (event) => {
+    const canvas =
+      canvasRef.current;
+
+    if (!canvas) return null;
+
+    const rect =
+      canvas.getBoundingClientRect();
+
+    const source =
+      event.touches?.[0] ||
+      event.changedTouches?.[0] ||
+      event;
+
+    return {
+      x:
+        source.clientX -
+        rect.left,
+
+      y:
+        source.clientY -
+        rect.top,
+    };
   };
 
-  // -------------------------------------------------------
-  // NO CUSTOMER
-  // -------------------------------------------------------
+  /* =======================================================
+     SCRATCH
+  ======================================================= */
+
+  const scratchAt = (point) => {
+    const canvas =
+      canvasRef.current;
+
+    if (!canvas || !point) return;
+
+    const ctx =
+      canvas.getContext("2d");
+
+    ctx.save();
+
+    ctx.globalCompositeOperation =
+      "destination-out";
+
+    ctx.lineCap = "round";
+
+    ctx.lineJoin = "round";
+
+    ctx.lineWidth = 42;
+
+    const previous =
+      lastPointRef.current;
+
+    if (previous) {
+      ctx.beginPath();
+
+      ctx.moveTo(
+        previous.x,
+        previous.y
+      );
+
+      ctx.lineTo(
+        point.x,
+        point.y
+      );
+
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+
+      ctx.arc(
+        point.x,
+        point.y,
+        21,
+        0,
+        Math.PI * 2
+      );
+
+      ctx.fill();
+    }
+
+    ctx.restore();
+
+    lastPointRef.current =
+      point;
+
+    calculateScratchProgress();
+  };
+
+  /* =======================================================
+     CALCULATE REVEAL %
+  ======================================================= */
+
+  const calculateScratchProgress =
+    () => {
+      const canvas =
+        canvasRef.current;
+
+      if (!canvas) return;
+
+      const ctx =
+        canvas.getContext("2d");
+
+      const imageData =
+        ctx.getImageData(
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+
+      let transparent = 0;
+
+      const data =
+        imageData.data;
+
+      /*
+        Sample pixels instead of
+        checking every pixel.
+      */
+
+      const step = 16;
+
+      for (
+        let i = 3;
+        i < data.length;
+        i +=
+          4 * step
+      ) {
+        if (data[i] < 80) {
+          transparent++;
+        }
+      }
+
+      const total =
+        Math.ceil(
+          data.length /
+            (4 * step)
+        );
+
+      const percentage =
+        Math.min(
+          100,
+          Math.round(
+            (transparent /
+              total) *
+              100
+          )
+        );
+
+      setProgress(
+        percentage
+      );
+
+      if (percentage >= 58) {
+        revealReward();
+      }
+    };
+
+  /* =======================================================
+     REVEAL
+  ======================================================= */
+
+  const revealReward = () => {
+    if (revealed) return;
+
+    setRevealed(true);
+    setCelebrate(true);
+
+    if (
+      window.navigator?.vibrate
+    ) {
+      window.navigator.vibrate(
+        [30, 40, 60]
+      );
+    }
+
+    setTimeout(() => {
+      setCelebrate(false);
+    }, 2200);
+  };
+
+  /* =======================================================
+     POINTER EVENTS
+  ======================================================= */
+
+  const handlePointerDown =
+    (event) => {
+      if (revealed) return;
+
+      event.preventDefault();
+
+      isDrawingRef.current =
+        true;
+
+      lastPointRef.current =
+        null;
+
+      const point =
+        getPoint(event);
+
+      scratchAt(point);
+    };
+
+  const handlePointerMove =
+    (event) => {
+      if (
+        !isDrawingRef.current ||
+        revealed
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+
+      const point =
+        getPoint(event);
+
+      scratchAt(point);
+    };
+
+  const stopScratch = () => {
+    isDrawingRef.current =
+      false;
+
+    lastPointRef.current =
+      null;
+  };
+
+  /* =======================================================
+     NO CUSTOMER
+  ======================================================= */
 
   if (!customerId) {
     return null;
   }
 
-  // -------------------------------------------------------
-  // LESS THAN 6 ORDERS
-  // -------------------------------------------------------
+  /* =======================================================
+     ACTIVE REWARD
+  ======================================================= */
 
-  if (!rewardReady) {
+  if (hasReward) {
     return (
-      <div className="sugar-reward-card">
+      <div
+        className={`sugar-reward-card premium-reward-card ${
+          revealed
+            ? "is-revealed"
+            : ""
+        }`}
+      >
+
+        {/* ================================================
+            HEADER
+        ================================================= */}
+
         <div className="reward-card-top">
 
           <div className="reward-brand">
-            <span className="reward-brand-icon">
+
+            <div className="reward-brand-icon">
               🎁
-            </span>
+            </div>
 
             <div>
               <strong>
@@ -518,6 +558,327 @@ export default function SugarCafeRewardCard({
                 6 + 1 Loyalty Program
               </small>
             </div>
+
+          </div>
+
+          <div className="reward-cycle-badge">
+            CYCLE{" "}
+            {reward?.cycle || 1}
+          </div>
+
+        </div>
+
+        {/* ================================================
+            INTRO
+        ================================================= */}
+
+        {!revealed && (
+          <div className="scratch-intro">
+
+            <div className="scratch-sparkle">
+              ✨
+            </div>
+
+            <h2>
+              Your Reward Is Here!
+            </h2>
+
+            <p>
+              Use your finger to scratch
+              the card and reveal your
+              exclusive SugarCafe reward.
+            </p>
+
+          </div>
+        )}
+
+        {/* ================================================
+            SCRATCH AREA
+        ================================================= */}
+
+        <div
+          ref={scratchAreaRef}
+          className={`scratch-area ${
+            revealed
+              ? "scratch-revealed"
+              : ""
+          }`}
+          onPointerDown={
+            handlePointerDown
+          }
+          onPointerMove={
+            handlePointerMove
+          }
+          onPointerUp={
+            stopScratch
+          }
+          onPointerCancel={
+            stopScratch
+          }
+          onPointerLeave={
+            stopScratch
+          }
+        >
+
+          {/* ============================================
+              ACTUAL REWARD BEHIND SCRATCH
+          ============================================= */}
+
+          <div className="reward-underlay">
+
+            {rewardImage ? (
+              <img
+                src={rewardImage}
+                alt={rewardItemName}
+                className="reward-item-image"
+              />
+            ) : (
+              <div className="reward-item-placeholder">
+                🎁
+              </div>
+            )}
+
+            <div className="reward-underlay-content">
+
+              <span>
+                CONGRATULATIONS
+              </span>
+
+              <strong>
+                {rewardTitle}
+              </strong>
+
+              {reward?.type ===
+              "discount" ? (
+                <small>
+                  {reward?.discountPercent ||
+                    5}
+                  % discount reward
+                </small>
+              ) : (
+                <small>
+                  Enjoy a complimentary{" "}
+                  {rewardItemName}
+                </small>
+              )}
+
+            </div>
+
+          </div>
+
+          {/* ============================================
+              CANVAS
+          ============================================= */}
+
+          {!revealed && (
+            <canvas
+              ref={canvasRef}
+              className="scratch-canvas"
+            />
+          )}
+
+          {/* ============================================
+              CENTER INSTRUCTION
+          ============================================= */}
+
+          {!revealed && (
+            <div className="scratch-center">
+
+              <div className="scratch-hand">
+                👆
+              </div>
+
+              <strong>
+                SCRATCH HERE
+              </strong>
+
+              <small>
+                Drag your finger
+              </small>
+
+              <div className="scratch-progress-pill">
+                {progress}% revealed
+              </div>
+
+            </div>
+          )}
+
+          {/* ============================================
+              REVEALED
+          ============================================= */}
+
+          {revealed && (
+            <div className="revealed-reward">
+
+              {celebrate && (
+                <div className="reward-confetti">
+                  <span>🎉</span>
+                  <span>✨</span>
+                  <span>🎊</span>
+                  <span>⭐</span>
+                  <span>🎉</span>
+                  <span>✨</span>
+                </div>
+              )}
+
+              <div className="revealed-check">
+                ✓
+              </div>
+
+              {rewardImage && (
+                <img
+                  src={rewardImage}
+                  alt={rewardItemName}
+                  className="revealed-item-image"
+                />
+              )}
+
+              <span>
+                CONGRATULATIONS!
+              </span>
+
+              <strong>
+                {rewardTitle}
+              </strong>
+
+              {reward?.type ===
+              "discount" ? (
+                <small>
+                  Get{" "}
+                  {reward?.discountPercent ||
+                    5}
+                  % OFF
+                </small>
+              ) : (
+                <small>
+                  Your complimentary{" "}
+                  {rewardItemName} is waiting
+                </small>
+              )}
+
+            </div>
+          )}
+
+        </div>
+
+        {/* ================================================
+            HELP
+        ================================================= */}
+
+        {!revealed && (
+          <div className="scratch-help">
+
+            <span>
+              ☝️
+            </span>
+
+            <div>
+              <strong>
+                Scratch with your finger
+              </strong>
+
+              <small>
+                Reveal more than 58% to
+                unlock your reward
+              </small>
+            </div>
+
+          </div>
+        )}
+
+        {/* ================================================
+            REDEEM INFO
+        ================================================= */}
+
+        {revealed && (
+          <div className="reward-redeem-box">
+
+            <div className="redeem-icon">
+              🎁
+            </div>
+
+            <div className="redeem-text">
+
+              <strong>
+                Show this reward to
+                SugarCafe staff
+              </strong>
+
+              <span>
+                Reward: {rewardTitle}
+              </span>
+
+              {rewardOrder?.orderNumber && (
+                <small>
+                  Reward Order: #
+                  {rewardOrder.orderNumber}
+                </small>
+              )}
+
+            </div>
+
+            <div className="redeem-status">
+              {reward?.status ===
+              "redeemed"
+                ? "USED"
+                : "READY"}
+            </div>
+
+          </div>
+        )}
+
+        {/* ================================================
+            FOOTER
+        ================================================= */}
+
+        <div className="reward-card-footer">
+
+          <span>
+            🎁 6 + 1 Rewards
+          </span>
+
+          <span>
+            {reward?.status ===
+            "carried"
+              ? "Reward carried to next order"
+              : "Show at counter"}
+          </span>
+
+        </div>
+
+      </div>
+    );
+  }
+
+  /* =======================================================
+     NO ACTIVE REWARD
+  ======================================================= */
+
+  if (qualifyingCount < 6) {
+    const remaining =
+      6 - qualifyingCount;
+
+    return (
+      <div className="sugar-reward-card">
+
+        <div className="reward-card-top">
+
+          <div className="reward-brand">
+
+            <div className="reward-brand-icon">
+              🎁
+            </div>
+
+            <div>
+              <strong>
+                SugarCafe Rewards
+              </strong>
+
+              <small>
+                6 + 1 Loyalty Program
+              </small>
+            </div>
+
           </div>
 
           <div className="reward-badge">
@@ -533,198 +894,58 @@ export default function SugarCafeRewardCard({
           </div>
 
           <h2>
-            You're {6 - qualifyingCount}{" "}
-            order
-            {6 - qualifyingCount !== 1
+            {remaining}{" "}
+            qualifying order
+            {remaining !== 1
               ? "s"
               : ""}{" "}
-            away!
+            to go!
           </h2>
 
           <p>
             Complete 6 delivered orders
-            of ₹{MINIMUM_ORDER_AMOUNT}+
-            to unlock your 7th-order
-            Scratch Card.
+            of ₹500+ each to unlock
+            your 7th-order Scratch Card.
           </p>
 
           <div className="reward-progress-track">
+
             <div
               className="reward-progress-fill"
               style={{
-                width: `${progressPercent}%`,
+                width: `${
+                  (qualifyingCount /
+                    6) *
+                  100
+                }%`,
               }}
             />
+
           </div>
 
           <div className="reward-progress-text">
+
             <span>
-              {displayProgress}/6
+              {qualifyingCount}/6
             </span>
 
             <span>
-              ₹500+ per qualifying bill
+              ₹500+ per bill
             </span>
+
           </div>
 
         </div>
 
         <div className="reward-card-footer">
+
           <span>
-            🎉 Complete 6 orders
+            🎉 Keep ordering
           </span>
 
           <span>
             🎁 7th order = Scratch Card
           </span>
-        </div>
-      </div>
-    );
-  }
-
-  // -------------------------------------------------------
-  // 6 ORDERS COMPLETE BUT 7TH ORDER NOT PLACED
-  // -------------------------------------------------------
-
-  if (
-    rewardReady &&
-    !rewardOrderExists &&
-    !claimed
-  ) {
-    return (
-      <div className="sugar-reward-card reward-ready-card">
-
-        <div className="reward-card-top">
-
-          <div className="reward-brand">
-            <span className="reward-brand-icon">
-              🎁
-            </span>
-
-            <div>
-              <strong>
-                SugarCafe Rewards
-              </strong>
-
-              <small>
-                6 + 1 Loyalty Program
-              </small>
-            </div>
-          </div>
-
-          <div className="reward-ready-badge">
-            READY
-          </div>
-
-        </div>
-
-        <div className="reward-main">
-
-          <div className="reward-gift reward-gift-large">
-            🎁
-          </div>
-
-          <h2>
-            Your Scratch Card is Ready!
-          </h2>
-
-          <p>
-            You completed 6 qualifying
-            orders.
-          </p>
-
-          <div className="reward-next-order">
-            <span>
-              7
-            </span>
-
-            <div>
-              <strong>
-                Your next order unlocks
-                the Scratch Card
-              </strong>
-
-              <small>
-                Place your 7th order and
-                come back here to scratch.
-              </small>
-            </div>
-          </div>
-
-        </div>
-
-        <button
-          className="reward-order-button"
-          onClick={() => {
-            window.location.href =
-              "/menu";
-          }}
-        >
-          ORDER NOW →
-        </button>
-
-      </div>
-    );
-  }
-
-  // -------------------------------------------------------
-  // CLAIMED
-  // -------------------------------------------------------
-
-  if (claimed) {
-    return (
-      <div className="sugar-reward-card reward-claimed-card">
-
-        <div className="reward-card-top">
-
-          <div className="reward-brand">
-            <span className="reward-brand-icon">
-              ⭐
-            </span>
-
-            <div>
-              <strong>
-                SugarCafe Rewards
-              </strong>
-
-              <small>
-                Reward Redeemed
-              </small>
-            </div>
-          </div>
-
-          <div className="reward-used-badge">
-            USED
-          </div>
-
-        </div>
-
-        <div className="reward-main">
-
-          <div className="reward-success-icon">
-            ✓
-          </div>
-
-          <h2>
-            Reward Redeemed
-          </h2>
-
-          <p>
-            Your Scratch Card reward has
-            been marked as used.
-          </p>
-
-          <div className="reward-next-cycle">
-            <strong>
-              Keep ordering!
-            </strong>
-
-            <span>
-              Complete 6 more ₹500+
-              qualifying orders for
-              your next reward.
-            </span>
-          </div>
 
         </div>
 
@@ -732,19 +953,20 @@ export default function SugarCafeRewardCard({
     );
   }
 
-  // -------------------------------------------------------
-  // SCRATCH CARD
-  // -------------------------------------------------------
+  /* =======================================================
+     6 COMPLETED — WAITING FOR 7TH ORDER
+  ======================================================= */
 
   return (
-    <div className="sugar-reward-card scratch-card-wrapper">
+    <div className="sugar-reward-card reward-ready-card">
 
       <div className="reward-card-top">
 
         <div className="reward-brand">
-          <span className="reward-brand-icon">
+
+          <div className="reward-brand-icon">
             🎁
-          </span>
+          </div>
 
           <div>
             <strong>
@@ -752,160 +974,67 @@ export default function SugarCafeRewardCard({
             </strong>
 
             <small>
-              Your 7th Order Reward
+              6 + 1 Loyalty Program
             </small>
           </div>
+
         </div>
 
-        <div className="reward-live-badge">
-          LIVE
+        <div className="reward-ready-badge">
+          READY
         </div>
 
       </div>
 
-      <div className="scratch-intro">
+      <div className="reward-main">
 
-        <span className="scratch-star">
-          ✨
-        </span>
+        <div className="reward-gift reward-gift-large">
+          🎁
+        </div>
 
         <h2>
-          Scratch to Reveal!
+          Your Scratch Card Is Ready!
         </h2>
 
         <p>
-          You completed your qualifying
-          orders. Your reward is waiting.
+          You completed 6 qualifying
+          ₹500+ delivered orders.
         </p>
 
-      </div>
+        <div className="reward-next-order">
 
-      {/* ================================================
-          SCRATCH AREA
-      ================================================= */}
+          <span>
+            7
+          </span>
 
-      <button
-        type="button"
-        className={`scratch-area ${
-          revealed
-            ? "scratch-revealed"
-            : ""
-        }`}
-        onClick={scratch}
-        disabled={revealed}
-        aria-label="Scratch card"
-      >
-
-        {!revealed ? (
-          <>
-
-            <div
-              className="scratch-overlay"
-              style={{
-                opacity:
-                  Math.max(
-                    0.15,
-                    1 -
-                      scratchProgress /
-                        100
-                  ),
-              }}
-            >
-
-              <div className="scratch-pattern">
-                ✦ ✧ ✦ ✧ ✦
-                <br />
-                ✧ ✦ ✧ ✦ ✧
-                <br />
-                ✦ ✧ ✦ ✧ ✦
-              </div>
-
-              <strong>
-                TAP TO SCRATCH
-              </strong>
-
-              <small>
-                {scratchProgress}%
-                revealed
-              </small>
-
-            </div>
-
-            <div className="hidden-reward">
-              <span>
-                {reward?.icon}
-              </span>
-
-              <strong>
-                {reward?.title}
-              </strong>
-            </div>
-
-          </>
-        ) : (
-          <div className="revealed-reward">
-
-            <div className="revealed-confetti">
-              🎉
-            </div>
-
-            <div className="revealed-icon">
-              {reward?.icon}
-            </div>
-
-            <span>
-              CONGRATULATIONS!
-            </span>
+          <div>
 
             <strong>
-              {reward?.title}
+              Place your 7th order
             </strong>
 
             <small>
-              {reward?.subtitle}
+              Your Scratch Card reward
+              will appear automatically
+              after the order is placed.
             </small>
 
           </div>
-        )}
 
+        </div>
+
+      </div>
+
+      <button
+        type="button"
+        className="reward-order-button"
+        onClick={() => {
+          window.location.href =
+            "/menu";
+        }}
+      >
+        ORDER NOW →
       </button>
-
-      {/* ================================================
-          REWARD INSTRUCTION
-      ================================================= */}
-
-      {!revealed && (
-        <div className="scratch-help">
-          Tap the card 4 times to
-          reveal your reward.
-        </div>
-      )}
-
-      {revealed && (
-        <div className="reward-redeem-box">
-
-          <div>
-            <strong>
-              Show this screen at
-              SugarCafe counter
-            </strong>
-
-            <span>
-              Tell the staff that you have
-              a Scratch Card reward.
-            </span>
-          </div>
-
-          <button
-            type="button"
-            className="claim-reward-button"
-            onClick={handleClaimReward}
-          >
-            MARK AS USED
-          </button>
-
-        </div>
-      )}
 
       <div className="reward-card-footer">
 
@@ -914,7 +1043,7 @@ export default function SugarCafeRewardCard({
         </span>
 
         <span>
-          Customer ID: {customerId}
+          Next order unlocks reward
         </span>
 
       </div>
