@@ -3,38 +3,47 @@ import {
   useRef,
   useState,
 } from "react";
+
+import {
+  doc,
+  Timestamp,
+  updateDoc,
+} from "firebase/firestore";
+
+import { db } from "../firebase";
 import "./SugarCafeRewardCard.css";
 
 /* =========================================================
    HELPERS
 ========================================================= */
 
-function getRewardFromOrders(orders = []) {
-  const candidates = orders
-    .filter((order) => order?.loyaltyReward)
-    .sort((a, b) => {
-      const getTime = (o) => {
-        if (o?.createdAt?.toMillis) {
-          return o.createdAt.toMillis();
-        }
+function getTime(value) {
+  if (!value) return 0;
 
-        if (o?.createdAt?.toDate) {
-          return o.createdAt.toDate().getTime();
-        }
+  if (value?.toMillis) {
+    return value.toMillis();
+  }
 
-        return new Date(o?.createdAt || 0).getTime() || 0;
-      };
+  if (value?.toDate) {
+    return value.toDate().getTime();
+  }
 
-      return getTime(b) - getTime(a);
-    });
+  const parsed =
+    new Date(value).getTime();
 
-  return candidates[0] || null;
+  return Number.isNaN(parsed)
+    ? 0
+    : parsed;
 }
 
 function getRewardTitle(reward) {
-  if (!reward) return "Your Reward";
+  if (!reward) {
+    return "YOUR REWARD";
+  }
 
-  if (reward.type === "discount") {
+  if (
+    reward.type === "discount"
+  ) {
     return `${reward.discountPercent || 5}% OFF`;
   }
 
@@ -54,58 +63,64 @@ export default function SugarCafeRewardCard({
   customerId = "",
   activeRewardOrder = null,
   qualifyingOrders = [],
+  qualifyingCount = 0,
+  loyaltyProgress = 0,
+  loyaltyCycle = 0,
+  nextCycle = 1,
+  scratchCardUnlocked = false,
 }) {
   const canvasRef = useRef(null);
   const scratchAreaRef = useRef(null);
 
-  const isDrawingRef = useRef(false);
-  const lastPointRef = useRef(null);
+  const isDrawingRef =
+    useRef(false);
 
-  const [progress, setProgress] = useState(0);
-  const [revealed, setRevealed] = useState(false);
-  const [celebrate, setCelebrate] = useState(false);
+  const lastPointRef =
+    useRef(null);
+
+  const revealingRef =
+    useRef(false);
+
+  const [scratchProgress, setScratchProgress] =
+    useState(0);
+
+  const [revealed, setRevealed] =
+    useState(false);
+
+  const [celebrate, setCelebrate] =
+    useState(false);
+
+  const [savingReveal, setSavingReveal] =
+    useState(false);
 
   /* =======================================================
-     FIND ACTIVE REWARD
+     ACTIVE REWARD
   ======================================================= */
 
   const rewardOrder =
-    activeRewardOrder ||
-    getRewardFromOrders(orders);
+    activeRewardOrder || null;
 
   const reward =
-    rewardOrder?.loyaltyReward || null;
+    rewardOrder?.loyaltyReward ||
+    null;
 
   const hasReward =
-    Boolean(reward && rewardOrder);
+    Boolean(
+      rewardOrder &&
+      reward
+    );
+
+  const rewardStatus =
+    reward?.status || "";
 
   /* =======================================================
-     QUALIFYING PROGRESS
-  ======================================================= */
-
-  const qualifyingCount =
-    qualifyingOrders?.length ||
-    0;
-
-  const completedCycles = Math.floor(
-    qualifyingCount / 6
-  );
-
-  const progressInCycle =
-    qualifyingCount % 6;
-
-  const ordersUntilReward =
-    progressInCycle === 0
-      ? 0
-      : 6 - progressInCycle;
-
-  /* =======================================================
-     REWARD IMAGE
+     REWARD IMAGE / NAME
   ======================================================= */
 
   const rewardImage =
     reward?.itemImage ||
     reward?.image ||
+    reward?.imageUrl ||
     "";
 
   const rewardItemName =
@@ -116,153 +131,283 @@ export default function SugarCafeRewardCard({
     getRewardTitle(reward);
 
   /* =======================================================
+     EXISTING REWARD STATUS
+     
+     available = already scratched
+     scratch_pending = needs scratching
+  ======================================================= */
+
+  useEffect(() => {
+    if (
+      hasReward &&
+      rewardStatus === "available"
+    ) {
+      setRevealed(true);
+      setScratchProgress(100);
+    } else {
+      setRevealed(false);
+      setScratchProgress(0);
+    }
+
+    revealingRef.current =
+      false;
+  }, [
+    hasReward,
+    rewardStatus,
+    rewardOrder?.id,
+  ]);
+
+  /* =======================================================
      DRAW SCRATCH SURFACE
   ======================================================= */
 
-  const drawScratchSurface = () => {
-    const canvas = canvasRef.current;
-    const area = scratchAreaRef.current;
+  const drawScratchSurface =
+    () => {
+      const canvas =
+        canvasRef.current;
 
-    if (!canvas || !area) return;
+      const area =
+        scratchAreaRef.current;
 
-    const rect =
-      area.getBoundingClientRect();
+      if (
+        !canvas ||
+        !area ||
+        revealed
+      ) {
+        return;
+      }
 
-    const dpr =
-      window.devicePixelRatio || 1;
+      const rect =
+        area.getBoundingClientRect();
 
-    canvas.width =
-      rect.width * dpr;
+      if (
+        rect.width <= 0 ||
+        rect.height <= 0
+      ) {
+        return;
+      }
 
-    canvas.height =
-      rect.height * dpr;
+      const dpr =
+        window.devicePixelRatio || 1;
 
-    canvas.style.width =
-      `${rect.width}px`;
+      canvas.width =
+        Math.floor(
+          rect.width * dpr
+        );
 
-    canvas.style.height =
-      `${rect.height}px`;
+      canvas.height =
+        Math.floor(
+          rect.height * dpr
+        );
 
-    const ctx =
-      canvas.getContext("2d");
+      canvas.style.width =
+        `${rect.width}px`;
 
-    ctx.scale(dpr, dpr);
+      canvas.style.height =
+        `${rect.height}px`;
 
-    /* Premium metallic scratch surface */
+      const ctx =
+        canvas.getContext("2d");
 
-    const gradient =
-      ctx.createLinearGradient(
+      if (!ctx) return;
+
+      /*
+        IMPORTANT:
+        Reset transform before scaling.
+        This prevents the canvas from
+        becoming blurry after resize.
+      */
+
+      ctx.setTransform(
+        dpr,
+        0,
+        0,
+        dpr,
+        0,
+        0
+      );
+
+      /* ===================================================
+         METALLIC BASE
+      =================================================== */
+
+      const gradient =
+        ctx.createLinearGradient(
+          0,
+          0,
+          rect.width,
+          rect.height
+        );
+
+      gradient.addColorStop(
+        0,
+        "#b8b8b8"
+      );
+
+      gradient.addColorStop(
+        0.18,
+        "#eeeeee"
+      );
+
+      gradient.addColorStop(
+        0.38,
+        "#c5c5c5"
+      );
+
+      gradient.addColorStop(
+        0.52,
+        "#f6f6f6"
+      );
+
+      gradient.addColorStop(
+        0.72,
+        "#bcbcbc"
+      );
+
+      gradient.addColorStop(
+        1,
+        "#dedede"
+      );
+
+      ctx.globalCompositeOperation =
+        "source-over";
+
+      ctx.globalAlpha = 1;
+
+      ctx.fillStyle =
+        gradient;
+
+      ctx.fillRect(
         0,
         0,
         rect.width,
         rect.height
       );
 
-    gradient.addColorStop(
-      0,
-      "#c9c9c9"
-    );
+      /* ===================================================
+         METALLIC TEXTURE
+      =================================================== */
 
-    gradient.addColorStop(
-      0.25,
-      "#f1f1f1"
-    );
+      for (
+        let i = 0;
+        i < 1200;
+        i++
+      ) {
+        const x =
+          Math.random() *
+          rect.width;
 
-    gradient.addColorStop(
-      0.5,
-      "#bdbdbd"
-    );
+        const y =
+          Math.random() *
+          rect.height;
 
-    gradient.addColorStop(
-      0.75,
-      "#eeeeee"
-    );
+        const alpha =
+          Math.random() * 0.12;
 
-    gradient.addColorStop(
-      1,
-      "#b4b4b4"
-    );
+        ctx.fillStyle =
+          `rgba(255,255,255,${alpha})`;
 
-    ctx.fillStyle = gradient;
+        ctx.fillRect(
+          x,
+          y,
+          1,
+          1
+        );
+      }
 
-    ctx.fillRect(
-      0,
-      0,
-      rect.width,
-      rect.height
-    );
+      /* ===================================================
+         DIAGONAL PATTERN
+      =================================================== */
 
-    /* Fine metallic texture */
+      ctx.save();
 
-    for (
-      let i = 0;
-      i < 900;
-      i++
-    ) {
-      const x =
-        Math.random() *
-        rect.width;
+      ctx.globalAlpha =
+        0.08;
 
-      const y =
-        Math.random() *
-        rect.height;
+      ctx.strokeStyle =
+        "#ffffff";
 
-      const alpha =
-        Math.random() * 0.16;
+      ctx.lineWidth = 1;
+
+      for (
+        let x = -rect.height;
+        x < rect.width;
+        x += 18
+      ) {
+        ctx.beginPath();
+
+        ctx.moveTo(
+          x,
+          0
+        );
+
+        ctx.lineTo(
+          x + rect.height,
+          rect.height
+        );
+
+        ctx.stroke();
+      }
+
+      ctx.restore();
+
+      /* ===================================================
+         CENTER TEXT
+      =================================================== */
+
+      ctx.save();
+
+      ctx.globalAlpha =
+        0.25;
 
       ctx.fillStyle =
-        `rgba(255,255,255,${alpha})`;
+        "#ffffff";
 
-      ctx.fillRect(
-        x,
-        y,
-        1,
-        1
+      ctx.textAlign =
+        "center";
+
+      ctx.textBaseline =
+        "middle";
+
+      ctx.font =
+        "900 18px Arial";
+
+      ctx.fillText(
+        "SUGARCAFE",
+        rect.width / 2,
+        rect.height / 2 - 18
       );
-    }
 
-    /* Premium pattern */
+      ctx.font =
+        "700 12px Arial";
 
-    ctx.globalAlpha = 0.18;
+      ctx.fillText(
+        "SCRATCH TO REVEAL",
+        rect.width / 2,
+        rect.height / 2 + 10
+      );
 
-    ctx.fillStyle = "#ffffff";
-
-    ctx.font =
-      "bold 18px Arial";
-
-    ctx.textAlign = "center";
-
-    ctx.fillText(
-      "SUGARCAFE",
-      rect.width / 2,
-      rect.height / 2 - 15
-    );
-
-    ctx.font =
-      "bold 12px Arial";
-
-    ctx.fillText(
-      "SCRATCH TO REVEAL",
-      rect.width / 2,
-      rect.height / 2 + 12
-    );
-
-    ctx.globalAlpha = 1;
-  };
+      ctx.restore();
+    };
 
   /* =======================================================
      INITIALIZE CANVAS
   ======================================================= */
 
   useEffect(() => {
-    if (!hasReward || revealed) {
+    if (
+      !hasReward ||
+      rewardStatus !==
+        "scratch_pending" ||
+      revealed
+    ) {
       return;
     }
 
     const timer =
       setTimeout(
         drawScratchSurface,
-        80
+        100
       );
 
     window.addEventListener(
@@ -280,103 +425,40 @@ export default function SugarCafeRewardCard({
     };
   }, [
     hasReward,
+    rewardStatus,
     revealed,
   ]);
 
   /* =======================================================
-     SCRATCH POSITION
+     GET POINTER POSITION
   ======================================================= */
 
-  const getPoint = (event) => {
+  const getPoint = (
+    event
+  ) => {
     const canvas =
       canvasRef.current;
 
-    if (!canvas) return null;
+    if (!canvas) {
+      return null;
+    }
 
     const rect =
       canvas.getBoundingClientRect();
 
-    const source =
-      event.touches?.[0] ||
-      event.changedTouches?.[0] ||
-      event;
-
     return {
       x:
-        source.clientX -
+        event.clientX -
         rect.left,
 
       y:
-        source.clientY -
+        event.clientY -
         rect.top,
     };
   };
 
   /* =======================================================
-     SCRATCH
-  ======================================================= */
-
-  const scratchAt = (point) => {
-    const canvas =
-      canvasRef.current;
-
-    if (!canvas || !point) return;
-
-    const ctx =
-      canvas.getContext("2d");
-
-    ctx.save();
-
-    ctx.globalCompositeOperation =
-      "destination-out";
-
-    ctx.lineCap = "round";
-
-    ctx.lineJoin = "round";
-
-    ctx.lineWidth = 42;
-
-    const previous =
-      lastPointRef.current;
-
-    if (previous) {
-      ctx.beginPath();
-
-      ctx.moveTo(
-        previous.x,
-        previous.y
-      );
-
-      ctx.lineTo(
-        point.x,
-        point.y
-      );
-
-      ctx.stroke();
-    } else {
-      ctx.beginPath();
-
-      ctx.arc(
-        point.x,
-        point.y,
-        21,
-        0,
-        Math.PI * 2
-      );
-
-      ctx.fill();
-    }
-
-    ctx.restore();
-
-    lastPointRef.current =
-      point;
-
-    calculateScratchProgress();
-  };
-
-  /* =======================================================
-     CALCULATE REVEAL %
+     CALCULATE SCRATCH %
   ======================================================= */
 
   const calculateScratchProgress =
@@ -384,27 +466,53 @@ export default function SugarCafeRewardCard({
       const canvas =
         canvasRef.current;
 
-      if (!canvas) return;
+      if (!canvas) {
+        return;
+      }
 
       const ctx =
         canvas.getContext("2d");
+
+      if (!ctx) {
+        return;
+      }
+
+      /*
+        Sample the alpha channel.
+      */
+
+      const width =
+        canvas.width;
+
+      const height =
+        canvas.height;
+
+      if (
+        width <= 0 ||
+        height <= 0
+      ) {
+        return;
+      }
 
       const imageData =
         ctx.getImageData(
           0,
           0,
-          canvas.width,
-          canvas.height
+          width,
+          height
         );
-
-      let transparent = 0;
 
       const data =
         imageData.data;
 
+      let transparent =
+        0;
+
+      let sampled =
+        0;
+
       /*
-        Sample pixels instead of
-        checking every pixel.
+        Sample every 16th pixel.
       */
 
       const step = 16;
@@ -415,68 +523,256 @@ export default function SugarCafeRewardCard({
         i +=
           4 * step
       ) {
-        if (data[i] < 80) {
+        sampled++;
+
+        if (
+          data[i] < 80
+        ) {
           transparent++;
         }
       }
 
-      const total =
-        Math.ceil(
-          data.length /
-            (4 * step)
-        );
+      if (
+        sampled <= 0
+      ) {
+        return;
+      }
 
       const percentage =
         Math.min(
           100,
           Math.round(
             (transparent /
-              total) *
+              sampled) *
               100
           )
         );
 
-      setProgress(
+      setScratchProgress(
         percentage
       );
 
-      if (percentage >= 58) {
+      /*
+        58% scratch completed.
+      */
+
+      if (
+        percentage >= 58
+      ) {
         revealReward();
       }
     };
 
   /* =======================================================
-     REVEAL
+     SAVE REVEAL TO FIRESTORE
   ======================================================= */
 
-  const revealReward = () => {
-    if (revealed) return;
+  const revealReward =
+    async () => {
+      if (
+        revealingRef.current ||
+        revealed ||
+        !rewardOrder?.id ||
+        rewardStatus !==
+          "scratch_pending"
+      ) {
+        return;
+      }
 
-    setRevealed(true);
-    setCelebrate(true);
+      revealingRef.current =
+        true;
 
-    if (
-      window.navigator?.vibrate
-    ) {
-      window.navigator.vibrate(
-        [30, 40, 60]
-      );
-    }
+      setSavingReveal(true);
 
-    setTimeout(() => {
-      setCelebrate(false);
-    }, 2200);
-  };
+      try {
+        /*
+          IMPORTANT:
+          Only change the reward state.
+
+          We DO NOT:
+          - redeem the reward
+          - apply the reward
+          - modify the order total
+        */
+
+        await updateDoc(
+          doc(
+            db,
+            "orders",
+            rewardOrder.id
+          ),
+          {
+            "loyaltyReward.status":
+              "available",
+
+            "loyaltyReward.scratchPending":
+              false,
+
+            "loyaltyReward.scratchRevealed":
+              true,
+
+            "loyaltyReward.revealedAt":
+              Timestamp.now(),
+          }
+        );
+
+        setScratchProgress(
+          100
+        );
+
+        setRevealed(true);
+
+        setCelebrate(true);
+
+        if (
+          window.navigator?.vibrate
+        ) {
+          window.navigator.vibrate(
+            [30, 40, 60]
+          );
+        }
+
+        setTimeout(() => {
+          setCelebrate(false);
+        }, 2200);
+      } catch (error) {
+        console.error(
+          "Scratch reward reveal failed:",
+          error
+        );
+
+        revealingRef.current =
+          false;
+
+        /*
+          If Firestore fails,
+          don't tell customer that
+          reward was successfully saved.
+        */
+
+        alert(
+          "Reward reveal save nahi ho paya. Please try scratching again."
+        );
+      } finally {
+        setSavingReveal(false);
+      }
+    };
 
   /* =======================================================
-     POINTER EVENTS
+     SCRATCH
+  ======================================================= */
+
+  const scratchAt =
+    (point) => {
+      if (
+        !point ||
+        revealed ||
+        savingReveal ||
+        rewardStatus !==
+          "scratch_pending"
+      ) {
+        return;
+      }
+
+      const canvas =
+        canvasRef.current;
+
+      if (!canvas) {
+        return;
+      }
+
+      const ctx =
+        canvas.getContext("2d");
+
+      if (!ctx) {
+        return;
+      }
+
+      ctx.save();
+
+      ctx.globalCompositeOperation =
+        "destination-out";
+
+      ctx.lineCap =
+        "round";
+
+      ctx.lineJoin =
+        "round";
+
+      ctx.lineWidth =
+        44;
+
+      const previous =
+        lastPointRef.current;
+
+      if (previous) {
+        ctx.beginPath();
+
+        ctx.moveTo(
+          previous.x,
+          previous.y
+        );
+
+        ctx.lineTo(
+          point.x,
+          point.y
+        );
+
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+
+        ctx.arc(
+          point.x,
+          point.y,
+          22,
+          0,
+          Math.PI * 2
+        );
+
+        ctx.fill();
+      }
+
+      ctx.restore();
+
+      lastPointRef.current =
+        point;
+
+      calculateScratchProgress();
+    };
+
+  /* =======================================================
+     POINTER DOWN
   ======================================================= */
 
   const handlePointerDown =
     (event) => {
-      if (revealed) return;
+      if (
+        revealed ||
+        savingReveal ||
+        rewardStatus !==
+          "scratch_pending"
+      ) {
+        return;
+      }
 
       event.preventDefault();
+
+      /*
+        Allows smooth mobile scratching.
+      */
+
+      if (
+        event.currentTarget?.setPointerCapture
+      ) {
+        try {
+          event.currentTarget.setPointerCapture(
+            event.pointerId
+          );
+        } catch {
+          // ignore
+        }
+      }
 
       isDrawingRef.current =
         true;
@@ -490,11 +786,16 @@ export default function SugarCafeRewardCard({
       scratchAt(point);
     };
 
+  /* =======================================================
+     POINTER MOVE
+  ======================================================= */
+
   const handlePointerMove =
     (event) => {
       if (
         !isDrawingRef.current ||
-        revealed
+        revealed ||
+        savingReveal
       ) {
         return;
       }
@@ -507,13 +808,31 @@ export default function SugarCafeRewardCard({
       scratchAt(point);
     };
 
-  const stopScratch = () => {
-    isDrawingRef.current =
-      false;
+  /* =======================================================
+     STOP SCRATCH
+  ======================================================= */
 
-    lastPointRef.current =
-      null;
-  };
+  const stopScratch =
+    (event) => {
+      isDrawingRef.current =
+        false;
+
+      lastPointRef.current =
+        null;
+
+      if (
+        event?.currentTarget
+          ?.releasePointerCapture
+      ) {
+        try {
+          event.currentTarget.releasePointerCapture(
+            event.pointerId
+          );
+        } catch {
+          // ignore
+        }
+      }
+    };
 
   /* =======================================================
      NO CUSTOMER
@@ -524,20 +843,46 @@ export default function SugarCafeRewardCard({
   }
 
   /* =======================================================
-     ACTIVE REWARD
+     ACTIVE SCRATCH CARD
   ======================================================= */
 
   if (hasReward) {
+    /*
+      IMPORTANT:
+      A reward that is already applied should
+      never appear as an active scratch card.
+
+      Orders.jsx already filters this,
+      but this extra protection is intentional.
+    */
+
+    if (
+      rewardStatus !==
+        "scratch_pending" &&
+      rewardStatus !==
+        "available"
+    ) {
+      return null;
+    }
+
+    const isAlreadyRevealed =
+      rewardStatus ===
+      "available";
+
+    const showRevealed =
+      revealed ||
+      isAlreadyRevealed;
+
     return (
       <div
         className={`sugar-reward-card premium-reward-card ${
-          revealed
+          showRevealed
             ? "is-revealed"
             : ""
         }`}
       >
 
-        {/* ================================================
+        {/* =================================================
             HEADER
         ================================================= */}
 
@@ -568,11 +913,11 @@ export default function SugarCafeRewardCard({
 
         </div>
 
-        {/* ================================================
-            INTRO
+        {/* =================================================
+            SCRATCH INTRO
         ================================================= */}
 
-        {!revealed && (
+        {!showRevealed && (
           <div className="scratch-intro">
 
             <div className="scratch-sparkle">
@@ -580,26 +925,25 @@ export default function SugarCafeRewardCard({
             </div>
 
             <h2>
-              Your Reward Is Here!
+              Your Scratch Card Is Here!
             </h2>
 
             <p>
-              Use your finger to scratch
-              the card and reveal your
-              exclusive SugarCafe reward.
+              Scratch the card below
+              to reveal your reward.
             </p>
 
           </div>
         )}
 
-        {/* ================================================
+        {/* =================================================
             SCRATCH AREA
         ================================================= */}
 
         <div
           ref={scratchAreaRef}
           className={`scratch-area ${
-            revealed
+            showRevealed
               ? "scratch-revealed"
               : ""
           }`}
@@ -618,11 +962,18 @@ export default function SugarCafeRewardCard({
           onPointerLeave={
             stopScratch
           }
+          style={{
+            touchAction:
+              "none",
+          }}
         >
 
-          {/* ============================================
-              ACTUAL REWARD BEHIND SCRATCH
-          ============================================= */}
+          {/* =============================================
+              REWARD UNDERLAY
+
+              Actual reward remains hidden beneath
+              the scratch layer.
+          ============================================== */}
 
           <div className="reward-underlay">
 
@@ -651,13 +1002,15 @@ export default function SugarCafeRewardCard({
               {reward?.type ===
               "discount" ? (
                 <small>
-                  {reward?.discountPercent ||
-                    5}
+                  {
+                    reward?.discountPercent ||
+                    5
+                  }
                   % discount reward
                 </small>
               ) : (
                 <small>
-                  Enjoy a complimentary{" "}
+                  Enjoy your complimentary{" "}
                   {rewardItemName}
                 </small>
               )}
@@ -666,22 +1019,22 @@ export default function SugarCafeRewardCard({
 
           </div>
 
-          {/* ============================================
+          {/* =============================================
               CANVAS
-          ============================================= */}
+          ============================================== */}
 
-          {!revealed && (
+          {!showRevealed && (
             <canvas
               ref={canvasRef}
               className="scratch-canvas"
             />
           )}
 
-          {/* ============================================
-              CENTER INSTRUCTION
-          ============================================= */}
+          {/* =============================================
+              SCRATCH INSTRUCTION
+          ============================================== */}
 
-          {!revealed && (
+          {!showRevealed && (
             <div className="scratch-center">
 
               <div className="scratch-hand">
@@ -697,27 +1050,31 @@ export default function SugarCafeRewardCard({
               </small>
 
               <div className="scratch-progress-pill">
-                {progress}% revealed
+                {scratchProgress}%
+                {" "}
+                revealed
               </div>
 
             </div>
           )}
 
-          {/* ============================================
-              REVEALED
-          ============================================= */}
+          {/* =============================================
+              REVEALED REWARD
+          ============================================== */}
 
-          {revealed && (
+          {showRevealed && (
             <div className="revealed-reward">
 
               {celebrate && (
                 <div className="reward-confetti">
+
                   <span>🎉</span>
                   <span>✨</span>
                   <span>🎊</span>
                   <span>⭐</span>
                   <span>🎉</span>
                   <span>✨</span>
+
                 </div>
               )}
 
@@ -745,14 +1102,17 @@ export default function SugarCafeRewardCard({
               "discount" ? (
                 <small>
                   Get{" "}
-                  {reward?.discountPercent ||
-                    5}
-                  % OFF
+                  {
+                    reward?.discountPercent ||
+                    5
+                  }
+                  % OFF on your next order
                 </small>
               ) : (
                 <small>
                   Your complimentary{" "}
-                  {rewardItemName} is waiting
+                  {rewardItemName} is saved
+                  for your next order.
                 </small>
               )}
 
@@ -761,11 +1121,29 @@ export default function SugarCafeRewardCard({
 
         </div>
 
-        {/* ================================================
+        {/* =================================================
+            SAVING
+        ================================================= */}
+
+        {savingReveal && (
+          <div className="scratch-saving">
+
+            <span className="scratch-saving-spinner">
+              ⏳
+            </span>
+
+            <span>
+              Saving your reward...
+            </span>
+
+          </div>
+        )}
+
+        {/* =================================================
             HELP
         ================================================= */}
 
-        {!revealed && (
+        {!showRevealed && (
           <div className="scratch-help">
 
             <span>
@@ -773,24 +1151,26 @@ export default function SugarCafeRewardCard({
             </span>
 
             <div>
+
               <strong>
                 Scratch with your finger
               </strong>
 
               <small>
-                Reveal more than 58% to
+                Reveal 58% or more to
                 unlock your reward
               </small>
+
             </div>
 
           </div>
         )}
 
-        {/* ================================================
-            REDEEM INFO
+        {/* =================================================
+            REVEALED / NEXT ORDER INFO
         ================================================= */}
 
-        {revealed && (
+        {showRevealed && (
           <div className="reward-redeem-box">
 
             <div className="redeem-icon">
@@ -800,8 +1180,7 @@ export default function SugarCafeRewardCard({
             <div className="redeem-text">
 
               <strong>
-                Show this reward to
-                SugarCafe staff
+                Reward saved for your next order
               </strong>
 
               <span>
@@ -810,7 +1189,7 @@ export default function SugarCafeRewardCard({
 
               {rewardOrder?.orderNumber && (
                 <small>
-                  Reward Order: #
+                  Reward Card: #
                   {rewardOrder.orderNumber}
                 </small>
               )}
@@ -818,16 +1197,13 @@ export default function SugarCafeRewardCard({
             </div>
 
             <div className="redeem-status">
-              {reward?.status ===
-              "redeemed"
-                ? "USED"
-                : "READY"}
+              READY
             </div>
 
           </div>
         )}
 
-        {/* ================================================
+        {/* =================================================
             FOOTER
         ================================================= */}
 
@@ -838,10 +1214,9 @@ export default function SugarCafeRewardCard({
           </span>
 
           <span>
-            {reward?.status ===
-            "carried"
-              ? "Reward carried to next order"
-              : "Show at counter"}
+            {showRevealed
+              ? "Use on your next order"
+              : "Scratch to reveal"}
           </span>
 
         </div>
@@ -852,12 +1227,34 @@ export default function SugarCafeRewardCard({
 
   /* =======================================================
      NO ACTIVE REWARD
+     
+     Show current progress.
   ======================================================= */
 
-  if (qualifyingCount < 6) {
-    const remaining =
-      6 - qualifyingCount;
+  const currentProgress =
+    Math.max(
+      0,
+      Math.min(
+        Number.isFinite(
+          Number(loyaltyProgress)
+        )
+          ? Number(loyaltyProgress)
+          : 0,
+        6
+      )
+    );
 
+  const remaining =
+    Math.max(
+      0,
+      6 - currentProgress
+    );
+
+  /* =======================================================
+     WAITING FOR 6 QUALIFYING ORDERS
+  ======================================================= */
+
+  if (currentProgress < 6) {
     return (
       <div className="sugar-reward-card">
 
@@ -870,6 +1267,7 @@ export default function SugarCafeRewardCard({
             </div>
 
             <div>
+
               <strong>
                 SugarCafe Rewards
               </strong>
@@ -877,12 +1275,13 @@ export default function SugarCafeRewardCard({
               <small>
                 6 + 1 Loyalty Program
               </small>
+
             </div>
 
           </div>
 
           <div className="reward-badge">
-            {qualifyingCount}/6
+            {currentProgress}/6
           </div>
 
         </div>
@@ -914,7 +1313,7 @@ export default function SugarCafeRewardCard({
               className="reward-progress-fill"
               style={{
                 width: `${
-                  (qualifyingCount /
+                  (currentProgress /
                     6) *
                   100
                 }%`,
@@ -926,7 +1325,7 @@ export default function SugarCafeRewardCard({
           <div className="reward-progress-text">
 
             <span>
-              {qualifyingCount}/6
+              {currentProgress}/6
             </span>
 
             <span>
@@ -954,7 +1353,10 @@ export default function SugarCafeRewardCard({
   }
 
   /* =======================================================
-     6 COMPLETED — WAITING FOR 7TH ORDER
+     6/6 COMPLETE
+     
+     No scratch card source order yet.
+     Tell customer to place next order.
   ======================================================= */
 
   return (
@@ -969,6 +1371,7 @@ export default function SugarCafeRewardCard({
           </div>
 
           <div>
+
             <strong>
               SugarCafe Rewards
             </strong>
@@ -976,6 +1379,7 @@ export default function SugarCafeRewardCard({
             <small>
               6 + 1 Loyalty Program
             </small>
+
           </div>
 
         </div>
@@ -1014,9 +1418,10 @@ export default function SugarCafeRewardCard({
             </strong>
 
             <small>
-              Your Scratch Card reward
-              will appear automatically
-              after the order is placed.
+              This order will unlock your
+              Scratch Card. The reward will
+              be available for your next
+              order after scratching.
             </small>
 
           </div>
