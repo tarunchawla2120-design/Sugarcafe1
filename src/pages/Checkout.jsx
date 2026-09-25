@@ -25,27 +25,12 @@ import {
 } from "firebase/firestore";
 
 import { db } from "../firebase";
-
 import "./Checkout.css";
 import { useStoreSettings } from "../context/StoreContext";
 
-/* =====================================================
-   SUGAR CAFE LOYALTY
-   6 + 1 DIGITAL SCRATCH CARD
-
-   RULE:
-   1-6 qualifying delivered orders
-   =
-   NEXT ORDER (7th) unlocks scratch card.
-
-   Reward is NOT applied to 7th order.
-
-   Customer scratches after 7th order.
-
-   Revealed reward is applied to NEXT order.
-
-   Then cycle starts again.
-===================================================== */
+/* =========================================================
+   SUGARCAFE 6 + 1 LOYALTY
+========================================================= */
 
 const LOYALTY_MIN_BILL = 500;
 
@@ -112,36 +97,29 @@ const LOYALTY_REWARDS = [
   },
 ];
 
-/* =====================================================
-   FIRESTORE TIME HELPER
-===================================================== */
+/* =========================================================
+   HELPERS
+========================================================= */
 
 function loyaltyTime(value) {
   if (!value) return 0;
 
-  if (
-    typeof value.toMillis === "function"
-  ) {
+  if (typeof value.toMillis === "function") {
     return value.toMillis();
   }
 
-  if (
-    typeof value.seconds === "number"
-  ) {
+  if (typeof value.toDate === "function") {
+    return value.toDate().getTime();
+  }
+
+  if (typeof value.seconds === "number") {
     return value.seconds * 1000;
   }
 
-  const parsed =
-    new Date(value).getTime();
+  const parsed = new Date(value).getTime();
 
-  return Number.isNaN(parsed)
-    ? 0
-    : parsed;
+  return Number.isNaN(parsed) ? 0 : parsed;
 }
-
-/* =====================================================
-   MENU NAME NORMALIZER
-===================================================== */
 
 function normalizeMenuName(value) {
   return String(value || "")
@@ -150,13 +128,12 @@ function normalizeMenuName(value) {
     .replace(/[^a-z0-9]/g, "");
 }
 
-/* =====================================================
+/* =========================================================
    LEAFLET LOCATION ICON
-===================================================== */
+========================================================= */
 
 const locationIcon = L.divIcon({
-  className:
-    "checkout-location-pin",
+  className: "checkout-location-pin",
 
   html: `
     <div class="checkout-pin-marker">
@@ -168,9 +145,9 @@ const locationIcon = L.divIcon({
   iconAnchor: [20, 40],
 });
 
-/* =====================================================
+/* =========================================================
    MAP MOVER
-===================================================== */
+========================================================= */
 
 function MapMover({ position }) {
   const map = useMap();
@@ -190,13 +167,67 @@ function MapMover({ position }) {
   return null;
 }
 
-/* =====================================================
+/* =========================================================
    CHECKOUT
-===================================================== */
+========================================================= */
 
 function Checkout() {
   const navigate = useNavigate();
-  const store = useStoreSettings();
+  const rawStore = useStoreSettings();
+
+  /* =======================================================
+     SAFE STORE SETTINGS
+  ======================================================= */
+
+  const store = rawStore || {};
+
+  const maxDeliveryDistanceKm =
+    Number(
+      store.maxDeliveryDistanceKm ?? 10
+    );
+
+  const deliveryPerKm =
+    Number(
+      store.deliveryPerKm ?? 20
+    );
+
+  const minDeliveryCharge =
+    Number(
+      store.minDeliveryCharge ?? 20
+    );
+
+  const maxDeliveryCharge =
+    Number(
+      store.maxDeliveryCharge ?? 300
+    );
+
+  const deliveryAvailableSetting =
+    store.deliveryAvailable ?? true;
+
+  const upiEnabled =
+    store.upiEnabled ?? false;
+
+  const codEnabled =
+    store.codEnabled ?? true;
+
+  const cafeName =
+    store.cafeName || "Sugar Cafe";
+
+  const preparationMinutes =
+    Number(
+      store.preparationMinutes ?? 15
+    );
+
+  const orderTimingLabel =
+    store.orderTimingLabel ||
+    "during store hours";
+
+  const announcement =
+    store.announcement || "";
+
+  /* =======================================================
+     CART
+  ======================================================= */
 
   const {
     cart,
@@ -204,9 +235,9 @@ function Checkout() {
     clearCart,
   } = useCart();
 
-  /* =====================================================
+  /* =======================================================
      ORDER TYPE
-  ===================================================== */
+  ======================================================= */
 
   const [orderType, setOrderType] =
     useState(() => {
@@ -220,21 +251,23 @@ function Checkout() {
   const isTakeaway =
     orderType === "Takeaway";
 
-  /* =====================================================
+  /* =======================================================
      TAKEAWAY STORE
-  ===================================================== */
+  ======================================================= */
 
   const TAKEAWAY_STORE = {
     name: "Sugar Crown – NTPC",
+
     address:
       "NTPC Gate, Sada Colony, Jamnipali, Korba, Chhattisgarh – 495450",
+
     lat: 22.417212,
     lng: 82.665984,
   };
 
-  /* =====================================================
+  /* =======================================================
      BASIC STATES
-  ===================================================== */
+  ======================================================= */
 
   const [address, setAddress] =
     useState("");
@@ -249,7 +282,21 @@ function Checkout() {
     useState("");
 
   const [paymentMethod, setPaymentMethod] =
-    useState("Cash on Delivery");
+    useState(() => {
+      if (
+        rawStore?.codEnabled !== false
+      ) {
+        return "Cash on Delivery";
+      }
+
+      if (
+        rawStore?.upiEnabled === true
+      ) {
+        return "Online Payment";
+      }
+
+      return "Cash on Delivery";
+    });
 
   const [customerProfile, setCustomerProfile] =
     useState(null);
@@ -263,9 +310,9 @@ function Checkout() {
   const [geocodingManual, setGeocodingManual] =
     useState(false);
 
-  /* =====================================================
+  /* =======================================================
      LOYALTY STATE
-  ===================================================== */
+  ======================================================= */
 
   const [loyaltyData, setLoyaltyData] =
     useState({
@@ -275,9 +322,9 @@ function Checkout() {
       currentReward: null,
     });
 
-  /* =====================================================
+  /* =======================================================
      SHOP LOCATION
-  ===================================================== */
+  ======================================================= */
 
   const SHOP_LOCATION = {
     lat: 22.417212,
@@ -292,33 +339,9 @@ function Checkout() {
 
   const mapRef = useRef(null);
 
-  /* =====================================================
-     DELIVERY SETTINGS
-  ===================================================== */
-
-  const MAX_DELIVERY_DISTANCE =
-    Number(
-      store.maxDeliveryDistanceKm ?? 10
-    );
-
-  const DELIVERY_PER_KM =
-    Number(
-      store.deliveryPerKm ?? 20
-    );
-
-  const MIN_DELIVERY_CHARGE =
-    Number(
-      store.minDeliveryCharge ?? 20
-    );
-
-  const MAX_DELIVERY_CHARGE =
-    Number(
-      store.maxDeliveryCharge ?? 300
-    );
-
-  /* =====================================================
+  /* =======================================================
      LOAD CUSTOMER
-  ===================================================== */
+  ======================================================= */
 
   useEffect(() => {
     try {
@@ -386,13 +409,19 @@ function Checkout() {
             lat: Number(
               loc.latitude
             ),
+
             lng: Number(
               loc.longitude
             ),
           };
 
-          setMarker(saved);
-          setMapCenter(saved);
+          if (
+            Number.isFinite(saved.lat) &&
+            Number.isFinite(saved.lng)
+          ) {
+            setMarker(saved);
+            setMapCenter(saved);
+          }
 
           if (
             loc.fullAddress ||
@@ -413,11 +442,9 @@ function Checkout() {
     }
   }, []);
 
-  /* =====================================================
-     LOAD LOYALTY STATUS
-
-     FINAL 6+1 LOGIC
-  ===================================================== */
+  /* =======================================================
+     LOYALTY STATUS
+  ======================================================= */
 
   useEffect(() => {
     let cancelled = false;
@@ -472,8 +499,7 @@ function Checkout() {
           const customerOrders =
             snapshot.docs
               .map((orderDoc) => ({
-                id:
-                  orderDoc.id,
+                id: orderDoc.id,
                 ...orderDoc.data(),
               }))
               .sort(
@@ -490,8 +516,7 @@ function Checkout() {
              QUALIFYING ORDERS
 
              ONLY:
-             - Delivered
-             - ₹500+ subtotal
+             Delivered + subtotal/total >= ₹500
           ================================================= */
 
           const qualifyingOrders =
@@ -510,8 +535,7 @@ function Checkout() {
                   );
 
                 return (
-                  status ===
-                    "delivered" &&
+                  status === "delivered" &&
                   bill >=
                     LOYALTY_MIN_BILL
                 );
@@ -519,7 +543,7 @@ function Checkout() {
             );
 
           /* =================================================
-             FIND COMPLETED REWARD CYCLES
+             COMPLETED CYCLES
           ================================================= */
 
           const rewardOrders =
@@ -527,15 +551,12 @@ function Checkout() {
               (order) => {
                 const cycle =
                   Number(
-                    order
-                      .loyaltyReward
+                    order.loyaltyReward
                       ?.cycle
                   );
 
                 return (
-                  Number.isFinite(
-                    cycle
-                  ) &&
+                  Number.isFinite(cycle) &&
                   cycle > 0
                 );
               }
@@ -547,8 +568,7 @@ function Checkout() {
                   ...rewardOrders.map(
                     (order) =>
                       Number(
-                        order
-                          .loyaltyReward
+                        order.loyaltyReward
                           .cycle
                       )
                   )
@@ -556,40 +576,27 @@ function Checkout() {
               : 0;
 
           /* =================================================
-             DETECT REWARD ALREADY APPLIED BY ANOTHER ORDER
-
-             This protects against duplicate reward usage
-             if source order update failed after target order
-             was successfully created.
+             ALREADY USED SOURCE REWARDS
           ================================================= */
 
-          const alreadyAppliedRewardSourceIds =
+          const alreadyAppliedSourceIds =
             new Set(
               customerOrders
                 .map(
                   (order) =>
-                    order
-                      .loyaltyReward
+                    order.loyaltyReward
                       ?.sourceOrderId
                 )
                 .filter(Boolean)
             );
 
           /* =================================================
-             ACTIVE SCRATCH REWARD
+             ACTIVE REWARD
 
-             scratch_pending:
-               Customer has won it but hasn't scratched.
-
-             available:
-               Customer scratched it and can use it
-               on the next order.
-
-             applied:
-               Already used.
-
-             redeemed:
-               Staff/final redemption.
+             ONLY:
+             scratch_pending
+             OR
+             available
           ================================================= */
 
           const activeRewardOrders =
@@ -611,13 +618,8 @@ function Checkout() {
                   return false;
                 }
 
-                /*
-                  If another order already used this
-                  source reward, don't show it again.
-                */
-
                 if (
-                  alreadyAppliedRewardSourceIds.has(
+                  alreadyAppliedSourceIds.has(
                     order.id
                   )
                 ) {
@@ -629,14 +631,12 @@ function Checkout() {
               .sort(
                 (a, b) =>
                   loyaltyTime(
-                    b
-                      .loyaltyReward
+                    b.loyaltyReward
                       ?.createdAt ||
                       b.createdAt
                   ) -
                   loyaltyTime(
-                    a
-                      .loyaltyReward
+                    a.loyaltyReward
                       ?.createdAt ||
                       a.createdAt
                   )
@@ -653,26 +653,20 @@ function Checkout() {
           const nextCycle =
             maxCompletedCycle + 1;
 
-          /*
-            Cycle 1:
-            6 qualifying orders
-            -> 7th order = scratch card
-
-            Cycle 2:
-            12 qualifying orders
-            -> next 7th = next scratch card
-
-            Cycle 3:
-            18 qualifying orders
-            -> next scratch card
-          */
-
           const requiredOrders =
             maxCompletedCycle * 6 +
             6;
 
           /* =================================================
-             SHOULD CURRENT ORDER BE THE 7TH SCRATCH ORDER?
+             7TH ORDER READY?
+
+             Example:
+
+             Cycle 1:
+             6 qualifying -> 7th order gets scratch card
+
+             Cycle 2:
+             12 qualifying -> next order gets scratch card
           ================================================= */
 
           const rewardReadyForNextOrder =
@@ -693,14 +687,6 @@ function Checkout() {
               LOYALTY_REWARDS[
                 rewardIndex
               ];
-
-            /*
-              IMPORTANT:
-              Actual reward name is stored internally,
-              but UI will NOT reveal it here.
-
-              This order itself is the scratch-card order.
-            */
 
             currentReward = {
               cycle:
@@ -727,16 +713,14 @@ function Checkout() {
           }
 
           /* =================================================
-             CURRENT 1-6 PROGRESS
+             PROGRESS
 
-             Before first scratch card:
-             0 -> 6
+             Cycle 1:
+             0/6 → 6/6
 
              After cycle 1:
-             qualifying 6 = 0/6
-             qualifying 7 = 1/6
-             qualifying 8 = 2/6
-             etc.
+             7 qualifying → 1/6
+             8 qualifying → 2/6
           ================================================= */
 
           let progress =
@@ -787,9 +771,9 @@ function Checkout() {
     customerProfile?.customerId,
   ]);
 
-  /* =====================================================
+  /* =======================================================
      DISTANCE
-  ===================================================== */
+  ======================================================= */
 
   const calculateDistance = (
     lat1,
@@ -841,17 +825,17 @@ function Checkout() {
 
   const deliveryAvailable =
     distance <=
-    MAX_DELIVERY_DISTANCE;
+    maxDeliveryDistanceKm;
 
-  /* =====================================================
+  /* =======================================================
      DELIVERY CHARGE
-  ===================================================== */
+  ======================================================= */
 
   let deliveryCharge = 0;
 
   if (
     !isTakeaway &&
-    totalPrice > 0 &&
+    Number(totalPrice) > 0 &&
     deliveryAvailable
   ) {
     const roundedDistance =
@@ -859,32 +843,39 @@ function Checkout() {
 
     deliveryCharge =
       roundedDistance *
-      DELIVERY_PER_KM;
+      deliveryPerKm;
 
     if (
       deliveryCharge <
-      MIN_DELIVERY_CHARGE
+      minDeliveryCharge
     ) {
       deliveryCharge =
-        MIN_DELIVERY_CHARGE;
+        minDeliveryCharge;
     }
 
     if (
       deliveryCharge >
-      MAX_DELIVERY_CHARGE
+      maxDeliveryCharge
     ) {
       deliveryCharge =
-        MAX_DELIVERY_CHARGE;
+        maxDeliveryCharge;
     }
   }
 
-  /* =====================================================
-     ACTIVE SCRATCHED REWARD
-     
-     ONLY "available" reward applies here.
-     
-     scratch_pending = customer hasn't scratched yet.
-  ===================================================== */
+  /* =======================================================
+     CURRENT REWARD
+
+     IMPORTANT:
+     This was the cause of the white-screen error earlier.
+  ======================================================= */
+
+  const currentReward =
+    loyaltyData.currentReward ||
+    null;
+
+  /* =======================================================
+     PREVIOUS SCRATCH REWARD
+  ======================================================= */
 
   const pendingReward =
     loyaltyData.pendingReward
@@ -894,19 +885,15 @@ function Checkout() {
     pendingReward?.status || "";
 
   const rewardAvailable =
-    pendingReward &&
-    pendingRewardStatus ===
-      "available";
+    Boolean(
+      pendingReward &&
+      pendingRewardStatus ===
+        "available"
+    );
 
-  /* =====================================================
+  /* =======================================================
      LOYALTY DISCOUNT
-
-     IMPORTANT:
-     Current 7th-order scratch card is NOT applied.
-
-     Only previously scratched reward with status
-     "available" can give 5% discount.
-  ===================================================== */
+  ======================================================= */
 
   let discount = 0;
 
@@ -935,9 +922,9 @@ function Checkout() {
     Number(discount) +
     Number(gst);
 
-  /* =====================================================
+  /* =======================================================
      REVERSE GEOCODING
-  ===================================================== */
+  ======================================================= */
 
   const reverseGeocode =
     async (
@@ -979,9 +966,9 @@ function Checkout() {
       }
     };
 
-  /* =====================================================
+  /* =======================================================
      MANUAL ADDRESS
-  ===================================================== */
+  ======================================================= */
 
   const useManualAddress =
     async () => {
@@ -1025,13 +1012,11 @@ function Checkout() {
           await response.json();
 
         if (
-          !Array.isArray(
-            results
-          ) ||
+          !Array.isArray(results) ||
           results.length === 0
         ) {
           alert(
-            "Address nahi mila. Please House/Area/Landmark ke saath thoda complete address enter karein."
+            "Address nahi mila. Please House/Area/Landmark ke saath complete address enter karein."
           );
 
           return;
@@ -1040,8 +1025,7 @@ function Checkout() {
         const korbaResult =
           results.find((item) =>
             String(
-              item.display_name ||
-                ""
+              item.display_name || ""
             )
               .toLowerCase()
               .includes("korba")
@@ -1093,10 +1077,8 @@ function Checkout() {
           JSON.stringify({
             latitude: lat,
             longitude: lng,
-            address:
-              formatted,
-            fullAddress:
-              formatted,
+            address: formatted,
+            fullAddress: formatted,
           })
         );
 
@@ -1116,18 +1098,16 @@ function Checkout() {
         );
 
         alert(
-          "Address check nahi ho paya. Please thoda complete address enter karke dobara try karein."
+          "Address check nahi ho paya. Please complete address enter karke dobara try karein."
         );
       } finally {
-        setGeocodingManual(
-          false
-        );
+        setGeocodingManual(false);
       }
     };
 
-  /* =====================================================
+  /* =======================================================
      CURRENT LOCATION
-  ===================================================== */
+  ======================================================= */
 
   const getCurrentLocation =
     () => {
@@ -1141,9 +1121,7 @@ function Checkout() {
         return;
       }
 
-      setLoadingLocation(
-        true
-      );
+      setLoadingLocation(true);
 
       navigator.geolocation.getCurrentPosition(
         async (position) => {
@@ -1210,9 +1188,7 @@ function Checkout() {
               "Location mil gayi, lekin address load nahi ho paya."
             );
           } finally {
-            setLoadingLocation(
-              false
-            );
+            setLoadingLocation(false);
           }
         },
 
@@ -1222,9 +1198,7 @@ function Checkout() {
             error
           );
 
-          setLoadingLocation(
-            false
-          );
+          setLoadingLocation(false);
 
           if (
             error.code ===
@@ -1262,18 +1236,17 @@ function Checkout() {
       );
     };
 
-  /* =====================================================
+  /* =======================================================
      MAP LOAD
-  ===================================================== */
+  ======================================================= */
 
   const onMapLoad = (map) => {
-    mapRef.current =
-      map;
+    mapRef.current = map;
   };
 
-  /* =====================================================
+  /* =======================================================
      MARKER DRAG
-  ===================================================== */
+  ======================================================= */
 
   const onMarkerDragEnd =
     async (event) => {
@@ -1322,9 +1295,9 @@ function Checkout() {
       );
     };
 
-  /* =====================================================
+  /* =======================================================
      CUSTOMER DATA
-  ===================================================== */
+  ======================================================= */
 
   const getCustomerData =
     () => {
@@ -1362,14 +1335,9 @@ function Checkout() {
       };
     };
 
-  /* =====================================================
-     FIND EXACT MENU ITEM
-
-     IMPORTANT:
-     Exact match ONLY.
-
-     No partial matching.
-  ===================================================== */
+  /* =======================================================
+     EXACT MENU ITEM
+  ======================================================= */
 
   const findLoyaltyMenuItem =
     async (rewardName) => {
@@ -1389,8 +1357,7 @@ function Checkout() {
         const menuItems =
           menuSnapshot.docs.map(
             (menuDoc) => ({
-              id:
-                menuDoc.id,
+              id: menuDoc.id,
               ...menuDoc.data(),
             })
           );
@@ -1416,9 +1383,7 @@ function Checkout() {
             }
           );
 
-        return (
-          exact || null
-        );
+        return exact || null;
       } catch (error) {
         console.error(
           "Loyalty menu lookup error:",
@@ -1429,9 +1394,9 @@ function Checkout() {
       }
     };
 
-  /* =====================================================
-     RAZORPAY
-  ===================================================== */
+  /* =======================================================
+     RAZORPAY SCRIPT
+  ======================================================= */
 
   const loadRazorpay =
     () =>
@@ -1464,9 +1429,9 @@ function Checkout() {
         }
       );
 
-  /* =====================================================
+  /* =======================================================
      SAVE CUSTOMER ADDRESS
-  ===================================================== */
+  ======================================================= */
 
   const saveCustomerAddress =
     async () => {
@@ -1545,28 +1510,32 @@ function Checkout() {
                   selectedAddress,
                 ];
 
-          const updatedProfile =
-            {
-              ...profile,
+          const updatedProfile = {
+            ...profile,
 
-              customerId,
+            customerId,
 
-              addresses:
-                updatedAddresses,
+            addresses:
+              updatedAddresses,
 
-              defaultAddress:
-                selectedAddress,
+            defaultAddress:
+              selectedAddress,
 
-              guest: false,
+            guest: false,
 
-              loggedIn: true,
-            };
+            loggedIn: true,
+          };
 
           localStorage.setItem(
             "sugarCafeUser",
             JSON.stringify(
               updatedProfile
             )
+          );
+
+          localStorage.setItem(
+            "sugarCafeCustomerId",
+            customerId
           );
 
           setCustomerProfile(
@@ -1600,15 +1569,12 @@ function Checkout() {
               if (
                 !customerSnapshot.empty
               ) {
-                const customerDoc =
-                  customerSnapshot
-                    .docs[0];
-
                 await updateDoc(
                   doc(
                     db,
                     "customers",
-                    customerDoc.id
+                    customerSnapshot
+                      .docs[0].id
                   ),
                   {
                     addresses:
@@ -1642,9 +1608,9 @@ function Checkout() {
       return selectedAddress;
     };
 
-  /* =====================================================
+  /* =======================================================
      SAVE COMPLETED ORDER
-  ===================================================== */
+  ======================================================= */
 
   const saveCompletedOrder =
     async (
@@ -1661,22 +1627,11 @@ function Checkout() {
         );
 
       /* =================================================
-         PREVIOUS SCRATCH REWARD USED
-
-         Source:
-         scratch card order
-
-         Target:
-         current order
-
-         Source becomes "applied".
-         
-         NOT "redeemed".
+         MARK SOURCE SCRATCH REWARD AS APPLIED
       ================================================= */
 
       if (
-        orderData
-          .loyaltyReward
+        orderData.loyaltyReward
           ?.sourceOrderId
       ) {
         try {
@@ -1776,22 +1731,21 @@ function Checkout() {
                   selectedAddress,
                 ];
 
-          const updatedProfile =
-            {
-              ...profile,
+          const updatedProfile = {
+            ...profile,
 
-              customerId,
+            customerId,
 
-              addresses:
-                updatedAddresses,
+            addresses:
+              updatedAddresses,
 
-              defaultAddress:
-                selectedAddress,
+            defaultAddress:
+              selectedAddress,
 
-              guest: false,
+            guest: false,
 
-              loggedIn: true,
-            };
+            loggedIn: true,
+          };
 
           localStorage.setItem(
             "sugarCafeUser",
@@ -1810,8 +1764,7 @@ function Checkout() {
           );
 
           setSavedAddresses(
-            updatedProfile.addresses ||
-              []
+            updatedAddresses
           );
         } catch (error) {
           console.error(
@@ -1826,9 +1779,9 @@ function Checkout() {
       return orderRef;
     };
 
-  /* =====================================================
+  /* =======================================================
      API RESPONSE
-  ===================================================== */
+  ======================================================= */
 
   const readApiResponse =
     async (response) => {
@@ -1842,9 +1795,7 @@ function Checkout() {
       }
 
       try {
-        return JSON.parse(
-          raw
-        );
+        return JSON.parse(raw);
       } catch {
         const preview =
           raw
@@ -1860,9 +1811,9 @@ function Checkout() {
       }
     };
 
-  /* =====================================================
+  /* =======================================================
      ONLINE PAYMENT
-  ===================================================== */
+  ======================================================= */
 
   const startOnlinePayment =
     async ({
@@ -1870,13 +1821,16 @@ function Checkout() {
       orderData,
       selectedAddress,
     }) => {
+      const paymentBaseUrl =
+        (
+          import.meta.env
+            .VITE_PAYMENT_API_URL ||
+          ""
+        ).replace(/\/$/, "");
+
       const gatewayResponse =
         await fetch(
-          `${
-            import.meta.env
-              .VITE_PAYMENT_API_URL ||
-            ""
-          }/api/payment/create-order`,
+          `${paymentBaseUrl}/api/payment/create-order`,
           {
             method: "POST",
 
@@ -1918,6 +1872,22 @@ function Checkout() {
           resolve,
           reject
         ) => {
+          let settled = false;
+
+          const fail = (error) => {
+            if (settled) return;
+
+            settled = true;
+            reject(error);
+          };
+
+          const success = () => {
+            if (settled) return;
+
+            settled = true;
+            resolve();
+          };
+
           const razorpay =
             new window.Razorpay({
               key:
@@ -1959,20 +1929,15 @@ function Checkout() {
                   try {
                     const verifyResponse =
                       await fetch(
-                        `${
-                          import.meta.env
-                            .VITE_PAYMENT_API_URL ||
-                          ""
-                        }/api/payment/verify`,
+                        `${paymentBaseUrl}/api/payment/verify`,
                         {
                           method:
                             "POST",
 
-                          headers:
-                            {
-                              "Content-Type":
-                                "application/json",
-                            },
+                          headers: {
+                            "Content-Type":
+                              "application/json",
+                          },
 
                           body:
                             JSON.stringify(
@@ -1999,7 +1964,7 @@ function Checkout() {
                       !verifyResponse.ok ||
                       !verifyData.verified
                     ) {
-                      reject(
+                      fail(
                         new Error(
                           "Payment verification failed."
                         )
@@ -2011,28 +1976,27 @@ function Checkout() {
                     if (
                       !verifyData.finalized
                     ) {
-                      const paidOrder =
-                        {
-                          ...orderData,
+                      const paidOrder = {
+                        ...orderData,
 
-                          paymentMethod:
-                            "Online Payment",
+                        paymentMethod:
+                          "Online Payment",
 
-                          paymentStatus:
-                            "Paid",
+                        paymentStatus:
+                          "Paid",
 
-                          paymentNote:
-                            "Paid and verified by Razorpay.",
+                        paymentNote:
+                          "Paid and verified by Razorpay.",
 
-                          razorpayOrderId:
-                            response.razorpay_order_id,
+                        razorpayOrderId:
+                          response.razorpay_order_id,
 
-                          razorpayPaymentId:
-                            response.razorpay_payment_id,
+                        razorpayPaymentId:
+                          response.razorpay_payment_id,
 
-                          razorpaySignature:
-                            response.razorpay_signature,
-                        };
+                        razorpaySignature:
+                          response.razorpay_signature,
+                      };
 
                       await saveCompletedOrder(
                         paidOrder,
@@ -2040,27 +2004,28 @@ function Checkout() {
                       );
                     }
 
-                    resolve();
+                    success();
                   } catch (error) {
-                    reject(error);
+                    fail(error);
                   }
                 },
 
               modal: {
                 ondismiss:
-                  () =>
-                    reject(
+                  () => {
+                    fail(
                       new Error(
                         "Payment cancelled."
                       )
-                    ),
+                    );
+                  },
               },
             });
 
           razorpay.on(
             "payment.failed",
             (response) => {
-              reject(
+              fail(
                 new Error(
                   response?.error
                     ?.description ||
@@ -2075,15 +2040,15 @@ function Checkout() {
       );
     };
 
-  /* =====================================================
+  /* =======================================================
      PLACE ORDER
-  ===================================================== */
+  ======================================================= */
 
   const placeOrder =
     async () => {
-      /* ---------------------------------------------
-         WAIT FOR LOYALTY CHECK
-      --------------------------------------------- */
+      /* -----------------------------------------------
+         LOYALTY LOADING
+      ----------------------------------------------- */
 
       if (
         loyaltyData.loading
@@ -2095,31 +2060,30 @@ function Checkout() {
         return;
       }
 
-      /* ---------------------------------------------
-         DELIVERY CHECK
-      --------------------------------------------- */
+      /* -----------------------------------------------
+         DELIVERY STORE CHECK
+      ----------------------------------------------- */
 
-      if (!isTakeaway) {
-        if (
-          !store.deliveryAvailable
-        ) {
-          alert(
-            store.announcement ||
-              `Delivery orders are available only from ${store.orderTimingLabel}.`
-          );
+      if (
+        !isTakeaway &&
+        !deliveryAvailableSetting
+      ) {
+        alert(
+          announcement ||
+            `Delivery orders are available only ${orderTimingLabel}.`
+        );
 
-          return;
-        }
+        return;
       }
 
-      /* ---------------------------------------------
+      /* -----------------------------------------------
          PAYMENT CHECK
-      --------------------------------------------- */
+      ----------------------------------------------- */
 
       if (
         paymentMethod ===
           "Online Payment" &&
-        !store.upiEnabled
+        !upiEnabled
       ) {
         alert(
           "UPI payment is currently unavailable. Please choose another payment method."
@@ -2131,7 +2095,7 @@ function Checkout() {
       if (
         paymentMethod ===
           "Cash on Delivery" &&
-        !store.codEnabled
+        !codEnabled
       ) {
         alert(
           "Cash on Delivery is currently unavailable. Please choose another payment method."
@@ -2140,9 +2104,9 @@ function Checkout() {
         return;
       }
 
-      /* ---------------------------------------------
+      /* -----------------------------------------------
          CART
-      --------------------------------------------- */
+      ----------------------------------------------- */
 
       if (!cart.length) {
         alert(
@@ -2152,9 +2116,9 @@ function Checkout() {
         return;
       }
 
-      /* ---------------------------------------------
+      /* -----------------------------------------------
          CUSTOMER LOGIN
-      --------------------------------------------- */
+      ----------------------------------------------- */
 
       if (
         !customerProfile ||
@@ -2211,14 +2175,12 @@ function Checkout() {
         return;
       }
 
-      /* ---------------------------------------------
+      /* -----------------------------------------------
          DELIVERY ADDRESS
-      --------------------------------------------- */
+      ----------------------------------------------- */
 
       if (!isTakeaway) {
-        if (
-          !address.trim()
-        ) {
+        if (!address.trim()) {
           alert(
             "Please select your delivery address."
           );
@@ -2226,11 +2188,9 @@ function Checkout() {
           return;
         }
 
-        if (
-          !deliveryAvailable
-        ) {
+        if (!deliveryAvailable) {
           alert(
-            `Sorry! We currently deliver within ${MAX_DELIVERY_DISTANCE} km of our shop.`
+            `Sorry! We currently deliver within ${maxDeliveryDistanceKm} km of our shop.`
           );
 
           return;
@@ -2238,13 +2198,11 @@ function Checkout() {
       }
 
       try {
-        setPlacingOrder(
-          true
-        );
+        setPlacingOrder(true);
 
-        /* -------------------------------------------
+        /* =============================================
            NORMAL CART ITEMS
-        ------------------------------------------- */
+        ============================================= */
 
         const orderItems =
           cart.map(
@@ -2271,28 +2229,22 @@ function Checkout() {
                 item.image || "",
 
               category:
-                item.category ||
-                "",
+                item.category || "",
             })
           );
 
-        let finalOrderItems =
-          [
-            ...orderItems,
-          ];
+        let finalOrderItems = [
+          ...orderItems,
+        ];
 
         let orderLoyaltyReward =
           null;
 
-        /* =================================================
+        /* =============================================
            PREVIOUS SCRATCH REWARD
-           
-           ONLY IF STATUS = AVAILABLE
-           
-           This is the reward won on a previous 7th order.
-           
-           It is now being used on THIS order.
-        ================================================= */
+
+           ONLY AVAILABLE REWARD IS APPLIED.
+        ============================================= */
 
         if (
           pendingReward &&
@@ -2307,30 +2259,27 @@ function Checkout() {
               .pendingReward
               ?.id || null;
 
-          if (
-            !sourceOrderId
-          ) {
+          if (!sourceOrderId) {
             throw new Error(
               "Loyalty reward source order could not be identified."
             );
           }
 
-          orderLoyaltyReward =
-            {
-              ...reward,
+          orderLoyaltyReward = {
+            ...reward,
 
-              sourceOrderId,
+            sourceOrderId,
 
-              status:
-                "applied",
+            status:
+              "applied",
 
-              appliedAt:
-                Timestamp.now(),
-            };
+            appliedAt:
+              Timestamp.now(),
+          };
 
-          /* -------------------------------------------
+          /* =========================================
              5% DISCOUNT
-          ------------------------------------------- */
+          ========================================= */
 
           if (
             reward.type ===
@@ -2345,20 +2294,17 @@ function Checkout() {
               );
           }
 
-          /* -------------------------------------------
+          /* =========================================
              FREE MENU ITEM
-          ------------------------------------------- */
+          ========================================= */
 
           if (
             reward.type ===
             "free_menu_item"
           ) {
-            let menuItem =
-              null;
+            let menuItem = null;
 
-            /*
-              Use saved menu snapshot first.
-            */
+            /* Saved exact snapshot */
 
             if (
               reward.itemId &&
@@ -2387,14 +2333,9 @@ function Checkout() {
               };
             }
 
-            /*
-              Fallback:
-              Exact current menu lookup.
-            */
+            /* Exact current menu fallback */
 
-            if (
-              !menuItem?.id
-            ) {
+            if (!menuItem?.id) {
               menuItem =
                 await findLoyaltyMenuItem(
                   reward.itemName
@@ -2426,36 +2367,34 @@ function Checkout() {
                   0
               );
 
-            finalOrderItems.push(
-              {
-                id:
-                  menuItem.id,
+            finalOrderItems.push({
+              id:
+                menuItem.id,
 
-                name:
-                  rewardItemName,
+              name:
+                rewardItemName,
 
-                price: 0,
+              price: 0,
 
-                qty: 1,
+              qty: 1,
 
-                image:
-                  rewardItemImage,
+              image:
+                rewardItemImage,
 
-                category:
-                  menuItem.category ||
-                  reward.itemCategory ||
-                  "Loyalty Reward",
+              category:
+                menuItem.category ||
+                reward.itemCategory ||
+                "Loyalty Reward",
 
-                isFreeReward:
-                  true,
+              isFreeReward:
+                true,
 
-                loyaltyReward:
-                  true,
+              loyaltyReward:
+                true,
 
-                originalPrice:
-                  rewardItemPrice,
-              }
-            );
+              originalPrice:
+                rewardItemPrice,
+            });
 
             orderLoyaltyReward.itemId =
               menuItem.id;
@@ -2476,81 +2415,64 @@ function Checkout() {
           }
         }
 
-        /* =================================================
+        /* =============================================
            NEW SCRATCH CARD
-           
+
            THIS IS THE 7TH ORDER.
-           
-           IMPORTANT:
-           - Reward is NOT added to items.
-           - Reward is NOT discounted.
-           - Reward is saved as scratch_pending.
-           - Customer scratches AFTER order.
-           - Reward becomes available for NEXT order.
-        ================================================= */
+
+           Reward is NOT applied.
+        ============================================= */
 
         if (
           !orderLoyaltyReward &&
-          currentReward &&
-          currentReward.scratchCardReady
+          currentReward?.scratchCardReady
         ) {
           const reward =
             currentReward;
 
-          orderLoyaltyReward =
-            {
-              cycle:
-                Number(
-                  reward.cycle
-                ),
+          orderLoyaltyReward = {
+            cycle:
+              Number(
+                reward.cycle
+              ),
 
-              rewardIndex:
-                Number(
-                  reward.rewardIndex
-                ),
+            rewardIndex:
+              Number(
+                reward.rewardIndex
+              ),
 
-              type:
-                reward.type,
+            type:
+              reward.type,
 
-              itemName:
-                reward.itemName ||
-                null,
+            itemName:
+              reward.itemName ||
+              null,
 
-              discountPercent:
-                Number(
-                  reward.discountPercent ||
-                    0
-                ),
+            discountPercent:
+              Number(
+                reward.discountPercent ||
+                  0
+              ),
 
-              /*
-                NEVER "applied" here.
+            status:
+              "scratch_pending",
 
-                This is the scratch-card order.
-              */
+            scratchPending:
+              true,
 
-              status:
-                "scratch_pending",
+            scratchRevealed:
+              false,
 
-              scratchPending:
-                true,
+            source:
+              "6+1-loyalty",
 
-              scratchRevealed:
-                false,
+            createdAt:
+              Timestamp.now(),
+          };
 
-              source:
-                "6+1-loyalty",
-
-              createdAt:
-                Timestamp.now(),
-            };
-
-          /* -------------------------------------------
-             FREE ITEM REWARD
-
-             Find exact menu item NOW and save snapshot.
-
-             DO NOT ADD IT TO finalOrderItems.
-          ------------------------------------------- */
+          /* =========================================
+             EXACT MENU SNAPSHOT
+          ========================================= */
 
           if (
             reward.type ===
@@ -2560,12 +2482,6 @@ function Checkout() {
               await findLoyaltyMenuItem(
                 reward.itemName
               );
-
-            /*
-              IMPORTANT:
-              If exact menu item isn't found,
-              don't place a broken scratch reward.
-            */
 
             if (!menuItem) {
               throw new Error(
@@ -2605,18 +2521,12 @@ function Checkout() {
             orderLoyaltyReward.itemCategory =
               menuItem.category ||
               "Loyalty Reward";
-
-            /*
-              NO finalOrderItems.push() HERE.
-
-              This is the key fix.
-            */
           }
         }
 
-        /* =================================================
+        /* =============================================
            ORDER DATA
-        ================================================= */
+        ============================================= */
 
         const orderData = {
           orderNumber:
@@ -2649,8 +2559,7 @@ function Checkout() {
           storeName:
             isTakeaway
               ? TAKEAWAY_STORE.name
-              : store.cafeName ||
-                "Sugar Cafe",
+              : cafeName,
 
           storeAddress:
             isTakeaway
@@ -2724,10 +2633,6 @@ function Checkout() {
               grandTotal
             ),
 
-          /* -------------------------------------------
-             LOYALTY
-          ------------------------------------------- */
-
           loyaltyReward:
             orderLoyaltyReward,
 
@@ -2735,10 +2640,7 @@ function Checkout() {
             "New",
 
           preparationMinutes:
-            Number(
-              store.preparationMinutes ??
-                15
-            ),
+            preparationMinutes,
 
           preparationStartedAt:
             null,
@@ -2759,9 +2661,9 @@ function Checkout() {
             Timestamp.now(),
         };
 
-        /* =================================================
+        /* =============================================
            ADDRESS OBJECT
-        ================================================= */
+        ============================================= */
 
         const selectedAddress =
           isTakeaway
@@ -2789,21 +2691,19 @@ function Checkout() {
               }
             : await saveCustomerAddress();
 
-        /* =================================================
+        /* =============================================
            PAYMENT
-        ================================================= */
+        ============================================= */
 
         if (
           paymentMethod ===
           "Online Payment"
         ) {
-          await startOnlinePayment(
-            {
-              customer,
-              orderData,
-              selectedAddress,
-            }
-          );
+          await startOnlinePayment({
+            customer,
+            orderData,
+            selectedAddress,
+          });
         } else {
           await saveCompletedOrder(
             orderData,
@@ -2811,9 +2711,9 @@ function Checkout() {
           );
         }
 
-        /* =================================================
+        /* =============================================
            SUCCESS
-        ================================================= */
+        ============================================= */
 
         alert(
           isTakeaway
@@ -2838,15 +2738,13 @@ function Checkout() {
           `Order place nahi ho paya.\n\n${message}`
         );
       } finally {
-        setPlacingOrder(
-          false
-        );
+        setPlacingOrder(false);
       }
     };
 
-  /* =====================================================
+  /* =======================================================
      PAGE
-  ===================================================== */
+  ======================================================= */
 
   return (
     <div className="checkout-page">
@@ -3105,7 +3003,6 @@ function Checkout() {
                         saved.address
                       }
                     </span>
-
                   </button>
                 )
               )}
@@ -3325,7 +3222,7 @@ function Checkout() {
 
                 We deliver within{" "}
                 {
-                  MAX_DELIVERY_DISTANCE
+                  maxDeliveryDistanceKm
                 } km.
               </>
             )}
@@ -3335,7 +3232,7 @@ function Checkout() {
       )}
 
       {/* =================================================
-          TAKEAWAY CUSTOMER INFO
+          TAKEAWAY CUSTOMER
       ================================================= */}
 
       {isTakeaway &&
@@ -3458,7 +3355,7 @@ function Checkout() {
             type="radio"
             name="payment"
             disabled={
-              !store.codEnabled
+              !codEnabled
             }
             checked={
               paymentMethod ===
@@ -3490,7 +3387,7 @@ function Checkout() {
             type="radio"
             name="payment"
             disabled={
-              !store.upiEnabled
+              !upiEnabled
             }
             checked={
               paymentMethod ===
@@ -3618,12 +3515,12 @@ function Checkout() {
                       "3px 0 0",
                   }}
                 >
-                  {pendingReward
-                    ? pendingReward.status ===
+                  {currentReward
+                    ? "Scratch Card Unlocked"
+                    : pendingReward.status ===
                       "scratch_pending"
-                      ? "Scratch Your Reward"
-                      : "Reward Ready"
-                    : "Scratch Card Unlocked"}
+                    ? "Scratch Your Reward"
+                    : "Reward Ready"}
                 </h3>
 
               </div>
@@ -3643,9 +3540,9 @@ function Checkout() {
               }}
             >
 
-              {/* =================================================
+              {/* =========================================
                   NEW 7TH ORDER
-              ================================================= */}
+              ========================================= */}
 
               {currentReward?.scratchCardReady ? (
                 <>
@@ -3690,11 +3587,13 @@ function Checkout() {
                         "1.5",
                     }}
                   >
-                    This order is your
+                    This order is your{" "}
                     <strong>
-                      {" "}7th loyalty order.
+                      7th loyalty order.
                     </strong>
+
                     <br />
+
                     Place this order and
                     scratch your digital
                     card after the order
@@ -3732,12 +3631,7 @@ function Checkout() {
               ) : pendingReward?.status ===
                 "scratch_pending" ? (
 
-                /* =================================================
-                   SCRATCH PENDING
-                ================================================= */
-
                 <>
-
                   <div
                     style={{
                       fontSize:
@@ -3813,14 +3707,9 @@ function Checkout() {
                   >
                     🎁 Scratch My Card
                   </button>
-
                 </>
 
               ) : (
-
-                /* =================================================
-                   AVAILABLE REWARD
-                ================================================= */
 
                 <>
                   {pendingReward?.type ===
@@ -3851,14 +3740,14 @@ function Checkout() {
                             "700",
                         }}
                       >
-                        Your reward is
+                        Your 5% loyalty
+                        reward will be
                         applied to this
                         order.
                       </p>
                     </>
                   ) : (
                     <>
-
                       {pendingReward?.itemImage && (
                         <img
                           src={
@@ -3919,7 +3808,6 @@ function Checkout() {
                         added free to your
                         current order.
                       </p>
-
                     </>
                   )}
                 </>
@@ -4053,7 +3941,7 @@ function Checkout() {
           </span>
 
           <span>
-            ₹{totalPrice}
+            ₹{Number(totalPrice).toFixed(0)}
           </span>
         </p>
 
@@ -4065,7 +3953,7 @@ function Checkout() {
           </span>
 
           <span>
-            ₹{deliveryCharge}
+            ₹{Number(deliveryCharge).toFixed(0)}
           </span>
         </p>
 
@@ -4083,7 +3971,7 @@ function Checkout() {
             </span>
 
             <span>
-              -₹{discount}
+              -₹{discount.toFixed(2)}
             </span>
           </p>
         )}
@@ -4127,7 +4015,7 @@ function Checkout() {
         )}
 
         <h2>
-          ₹{grandTotal}
+          ₹{grandTotal.toFixed(2)}
         </h2>
 
         <button
@@ -4141,7 +4029,7 @@ function Checkout() {
             (
               !isTakeaway &&
               (
-                !store.deliveryAvailable ||
+                !deliveryAvailableSetting ||
                 !deliveryAvailable
               )
             )
@@ -4153,8 +4041,8 @@ function Checkout() {
             ? "Checking Rewards..."
             : isTakeaway
             ? "Place Takeaway Order"
-            : !store.deliveryAvailable
-            ? `Delivery available ${store.orderTimingLabel}`
+            : !deliveryAvailableSetting
+            ? `Delivery available ${orderTimingLabel}`
             : !deliveryAvailable
             ? "Delivery Not Available"
             : "Place Delivery Order"}
