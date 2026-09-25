@@ -1,14 +1,21 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  Component,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import {
   collection,
   onSnapshot,
   query,
-  where
+  where,
 } from "firebase/firestore";
 
 import { db } from "../firebase";
 import SugarCafeRewardCard from "../components/SugarCafeRewardCard";
 import "./Orders.css";
+
 
 /* =========================================================
    HELPERS
@@ -21,22 +28,37 @@ const toMillis = (value) => {
     return value.toMillis();
   }
 
-  if (value?.seconds) {
+  if (typeof value?.toDate === "function") {
+    return value.toDate().getTime();
+  }
+
+  if (
+    typeof value?.seconds === "number"
+  ) {
     return value.seconds * 1000;
   }
 
   const parsed = new Date(value).getTime();
 
-  return Number.isNaN(parsed) ? 0 : parsed;
+  return Number.isNaN(parsed)
+    ? 0
+    : parsed;
 };
 
-const getItemQuantity = (item) => {
-  const quantity = Number(item?.quantity);
 
-  return Number.isFinite(quantity) && quantity > 0
+const getItemQuantity = (item) => {
+  const quantity = Number(
+    item?.qty ??
+    item?.quantity ??
+    1
+  );
+
+  return Number.isFinite(quantity) &&
+    quantity > 0
     ? quantity
     : 1;
 };
+
 
 const getItemPrice = (item) => {
   const price = Number(
@@ -46,90 +68,300 @@ const getItemPrice = (item) => {
     0
   );
 
-  return Number.isFinite(price) ? price : 0;
+  return Number.isFinite(price)
+    ? price
+    : 0;
 };
+
+
+/* =========================================================
+   CUSTOMER ID HELPER
+
+   Supports:
+   1. sugarCafeCustomerId
+   2. customerId
+   3. sugarCafeUser.customerId
+========================================================= */
+
+const getStoredCustomerId = () => {
+  try {
+    const newCustomerId =
+      localStorage.getItem(
+        "sugarCafeCustomerId"
+      );
+
+    if (newCustomerId) {
+      return newCustomerId;
+    }
+
+    const oldCustomerId =
+      localStorage.getItem(
+        "customerId"
+      );
+
+    if (oldCustomerId) {
+      return oldCustomerId;
+    }
+
+    const savedUser =
+      localStorage.getItem(
+        "sugarCafeUser"
+      );
+
+    if (savedUser) {
+      const user =
+        JSON.parse(savedUser);
+
+      if (user?.customerId) {
+        return String(
+          user.customerId
+        );
+      }
+    }
+  } catch (error) {
+    console.error(
+      "Customer ID loading error:",
+      error
+    );
+  }
+
+  return "";
+};
+
+
+/* =========================================================
+   SAFE REWARD CARD
+
+   If SugarCafeRewardCard has a runtime rendering error,
+   the complete Orders page will NOT become white.
+========================================================= */
+
+class RewardCardErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+
+    this.state = {
+      hasError: false,
+    };
+  }
+
+  static getDerivedStateFromError() {
+    return {
+      hasError: true,
+    };
+  }
+
+  componentDidCatch(error, info) {
+    console.error(
+      "SugarCafeRewardCard crashed:",
+      error
+    );
+
+    console.error(
+      "Reward card component info:",
+      info
+    );
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div
+          className="checkout-card"
+          style={{
+            marginBottom: "18px",
+            background: "#fffaf0",
+            border:
+              "1px solid #f3dfad",
+            borderRadius: "18px",
+            padding: "16px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "28px",
+              }}
+            >
+              🎁
+            </span>
+
+            <div>
+              <strong>
+                SugarCafe Rewards
+              </strong>
+
+              <div
+                style={{
+                  marginTop: "4px",
+                  fontSize: "13px",
+                  color: "#777",
+                }}
+              >
+                Your reward card is being
+                updated. Your orders are still
+                available below.
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 
 /* =========================================================
    ORDERS PAGE
 ========================================================= */
 
 export default function Orders() {
-  const [orderList, setOrderList] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [customerId, setCustomerId] = useState("");
+
+  const [
+    orderList,
+    setOrderList,
+  ] = useState([]);
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
+  const [
+    customerId,
+    setCustomerId,
+  ] = useState("");
+
 
   /* =======================================================
      CUSTOMER ID
   ======================================================= */
 
   useEffect(() => {
-    const storedCustomerId =
-      localStorage.getItem("customerId");
 
-    if (storedCustomerId) {
-      setCustomerId(storedCustomerId);
-    } else {
-      setCustomerId("");
-    }
+    const loadCustomerId = () => {
+
+      const id =
+        getStoredCustomerId();
+
+      console.log(
+        "SugarCafe Orders customerId:",
+        id
+      );
+
+      setCustomerId(id);
+    };
+
+    loadCustomerId();
+
   }, []);
+
 
   /* =======================================================
      FIRESTORE ORDERS LISTENER
   ======================================================= */
 
   useEffect(() => {
+
     if (!customerId) {
+
       setOrderList([]);
       setLoading(false);
+
       return;
     }
 
     setLoading(true);
 
-    const ordersQuery = query(
-      collection(db, "orders"),
-      where("customerId", "==", customerId)
-    );
+    const ordersQuery =
+      query(
+        collection(
+          db,
+          "orders"
+        ),
+        where(
+          "customerId",
+          "==",
+          customerId
+        )
+      );
 
-    const unsubscribe = onSnapshot(
-      ordersQuery,
-      (snapshot) => {
-        const orders = snapshot.docs.map((docSnap) => ({
-          id: docSnap.id,
-          ...docSnap.data()
-        }));
+    const unsubscribe =
+      onSnapshot(
+        ordersQuery,
 
-        orders.sort(
-          (a, b) =>
-            toMillis(b.createdAt || b.timestamp) -
-            toMillis(a.createdAt || a.timestamp)
-        );
+        (snapshot) => {
 
-        setOrderList(orders);
-        setLoading(false);
-      },
-      (error) => {
-        console.error(
-          "Orders listener error:",
-          error
-        );
+          const orders =
+            snapshot.docs.map(
+              (docSnap) => ({
+                id:
+                  docSnap.id,
 
-        setOrderList([]);
-        setLoading(false);
-      }
-    );
+                ...docSnap.data(),
+              })
+            );
 
-    return () => unsubscribe();
+          orders.sort(
+            (a, b) =>
+              toMillis(
+                b.createdAt ||
+                b.timestamp
+              ) -
+              toMillis(
+                a.createdAt ||
+                a.timestamp
+              )
+          );
+
+          setOrderList(
+            orders
+          );
+
+          setLoading(false);
+        },
+
+        (error) => {
+
+          console.error(
+            "Orders listener error:",
+            error
+          );
+
+          setOrderList([]);
+          setLoading(false);
+        }
+      );
+
+    return () =>
+      unsubscribe();
+
   }, [customerId]);
+
 
   /* =======================================================
      STATUS
   ======================================================= */
 
-  const getStatusKey = (order) => {
-    const status = String(
-      order?.status || "New"
-    ).toLowerCase();
+  const getStatusKey = (
+    order
+  ) => {
+
+    const status =
+      String(
+        order?.status ||
+        "New"
+      )
+        .trim()
+        .toLowerCase();
 
     if (
       status === "delivered" ||
@@ -148,7 +380,8 @@ export default function Orders() {
 
     if (
       status === "ready" ||
-      status === "food ready"
+      status === "food ready" ||
+      status === "food_ready"
     ) {
       return "ready";
     }
@@ -164,289 +397,362 @@ export default function Orders() {
     return "new";
   };
 
+
   /* =======================================================
      6+1 LOYALTY
-     
-     ONLY:
-     Delivered + subtotal/total >= ₹500
-     
-     These are the ONLY orders counted toward 1-6.
   ======================================================= */
 
-  const qualifyingLoyaltyOrders = useMemo(() => {
-    return orderList.filter((order) => {
-      const status = String(
-        order?.status || ""
-      ).toLowerCase();
+  const qualifyingLoyaltyOrders =
+    useMemo(() => {
 
-      const billAmount = Number(
-        order?.subtotal ??
-        order?.total ??
-        0
+      return orderList.filter(
+        (order) => {
+
+          const status =
+            String(
+              order?.status ||
+              ""
+            )
+              .trim()
+              .toLowerCase();
+
+          const billAmount =
+            Number(
+              order?.subtotal ??
+              order?.total ??
+              0
+            );
+
+          return (
+            status ===
+              "delivered" &&
+            Number.isFinite(
+              billAmount
+            ) &&
+            billAmount >= 500
+          );
+        }
       );
 
-      return (
-        status === "delivered" &&
-        Number.isFinite(billAmount) &&
-        billAmount >= 500
-      );
-    });
-  }, [orderList]);
+    }, [orderList]);
+
 
   /* =======================================================
      COMPLETED LOYALTY CYCLES
-     
-     Example:
-     Cycle 1 reward created -> maxCompletedCycle = 1
-     Cycle 2 reward created -> maxCompletedCycle = 2
   ======================================================= */
 
-  const loyaltyCycleData = useMemo(() => {
-    const rewardOrders = orderList.filter((order) => {
-      const cycle = Number(
-        order?.loyaltyReward?.cycle
-      );
+  const loyaltyCycleData =
+    useMemo(() => {
 
-      return (
-        Number.isFinite(cycle) &&
-        cycle > 0
-      );
-    });
+      const rewardOrders =
+        orderList.filter(
+          (order) => {
 
-    const maxCompletedCycle =
-      rewardOrders.length > 0
-        ? Math.max(
-            ...rewardOrders.map((order) =>
-              Number(order.loyaltyReward.cycle)
+            const cycle =
+              Number(
+                order
+                  ?.loyaltyReward
+                  ?.cycle
+              );
+
+            return (
+              Number.isFinite(
+                cycle
+              ) &&
+              cycle > 0
+            );
+          }
+        );
+
+
+      const maxCompletedCycle =
+        rewardOrders.length > 0
+          ? Math.max(
+              ...rewardOrders.map(
+                (order) =>
+                  Number(
+                    order
+                      .loyaltyReward
+                      .cycle
+                  )
+              )
             )
-          )
-        : 0;
+          : 0;
 
-    /*
-      Cycle 1 needs first 6 qualifying orders.
-      Cycle 2 needs next 6.
-      Cycle 3 needs next 6.
 
-      Total thresholds:
-      Cycle 1 => 6
-      Cycle 2 => 12
-      Cycle 3 => 18
-    */
+      const nextCycle =
+        maxCompletedCycle + 1;
 
-    const nextCycle =
-      maxCompletedCycle + 1;
 
-    const requiredQualifyingOrders =
-      maxCompletedCycle * 6 + 6;
+      const requiredQualifyingOrders =
+        maxCompletedCycle * 6 +
+        6;
 
-    /*
-      Progress after already completed cycles.
 
-      Example:
-      7 qualifying orders + cycle 1 completed
-      => 1 / 6
-
-      12 qualifying orders + cycle 1 completed
-      => 5 / 6
-
-      13 qualifying orders + cycle 2 completed
-      => 1 / 6
-    */
-
-    const progress = Math.max(
-      0,
-      Math.min(
+      let progress =
         qualifyingLoyaltyOrders.length -
-          maxCompletedCycle * 6,
-        6
-      )
-    );
+        maxCompletedCycle * 6;
 
-    return {
-      maxCompletedCycle,
-      nextCycle,
-      requiredQualifyingOrders,
-      progress
-    };
-  }, [
-    orderList,
-    qualifyingLoyaltyOrders
-  ]);
+
+      progress =
+        Math.max(
+          0,
+          Math.min(
+            progress,
+            6
+          )
+        );
+
+
+      return {
+        maxCompletedCycle,
+        nextCycle,
+        requiredQualifyingOrders,
+        progress,
+      };
+
+    }, [
+      orderList,
+      qualifyingLoyaltyOrders,
+    ]);
+
 
   const loyaltyCycle =
-    loyaltyCycleData.maxCompletedCycle;
+    loyaltyCycleData
+      .maxCompletedCycle;
+
 
   const loyaltyProgress =
-    loyaltyCycleData.progress;
+    loyaltyCycleData
+      .progress;
+
 
   /* =======================================================
      ACTIVE SCRATCH REWARD
-     
-     Only:
-       scratch_pending
-       available
-     
-     NOT:
-       applied
-       redeemed
-       carried
   ======================================================= */
 
-  const activeLoyaltyReward = useMemo(() => {
-    const alreadyUsedSourceIds =
-      new Set(
-        orderList
-          .map(
-            (order) =>
-              order?.loyaltyReward
-                ?.sourceOrderId
-          )
-          .filter(Boolean)
-      );
+  const activeLoyaltyReward =
+    useMemo(() => {
 
-    const sourceOrders = orderList
-      .filter((order) => {
-        const reward =
-          order?.loyaltyReward;
-
-        if (!reward) {
-          return false;
-        }
-
-        return (
-          reward.status ===
-            "scratch_pending" ||
-          reward.status === "available"
+      const alreadyUsedSourceIds =
+        new Set(
+          orderList
+            .map(
+              (order) =>
+                order
+                  ?.loyaltyReward
+                  ?.sourceOrderId
+            )
+            .filter(Boolean)
         );
-      })
-      .sort(
-        (a, b) =>
-          toMillis(
-            b?.loyaltyReward?.createdAt ||
-              b?.createdAt
-          ) -
-          toMillis(
-            a?.loyaltyReward?.createdAt ||
-              a?.createdAt
+
+
+      const sourceOrders =
+        orderList
+          .filter(
+            (order) => {
+
+              const reward =
+                order
+                  ?.loyaltyReward;
+
+              if (!reward) {
+                return false;
+              }
+
+              return (
+                reward.status ===
+                  "scratch_pending" ||
+                reward.status ===
+                  "available"
+              );
+            }
           )
+          .sort(
+            (a, b) =>
+              toMillis(
+                b
+                  ?.loyaltyReward
+                  ?.createdAt ||
+                b?.createdAt
+              ) -
+              toMillis(
+                a
+                  ?.loyaltyReward
+                  ?.createdAt ||
+                a?.createdAt
+              )
+          );
+
+
+      const active =
+        sourceOrders.find(
+          (order) =>
+            !alreadyUsedSourceIds.has(
+              order.id
+            )
+        );
+
+
+      return (
+        active ||
+        null
       );
 
-    /*
-      If a reward was already applied to another order,
-      don't show the old source reward again.
-    */
+    }, [orderList]);
 
-    const active = sourceOrders.find(
-      (order) =>
-        !alreadyUsedSourceIds.has(order.id)
-    );
-
-    return active || null;
-  }, [orderList]);
-
-  /*
-    A scratch card actually exists only when the
-    source order has been created.
-
-    We do NOT create/show a fake scratch card merely
-    because the customer has reached 6 orders.
-  */
 
   const scratchCardUnlocked =
-    Boolean(activeLoyaltyReward);
+    Boolean(
+      activeLoyaltyReward
+    );
+
 
   /* =======================================================
      ORDER COUNTS
   ======================================================= */
 
-  const totalOrders = orderList.length;
+  const totalOrders =
+    orderList.length;
 
-  const deliveredOrders = orderList.filter(
-    (order) =>
-      getStatusKey(order) === "delivered"
-  ).length;
 
-  const activeOrders = orderList.filter(
-    (order) => {
-      const key = getStatusKey(order);
+  const deliveredOrders =
+    orderList.filter(
+      (order) =>
+        getStatusKey(
+          order
+        ) === "delivered"
+    ).length;
 
-      return (
-        key === "new" ||
-        key === "preparing" ||
-        key === "ready"
-      );
-    }
-  ).length;
 
-  const rejectedOrders = orderList.filter(
-    (order) =>
-      getStatusKey(order) === "cancelled"
-  ).length;
+  const activeOrders =
+    orderList.filter(
+      (order) => {
+
+        const key =
+          getStatusKey(
+            order
+          );
+
+        return (
+          key === "new" ||
+          key === "preparing" ||
+          key === "ready"
+        );
+      }
+    ).length;
+
+
+  const rejectedOrders =
+    orderList.filter(
+      (order) =>
+        getStatusKey(
+          order
+        ) === "cancelled"
+    ).length;
+
 
   /* =======================================================
      TOTAL SPENT
   ======================================================= */
 
-  const totalSpent = useMemo(() => {
-    return orderList
-      .filter((order) => {
-        const status = String(
-          order?.status || ""
-        ).toLowerCase();
+  const totalSpent =
+    useMemo(() => {
 
-        return (
-          status === "delivered" ||
-          status === "completed"
+      return orderList
+        .filter(
+          (order) => {
+
+            const status =
+              String(
+                order?.status ||
+                ""
+              )
+                .trim()
+                .toLowerCase();
+
+            return (
+              status ===
+                "delivered" ||
+              status ===
+                "completed"
+            );
+          }
+        )
+        .reduce(
+          (
+            sum,
+            order
+          ) => {
+
+            const total =
+              Number(
+                order?.total ??
+                0
+              );
+
+            return (
+              sum +
+              (
+                Number.isFinite(
+                  total
+                )
+                  ? total
+                  : 0
+              )
+            );
+          },
+          0
         );
-      })
-      .reduce(
-        (sum, order) => {
-          const total = Number(
-            order?.total ?? 0
-          );
 
-          return (
-            sum +
-            (Number.isFinite(total)
-              ? total
-              : 0)
-          );
-        },
-        0
-      );
-  }, [orderList]);
+    }, [orderList]);
+
 
   /* =======================================================
      DATE
   ======================================================= */
 
-  const formatDate = (value) => {
-    const millis = toMillis(value);
+  const formatDate = (
+    value
+  ) => {
+
+    const millis =
+      toMillis(value);
 
     if (!millis) {
       return "Date unavailable";
     }
 
-    return new Date(millis).toLocaleString(
+    return new Date(
+      millis
+    ).toLocaleString(
       "en-IN",
       {
         day: "2-digit",
         month: "short",
         year: "numeric",
         hour: "2-digit",
-        minute: "2-digit"
+        minute: "2-digit",
       }
     );
   };
+
 
   /* =======================================================
      STATUS LABEL
   ======================================================= */
 
-  const getStatusLabel = (order) => {
-    const key = getStatusKey(order);
+  const getStatusLabel = (
+    order
+  ) => {
+
+    const key =
+      getStatusKey(
+        order
+      );
 
     switch (key) {
+
       case "new":
         return "New";
 
@@ -463,81 +769,125 @@ export default function Orders() {
         return "Cancelled";
 
       default:
-        return order?.status || "New";
+        return (
+          order?.status ||
+          "New"
+        );
     }
   };
+
 
   /* =======================================================
      STATUS CLASS
   ======================================================= */
 
-  const getStatusClass = (order) => {
+  const getStatusClass = (
+    order
+  ) => {
+
     return `order-status ${getStatusKey(
       order
     )}`;
   };
 
+
   /* =======================================================
-     LOGIN / LOADING
+     LOGIN
   ======================================================= */
 
-  if (!customerId && !loading) {
+  if (
+    !customerId &&
+    !loading
+  ) {
+
     return (
       <div className="orders-page">
+
         <div className="orders-empty">
+
           <div className="orders-empty-icon">
             🧾
           </div>
 
-          <h2>Login Required</h2>
+          <h2>
+            Login Required
+          </h2>
 
           <p>
-            Please login to view your SugarCafe
-            orders.
+            Please login to view your
+            SugarCafe orders.
           </p>
+
         </div>
+
       </div>
     );
   }
 
+
+  /* =======================================================
+     LOADING
+  ======================================================= */
+
   if (loading) {
+
     return (
       <div className="orders-page">
+
         <div className="orders-loading">
+
           <div className="orders-loader" />
-          <p>Loading your orders...</p>
+
+          <p>
+            Loading your orders...
+          </p>
+
         </div>
+
       </div>
     );
   }
+
 
   /* =======================================================
      SPLIT ORDERS
   ======================================================= */
 
-  const runningOrders = orderList.filter(
-    (order) => {
-      const key = getStatusKey(order);
+  const runningOrders =
+    orderList.filter(
+      (order) => {
 
-      return (
-        key === "new" ||
-        key === "preparing" ||
-        key === "ready"
-      );
-    }
-  );
+        const key =
+          getStatusKey(
+            order
+          );
+
+        return (
+          key === "new" ||
+          key === "preparing" ||
+          key === "ready"
+        );
+      }
+    );
+
 
   const deliveredOrderList =
     orderList.filter(
       (order) =>
-        getStatusKey(order) === "delivered"
+        getStatusKey(
+          order
+        ) === "delivered"
     );
+
 
   const cancelledOrderList =
     orderList.filter(
       (order) =>
-        getStatusKey(order) === "cancelled"
+        getStatusKey(
+          order
+        ) === "cancelled"
     );
+
 
   /* =======================================================
      RENDER
@@ -545,51 +895,77 @@ export default function Orders() {
 
   return (
     <div className="orders-page">
+
       <div className="orders-container">
+
 
         {/* =================================================
             HEADER
         ================================================= */}
 
         <div className="orders-header">
+
           <div>
-            <h1>My Orders</h1>
+
+            <h1>
+              My Orders
+            </h1>
 
             <p>
               Track your SugarCafe orders
             </p>
+
           </div>
+
         </div>
+
 
         {/* =================================================
             6+1 SCRATCH CARD
         ================================================= */}
 
-        <SugarCafeRewardCard
-          orders={orderList}
-          customerId={customerId}
-          qualifyingOrders={
-            qualifyingLoyaltyOrders
-          }
-          qualifyingCount={
-            qualifyingLoyaltyOrders.length
-          }
-          loyaltyProgress={
-            loyaltyProgress
-          }
-          loyaltyCycle={
-            loyaltyCycle
-          }
-          nextCycle={
-            loyaltyCycleData.nextCycle
-          }
-          scratchCardUnlocked={
-            scratchCardUnlocked
-          }
-          activeRewardOrder={
-            activeLoyaltyReward
-          }
-        />
+        <RewardCardErrorBoundary>
+
+          <SugarCafeRewardCard
+            orders={
+              orderList
+            }
+
+            customerId={
+              customerId
+            }
+
+            qualifyingOrders={
+              qualifyingLoyaltyOrders
+            }
+
+            qualifyingCount={
+              qualifyingLoyaltyOrders.length
+            }
+
+            loyaltyProgress={
+              loyaltyProgress
+            }
+
+            loyaltyCycle={
+              loyaltyCycle
+            }
+
+            nextCycle={
+              loyaltyCycleData.nextCycle
+            }
+
+            scratchCardUnlocked={
+              scratchCardUnlocked
+            }
+
+            activeRewardOrder={
+              activeLoyaltyReward
+            }
+          />
+
+        </RewardCardErrorBoundary>
+
 
         {/* =================================================
             SUMMARY
@@ -598,11 +974,13 @@ export default function Orders() {
         <div className="orders-summary">
 
           <div className="summary-card">
+
             <span className="summary-icon">
               🧾
             </span>
 
             <div>
+
               <strong>
                 {totalOrders}
               </strong>
@@ -610,15 +988,20 @@ export default function Orders() {
               <span>
                 Total Orders
               </span>
+
             </div>
+
           </div>
 
+
           <div className="summary-card">
+
             <span className="summary-icon">
               🔥
             </span>
 
             <div>
+
               <strong>
                 {activeOrders}
               </strong>
@@ -626,15 +1009,20 @@ export default function Orders() {
               <span>
                 Running
               </span>
+
             </div>
+
           </div>
 
+
           <div className="summary-card">
+
             <span className="summary-icon">
               ✅
             </span>
 
             <div>
+
               <strong>
                 {deliveredOrders}
               </strong>
@@ -642,15 +1030,20 @@ export default function Orders() {
               <span>
                 Delivered
               </span>
+
             </div>
+
           </div>
 
+
           <div className="summary-card">
+
             <span className="summary-icon">
               💰
             </span>
 
             <div>
+
               <strong>
                 ₹
                 {totalSpent.toLocaleString(
@@ -661,10 +1054,13 @@ export default function Orders() {
               <span>
                 Total Spent
               </span>
+
             </div>
+
           </div>
 
         </div>
+
 
         {/* =================================================
             MINI LOYALTY PROGRESS
@@ -675,27 +1071,38 @@ export default function Orders() {
           <div className="loyalty-mini-header">
 
             <div>
+
               <span className="loyalty-mini-icon">
                 🎁
               </span>
 
               <div>
+
                 <h3>
                   SugarCafe 6+1 Rewards
                 </h3>
 
                 <p>
+
                   {activeLoyaltyReward
+
                     ? activeLoyaltyReward
                         ?.loyaltyReward
                         ?.status ===
                       "scratch_pending"
+
                       ? "Scratch your card to reveal your reward."
+
                       : "Your reward is ready for your next order."
+
                     : `${loyaltyProgress}/6 qualifying orders`}
+
                 </p>
+
               </div>
+
             </div>
+
 
             <strong>
               {loyaltyProgress}/6
@@ -703,17 +1110,25 @@ export default function Orders() {
 
           </div>
 
+
           <div className="loyalty-progress-track">
+
             <div
               className="loyalty-progress-fill"
+
               style={{
                 width: `${
-                  (loyaltyProgress / 6) *
+                  (
+                    loyaltyProgress /
+                    6
+                  ) *
                   100
-                }%`
+                }%`,
               }}
             />
+
           </div>
+
 
           <div className="loyalty-mini-footer">
 
@@ -722,18 +1137,21 @@ export default function Orders() {
             </span>
 
             <span>
-              Cycle {loyaltyCycle + 1}
+              Cycle{" "}
+              {loyaltyCycle + 1}
             </span>
 
           </div>
 
         </div>
 
+
         {/* =================================================
             EMPTY STATE
         ================================================= */}
 
         {orderList.length === 0 && (
+
           <div className="orders-empty">
 
             <div className="orders-empty-icon">
@@ -750,17 +1168,22 @@ export default function Orders() {
             </p>
 
           </div>
+
         )}
+
 
         {/* =================================================
             RUNNING ORDERS
         ================================================= */}
 
         {runningOrders.length > 0 && (
+
           <section className="orders-section">
 
             <div className="section-heading">
+
               <div>
+
                 <h2>
                   Running Orders
                 </h2>
@@ -768,45 +1191,65 @@ export default function Orders() {
                 <p>
                   Your current orders
                 </p>
+
               </div>
 
               <span>
                 {runningOrders.length}
               </span>
+
             </div>
+
 
             <div className="orders-list">
 
               {runningOrders.map(
                 (order) => (
+
                   <OrderCard
-                    key={order.id}
-                    order={order}
-                    formatDate={formatDate}
+                    key={
+                      order.id
+                    }
+
+                    order={
+                      order
+                    }
+
+                    formatDate={
+                      formatDate
+                    }
+
                     getStatusLabel={
                       getStatusLabel
                     }
+
                     getStatusClass={
                       getStatusClass
                     }
                   />
+
                 )
               )}
 
             </div>
 
           </section>
+
         )}
+
 
         {/* =================================================
             DELIVERED ORDERS
         ================================================= */}
 
         {deliveredOrderList.length > 0 && (
+
           <section className="orders-section">
 
             <div className="section-heading">
+
               <div>
+
                 <h2>
                   Delivered Orders
                 </h2>
@@ -814,45 +1257,67 @@ export default function Orders() {
                 <p>
                   Your completed orders
                 </p>
+
               </div>
 
               <span>
-                {deliveredOrderList.length}
+                {
+                  deliveredOrderList.length
+                }
               </span>
+
             </div>
+
 
             <div className="orders-list">
 
               {deliveredOrderList.map(
                 (order) => (
+
                   <OrderCard
-                    key={order.id}
-                    order={order}
-                    formatDate={formatDate}
+                    key={
+                      order.id
+                    }
+
+                    order={
+                      order
+                    }
+
+                    formatDate={
+                      formatDate
+                    }
+
                     getStatusLabel={
                       getStatusLabel
                     }
+
                     getStatusClass={
                       getStatusClass
                     }
                   />
+
                 )
               )}
 
             </div>
 
           </section>
+
         )}
+
 
         {/* =================================================
             CANCELLED / REJECTED ORDERS
         ================================================= */}
 
         {cancelledOrderList.length > 0 && (
+
           <section className="orders-section">
 
             <div className="section-heading">
+
               <div>
+
                 <h2>
                   Cancelled Orders
                 </h2>
@@ -860,40 +1325,60 @@ export default function Orders() {
                 <p>
                   Cancelled or rejected orders
                 </p>
+
               </div>
 
               <span>
-                {cancelledOrderList.length}
+                {
+                  cancelledOrderList.length
+                }
               </span>
+
             </div>
+
 
             <div className="orders-list">
 
               {cancelledOrderList.map(
                 (order) => (
+
                   <OrderCard
-                    key={order.id}
-                    order={order}
-                    formatDate={formatDate}
+                    key={
+                      order.id
+                    }
+
+                    order={
+                      order
+                    }
+
+                    formatDate={
+                      formatDate
+                    }
+
                     getStatusLabel={
                       getStatusLabel
                     }
+
                     getStatusClass={
                       getStatusClass
                     }
                   />
+
                 )
               )}
 
             </div>
 
           </section>
+
         )}
 
       </div>
+
     </div>
   );
 }
+
 
 /* =========================================================
    ORDER CARD
@@ -903,47 +1388,53 @@ function OrderCard({
   order,
   formatDate,
   getStatusLabel,
-  getStatusClass
+  getStatusClass,
 }) {
-  const items = Array.isArray(
-    order?.items
-  )
-    ? order.items
-    : [];
+
+  const items =
+    Array.isArray(
+      order?.items
+    )
+      ? order.items
+      : [];
+
 
   const reward =
-    order?.loyaltyReward || null;
+    order?.loyaltyReward ||
+    null;
+
 
   const rewardStatus =
-    reward?.status || "";
+    reward?.status ||
+    "";
 
-  /*
-    IMPORTANT:
-    scratch_pending must NOT reveal the reward
-    name/image to the customer.
-
-    Only available/applied/redeemed can show
-    reward information.
-  */
 
   const showRewardBadge =
-    reward &&
-    rewardStatus !== "scratch_pending";
+    Boolean(
+      reward &&
+      rewardStatus !==
+        "scratch_pending"
+    );
+
 
   const isScratchPending =
     rewardStatus ===
     "scratch_pending";
 
+
   const isRewardAvailable =
     rewardStatus ===
     "available";
+
 
   const isRewardApplied =
     rewardStatus ===
     "applied";
 
+
   return (
     <article className="order-card">
+
 
       {/* =================================================
           ORDER HEADER
@@ -952,10 +1443,12 @@ function OrderCard({
       <div className="order-card-header">
 
         <div>
+
           <h3>
             #
             {order?.orderNumber ||
-              order?.id?.slice(-6)
+              order?.id
+                ?.slice(-6)
                 .toUpperCase()}
           </h3>
 
@@ -965,23 +1458,33 @@ function OrderCard({
                 order?.timestamp
             )}
           </p>
+
         </div>
 
+
         <span
-          className={getStatusClass(
-            order
-          )}
+          className={
+            getStatusClass(
+              order
+            )
+          }
         >
-          {getStatusLabel(order)}
+          {
+            getStatusLabel(
+              order
+            )
+          }
         </span>
 
       </div>
+
 
       {/* =================================================
           REWARD BADGE
       ================================================= */}
 
       {showRewardBadge && (
+
         <div className="order-reward-badge">
 
           <span>
@@ -991,37 +1494,51 @@ function OrderCard({
           <div>
 
             <strong>
+
               {reward.type ===
-                "discount"
+              "discount"
+
                 ? "5% Discount Reward"
+
                 : reward.itemName
                   ? `FREE ${reward.itemName}`
                   : "Reward"}
+
             </strong>
 
+
             <small>
+
               {isRewardAvailable
+
                 ? "✨ Scratch completed — reward available for your next order"
+
                 : isRewardApplied
+
                   ? "🎉 Reward applied to this order"
+
                   : rewardStatus ===
                     "redeemed"
+
                     ? "Reward redeemed"
+
                     : "Reward unlocked"}
+
             </small>
 
           </div>
 
         </div>
+
       )}
+
 
       {/* =================================================
           SCRATCH PENDING
-          
-          Do NOT show actual reward.
       ================================================= */}
 
       {isScratchPending && (
+
         <div className="order-scratch-pending">
 
           <span>
@@ -1029,24 +1546,30 @@ function OrderCard({
           </span>
 
           <div>
+
             <strong>
               Scratch Card Unlocked!
             </strong>
 
             <small>
-              Scratch your reward card above
-              to reveal your reward.
+              Scratch your digital reward
+              card above to reveal your
+              reward.
             </small>
+
           </div>
 
         </div>
+
       )}
+
 
       {/* =================================================
           SPECIAL NOTE
       ================================================= */}
 
       {order?.specialNote && (
+
         <div className="order-special-note">
 
           <strong>
@@ -1054,11 +1577,15 @@ function OrderCard({
           </strong>
 
           <p>
-            {order.specialNote}
+            {
+              order.specialNote
+            }
           </p>
 
         </div>
+
       )}
+
 
       {/* =================================================
           ITEMS
@@ -1067,23 +1594,35 @@ function OrderCard({
       <div className="order-items">
 
         {items.map(
-          (item, index) => {
+          (
+            item,
+            index
+          ) => {
+
             const quantity =
-              getItemQuantity(item);
+              getItemQuantity(
+                item
+              );
+
 
             const price =
-              getItemPrice(item);
+              getItemPrice(
+                item
+              );
+
 
             const itemName =
               item?.name ||
               item?.title ||
               "Item";
 
+
             const image =
               item?.image ||
               item?.imageUrl ||
               item?.photoURL ||
               "";
+
 
             return (
               <div
@@ -1096,30 +1635,55 @@ function OrderCard({
               >
 
                 {image ? (
+
                   <img
-                    src={image}
-                    alt={itemName}
+                    src={
+                      image
+                    }
+
+                    alt={
+                      itemName
+                    }
+
                     className="order-item-image"
+
+                    onError={(
+                      event
+                    ) => {
+                      event.currentTarget.style.display =
+                        "none";
+                    }}
                   />
+
                 ) : (
+
                   <div className="order-item-placeholder">
                     🍽️
                   </div>
+
                 )}
+
 
                 <div className="order-item-info">
 
                   <strong>
-                    {itemName}
+                    {
+                      itemName
+                    }
                   </strong>
 
                   <span>
-                    Qty: {quantity}
+                    Qty:{" "}
+                    {
+                      quantity
+                    }
                   </span>
 
                 </div>
 
+
                 <strong className="order-item-price">
+
                   ₹
                   {(
                     price *
@@ -1127,6 +1691,7 @@ function OrderCard({
                   ).toLocaleString(
                     "en-IN"
                   )}
+
                 </strong>
 
               </div>
@@ -1136,6 +1701,7 @@ function OrderCard({
 
       </div>
 
+
       {/* =================================================
           ORDER TOTAL
       ================================================= */}
@@ -1143,6 +1709,7 @@ function OrderCard({
       <div className="order-card-footer">
 
         <div>
+
           <span>
             Total
           </span>
@@ -1150,19 +1717,26 @@ function OrderCard({
           <strong>
             ₹
             {Number(
-              order?.total || 0
+              order?.total ||
+              0
             ).toLocaleString(
               "en-IN"
             )}
           </strong>
+
         </div>
 
+
         {order?.paymentMethod && (
+
           <span className="payment-method">
+
             {String(
               order.paymentMethod
             ).toUpperCase()}
+
           </span>
+
         )}
 
       </div>
