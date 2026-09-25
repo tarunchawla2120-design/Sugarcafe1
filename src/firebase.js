@@ -2,6 +2,7 @@ import { getStorage } from "firebase/storage";
 import { initializeApp } from "firebase/app";
 import { initializeFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
+import { getMessaging, isSupported } from "firebase/messaging";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBaWoS-bvWh454kn_Dq1nkTEjHBNVQKohs",
@@ -17,6 +18,13 @@ const app = initializeApp(firebaseConfig);
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
 });
+
 export const auth = getAuth(app);
 export const storage = getStorage(app);
+
+// Firebase Cloud Messaging
+export const messaging = await isSupported()
+  ? getMessaging(app)
+  : null;
+
 export default app;
