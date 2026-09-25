@@ -1,377 +1,299 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   collection,
+  onSnapshot,
   query,
   where,
-  onSnapshot,
 } from "firebase/firestore";
-import { FaUser, FaPhoneAlt, FaMapMarkerAlt } from "react-icons/fa";
+
 import { db } from "../firebase";
+import SugarCafeRewardCard from "../components/SugarCafeRewardCard";
+
 import "./Profile.css";
 
-function Profile() {
-  const navigate = useNavigate();
-
-  const [profile, setProfile] = useState(null);
-  const [orderCount, setOrderCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-
-  // =====================================================
-  // LOAD CUSTOMER PROFILE
-  // =====================================================
+export default function Profile() {
+  const [user, setUser] = useState(null);
+  const [orders, setOrders] = useState([]);
+  const [loadingOrders, setLoadingOrders] = useState(true);
 
   useEffect(() => {
     try {
-      const savedUser =
-        localStorage.getItem("sugarCafeUser");
+      const savedUser = localStorage.getItem("sugarCafeUser");
 
-      if (!savedUser) {
-        setProfile(null);
-        setLoading(false);
-        return;
+      if (savedUser) {
+        const parsedUser = JSON.parse(savedUser);
+
+        setUser({
+          ...parsedUser,
+          customerId:
+            parsedUser.customerId ||
+            localStorage.getItem("sugarCafeCustomerId") ||
+            "",
+        });
       }
-
-      const data = JSON.parse(savedUser);
-
-      const customerId =
-        data.customerId ||
-        localStorage.getItem("sugarCafeCustomerId") ||
-        "";
-
-      const updatedProfile = {
-        ...data,
-        customerId,
-        addresses: Array.isArray(data.addresses)
-          ? data.addresses
-          : [],
-      };
-
-      setProfile(updatedProfile);
-      setLoading(false);
-
-      // =================================================
-      // REAL-TIME ORDER COUNT
-      // =================================================
-
-      if (!customerId) {
-        setOrderCount(0);
-        return;
-      }
-
-      const ordersQuery = query(
-        collection(db, "orders"),
-        where("customerId", "==", customerId)
-      );
-
-      const unsubscribe = onSnapshot(
-        ordersQuery,
-        (snapshot) => {
-          setOrderCount(snapshot.size);
-        },
-        (error) => {
-          console.error(
-            "Profile orders error:",
-            error
-          );
-
-          setOrderCount(0);
-        }
-      );
-
-      return () => unsubscribe();
     } catch (error) {
-      console.error(
-        "Profile loading error:",
-        error
-      );
-
-      setProfile(null);
-      setLoading(false);
+      console.error("Profile user load error:", error);
     }
   }, []);
 
-  // =====================================================
-  // LOGOUT
-  // =====================================================
+  useEffect(() => {
+    if (!user) return;
 
-  const handleLogout = () => {
-    const confirmLogout =
-      window.confirm(
-        "Are you sure you want to logout?"
-      );
+    const customerId =
+      user.customerId ||
+      localStorage.getItem("sugarCafeCustomerId");
 
-    if (!confirmLogout) {
+    if (!customerId) {
+      setOrders([]);
+      setLoadingOrders(false);
       return;
     }
 
-    localStorage.removeItem(
-      "sugarCafeUser"
+    const ordersQuery = query(
+      collection(db, "orders"),
+      where("customerId", "==", customerId)
     );
 
-    localStorage.removeItem(
-      "sugarCafeCustomerId"
+    const unsubscribe = onSnapshot(
+      ordersQuery,
+      (snapshot) => {
+        const orderList = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+
+        orderList.sort((a, b) => {
+          const aTime =
+            a.createdAt?.toMillis?.() ||
+            new Date(a.createdAt || 0).getTime() ||
+            0;
+
+          const bTime =
+            b.createdAt?.toMillis?.() ||
+            new Date(b.createdAt || 0).getTime() ||
+            0;
+
+          return bTime - aTime;
+        });
+
+        setOrders(orderList);
+        setLoadingOrders(false);
+      },
+      (error) => {
+        console.error("Orders loading error:", error);
+        setOrders([]);
+        setLoadingOrders(false);
+      }
     );
 
-    setProfile(null);
-    setOrderCount(0);
+    return () => unsubscribe();
+  }, [user]);
 
-    navigate("/");
-  };
-
-  // =====================================================
-  // LOADING
-  // =====================================================
-
-  if (loading) {
+  if (!user) {
     return (
       <div className="profile-page">
-        <div className="profile-card">
-          <h2>
-            Loading profile...
-          </h2>
-        </div>
-      </div>
-    );
-  }
-
-  // =====================================================
-  // NOT LOGGED IN
-  // =====================================================
-
-  if (!profile) {
-    return (
-      <div className="profile-page">
-
-        <div className="profile-card profile-login-card">
-
-          <div className="profile-avatar">
-            <FaUser />
+        <div className="profile-container">
+          <div className="profile-card">
+            <h2>Please Login</h2>
+            <p>
+              Login to view your profile, orders and SugarCafe rewards.
+            </p>
           </div>
-
-          <h2>
-            Welcome to Sugar Café
-          </h2>
-
-          <p>
-            Login to create your customer
-            account and see your orders.
-          </p>
-
-          <button
-            className="profile-primary-btn"
-            onClick={() =>
-              navigate("/login", {
-                state: {
-                  from: "/profile",
-                },
-              })
-            }
-          >
-            Login / Create Account
-          </button>
-
         </div>
-
       </div>
     );
   }
 
-  // =====================================================
-  // PROFILE
-  // =====================================================
+  const customerId =
+    user.customerId ||
+    localStorage.getItem("sugarCafeCustomerId") ||
+    "";
+
+  const customerName =
+    user.name ||
+    user.displayName ||
+    user.customerName ||
+    "Customer";
+
+  const phone =
+    user.phone ||
+    user.customerPhone ||
+    "";
+
+  const email =
+    user.email ||
+    "";
+
+  const orderCount = orders.length;
+
+  const handleLogout = () => {
+    localStorage.removeItem("sugarCafeUser");
+    localStorage.removeItem("sugarCafeCustomerId");
+
+    window.location.href = "/login";
+  };
 
   return (
     <div className="profile-page">
+      <div className="profile-container">
 
-      <div className="profile-card">
+        {/* =========================
+            PROFILE HEADER
+        ========================== */}
+        <div className="profile-card profile-header-card">
 
-        {/* AVATAR */}
-
-        <div className="profile-avatar">
-          <FaUser />
-        </div>
-
-        {/* NAME */}
-
-        <h2>
-          {profile.name ||
-            "Sugar Café Customer"}
-        </h2>
-
-        <p className="profile-welcome">
-          Welcome back! 👋
-        </p>
-
-        {/* CUSTOMER DETAILS */}
-
-        <div className="profile-details">
-
-          <div className="profile-detail-row">
-
-            <FaPhoneAlt />
-
-            <div>
-              <small>
-                Mobile Number
-              </small>
-
-              <strong>
-                {profile.phone ||
-                  "Not available"}
-              </strong>
-            </div>
-
+          <div className="profile-avatar">
+            {user.photoURL ? (
+              <img
+                src={user.photoURL}
+                alt={customerName}
+              />
+            ) : (
+              <span>
+                {customerName.charAt(0).toUpperCase()}
+              </span>
+            )}
           </div>
 
-          <div className="profile-detail-row">
+          <div className="profile-header-info">
+            <h1>{customerName}</h1>
 
-            <FaUser />
+            {phone && (
+              <p>{phone}</p>
+            )}
 
-            <div>
-              <small>
-                Customer ID
-              </small>
+            {email && (
+              <p>{email}</p>
+            )}
 
-              <strong>
-                {profile.customerId ||
-                  "Not available"}
-              </strong>
-            </div>
-
+            {customerId && (
+              <div className="customer-id-box">
+                <span>Customer ID</span>
+                <strong>{customerId}</strong>
+              </div>
+            )}
           </div>
-
         </div>
 
-        {/* QUICK ACTIONS */}
+        {/* =========================
+            SUGARCAFE 6 + 1 REWARD
+        ========================== */}
+        {!loadingOrders && customerId && (
+          <SugarCafeRewardCard
+            orders={orders}
+            customerId={customerId}
+          />
+        )}
 
-        <div className="profile-actions">
+        {/* =========================
+            ORDER SUMMARY
+        ========================== */}
+        <div className="profile-card profile-summary-card">
 
-          <button
-            className="profile-action-btn"
-            onClick={() =>
-              navigate("/orders")
-            }
-          >
-            <span className="profile-action-icon">
-              📦
-            </span>
-
-            <span>
-              <strong>
-                My Orders
-              </strong>
-
-              <small>
-                {orderCount}{" "}
-                {orderCount === 1
-                  ? "Order"
-                  : "Orders"}
-              </small>
-            </span>
-          </button>
+          <div className="profile-summary-item">
+            <strong>{orderCount}</strong>
+            <span>My Orders</span>
+          </div>
 
           <button
-            className="profile-action-btn"
-            onClick={() =>
-              navigate("/orders")
-            }
+            className="profile-summary-item profile-summary-button"
+            onClick={() => {
+              window.location.href = "/orders";
+            }}
           >
-            <span className="profile-action-icon">
-              🚚
-            </span>
-
-            <span>
-              <strong>
-                Track My Orders
-              </strong>
-
-              <small>
-                View live order status
-              </small>
-            </span>
+            <strong>View</strong>
+            <span>Track Orders</span>
           </button>
 
         </div>
 
-        {/* SAVED ADDRESSES */}
-
-        <div className="profile-section">
+        {/* =========================
+            ACCOUNT INFORMATION
+        ========================== */}
+        <div className="profile-card">
 
           <div className="profile-section-title">
-            <FaMapMarkerAlt />
-
-            <strong>
-              Saved Addresses
-            </strong>
+            <h2>Account Information</h2>
           </div>
 
-          {profile.addresses &&
-          profile.addresses.length > 0 ? (
-            profile.addresses
-              .slice(0, 3)
-              .map(
-                (saved, index) => (
-                  <div
-                    className="profile-address"
-                    key={
-                      saved.id ||
-                      index
-                    }
-                  >
-                    <strong>
-                      {saved.label ||
-                        "Delivery Address"}
-                    </strong>
+          <div className="profile-info-list">
 
-                    <span>
-                      {saved.fullAddress ||
-                        saved.address ||
-                        "Address"}
-                    </span>
-                  </div>
-                )
-              )
-          ) : (
-            <p className="profile-empty">
-              No saved addresses yet.
-            </p>
-          )}
+            <div className="profile-info-row">
+              <span>Name</span>
+              <strong>{customerName}</strong>
+            </div>
 
+            {phone && (
+              <div className="profile-info-row">
+                <span>Phone</span>
+                <strong>{phone}</strong>
+              </div>
+            )}
+
+            {email && (
+              <div className="profile-info-row">
+                <span>Email</span>
+                <strong>{email}</strong>
+              </div>
+            )}
+
+            <div className="profile-info-row">
+              <span>Customer ID</span>
+              <strong>{customerId || "—"}</strong>
+            </div>
+
+          </div>
         </div>
 
-        {/* ACCOUNT INFO */}
+        {/* =========================
+            QUICK ACTIONS
+        ========================== */}
+        <div className="profile-card">
 
-        <div className="profile-account-box">
+          <div className="profile-section-title">
+            <h2>Quick Actions</h2>
+          </div>
 
-          <strong>
-            Your Sugar Café Account
-          </strong>
+          <div className="profile-actions">
 
-          <p>
-            Your Customer ID is connected
-            to your orders. You can use
-            this account to view your
-            previous and new orders.
-          </p>
+            <button
+              onClick={() => {
+                window.location.href = "/orders";
+              }}
+            >
+              <span>📦</span>
+              <div>
+                <strong>My Orders</strong>
+                <small>View all your orders</small>
+              </div>
+            </button>
 
+            <button
+              onClick={() => {
+                window.location.href = "/menu";
+              }}
+            >
+              <span>🍔</span>
+              <div>
+                <strong>Order Food</strong>
+                <small>Browse SugarCafe menu</small>
+              </div>
+            </button>
+
+          </div>
         </div>
 
-        {/* LOGOUT */}
-
+        {/* =========================
+            LOGOUT
+        ========================== */}
         <button
-          className="profile-logout-btn"
-          onClick={
-            handleLogout
-          }
+          className="profile-logout-button"
+          onClick={handleLogout}
         >
           Logout
         </button>
 
       </div>
-
     </div>
   );
 }
-
-export default Profile;
