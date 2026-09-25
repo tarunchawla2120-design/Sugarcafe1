@@ -1,221 +1,452 @@
-body{
-  background:#f5f5f5;
+/* =========================================================
+   SUGAR CAFE - CHECKOUT
+   FINAL CSS
+========================================================= */
+
+body {
+  background: #f5f5f5;
 }
 
-.checkout-page{
-  max-width:420px;
-  margin:auto;
-  padding:20px;
-  min-height:100vh;
-  background:#f5f5f5;
+.checkout-page {
+  width: 100%;
+  max-width: 420px;
+  margin: auto;
+  padding: 20px;
+  min-height: 100vh;
+  box-sizing: border-box;
+  background: #f5f5f5;
 }
 
-.checkout-page h2{
-  margin-bottom:20px;
-  font-size:28px;
-  font-weight:700;
+.checkout-page h2 {
+  margin-bottom: 20px;
+  font-size: 28px;
+  font-weight: 700;
 }
 
-.checkout-card{
-  background:#fff;
-  border-radius:18px;
-  padding:20px;
-  margin-bottom:18px;
-  box-shadow:0 8px 20px rgba(0,0,0,.08);
+
+/* =========================================================
+   CHECKOUT CARD
+========================================================= */
+
+.checkout-card {
+  background: #fff;
+  border-radius: 18px;
+  padding: 20px;
+  margin-bottom: 18px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  box-sizing: border-box;
 }
 
-.checkout-card h3{
-  margin-bottom:15px;
+.checkout-card h3 {
+  margin: 0 0 15px;
 }
 
-.checkout-card input[type="text"]{
-  width:100%;
-  padding:14px;
-  border:1px solid #ddd;
-  border-radius:12px;
-  font-size:16px;
-  outline:none;
-  box-sizing:border-box;
+
+/* =========================================================
+   INPUT
+========================================================= */
+
+.checkout-card input[type="text"] {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  font-size: 16px;
+  outline: none;
+  box-sizing: border-box;
 }
 
-.checkout-card label{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  margin:12px 0;
-  cursor:pointer;
+
+/* =========================================================
+   PAYMENT LABELS
+========================================================= */
+
+.checkout-card label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+  cursor: pointer;
 }
 
-.checkout-card p{
-  display:flex;
-  justify-content:space-between;
-  margin:10px 0;
+
+/* =========================================================
+   ORDER SUMMARY
+========================================================= */
+
+.checkout-card p {
+  display: flex;
+  justify-content: space-between;
+  margin: 10px 0;
 }
 
-.checkout-card h2{
-  display:flex;
-  justify-content:flex-end;
-  color:#ff6b35;
+.checkout-card h2 {
+  display: flex;
+  justify-content: flex-end;
+  color: #ff6b35;
 }
 
-.place-order-btn{
-  width:100%;
-  margin-top:20px;
-  padding:16px;
-  border:none;
-  border-radius:16px;
-  background:linear-gradient(135deg,#ff6b35,#ff914d);
-  color:#fff;
-  font-size:18px;
-  font-weight:700;
-  cursor:pointer;
-  transition:.3s;
-  box-shadow:0 10px 25px rgba(255,107,53,.35);
+
+/* =========================================================
+   PLACE ORDER
+========================================================= */
+
+.place-order-btn {
+  width: 100%;
+  margin-top: 20px;
+  padding: 16px;
+  border: none;
+  border-radius: 16px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #ff6b35,
+      #ff914d
+    );
+
+  color: #fff;
+
+  font-size: 18px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
+
+  box-shadow:
+    0 10px 25px
+      rgba(255, 107, 53, 0.35);
 }
 
-.place-order-btn:hover{
-  transform:translateY(-3px);
+.place-order-btn:hover {
+  transform: translateY(-3px);
 }
 
-.checkout-customer-box{
+.place-order-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+
+/* =========================================================
+   CUSTOMER
+========================================================= */
+
+.checkout-customer-box {
   margin: 0 0 15px;
   padding: 14px;
   border-radius: 14px;
+
   background: #fff7ed;
+
   border: 1px solid #fed7aa;
+
   line-height: 1.7;
 }
 
-.checkout-customer-id{
+.checkout-customer-id {
   font-size: 13px;
   color: #9a3412;
   font-weight: 600;
 }
 
-.saved-addresses{
+
+/* =========================================================
+   SAVED ADDRESSES
+========================================================= */
+
+.saved-addresses {
   margin: 0 0 15px;
 }
 
-.saved-addresses > strong{
+.saved-addresses > strong {
   display: block;
   margin-bottom: 8px;
 }
 
-.saved-address-btn{
+.saved-address-btn {
   width: 100%;
   text-align: left;
+
   padding: 11px 12px;
   margin-bottom: 8px;
+
   border: 1px solid #e5e7eb;
   border-radius: 12px;
+
   background: #fff;
+
   cursor: pointer;
+
   font-size: 14px;
   line-height: 1.45;
 }
 
-.saved-address-btn:hover{
+.saved-address-btn:hover {
   border-color: #ff6b35;
 }
 
-.saved-address-btn span{
+.saved-address-btn span {
   color: #666;
 }
 
-.manual-address-box{
+
+/* =========================================================
+   MANUAL ADDRESS
+========================================================= */
+
+.manual-address-box {
   margin-top: 12px;
+
   padding: 12px;
+
   border: 1px dashed #d1d5db;
+
   border-radius: 12px;
+
   background: #fafafa;
 }
 
-.manual-address-box label{
+.manual-address-box label {
   display: block;
+
   margin: 0 0 7px;
+
   font-weight: 600;
 }
 
-.manual-address-box textarea{
+.manual-address-box textarea {
   width: 100%;
   box-sizing: border-box;
+
   resize: vertical;
+
   padding: 12px;
+
   border: 1px solid #ddd;
+
   border-radius: 10px;
+
   font-size: 15px;
+
   outline: none;
+
   font-family: inherit;
 }
 
-.manual-address-btn{
+.manual-address-btn {
   width: 100%;
+
   margin-top: 8px;
+
   padding: 11px;
+
   border: none;
+
   border-radius: 10px;
+
   background: #111827;
+
   color: #fff;
+
   font-weight: 600;
+
   cursor: pointer;
 }
 
-.manual-address-btn:disabled{
-  opacity: .65;
+.manual-address-btn:disabled {
+  opacity: 0.65;
   cursor: not-allowed;
 }
 
 
-.upi-payment-box{
-  margin-top:14px;
-  padding:16px;
-  border:1px solid #e5e7eb;
-  border-radius:16px;
-  background:#fffaf5;
-  text-align:center;
-}
-.upi-title{font-size:17px;font-weight:700;margin-bottom:8px;}
-.upi-id{font-size:14px;color:#555;margin-bottom:12px;}
-.upi-qr-wrap{display:flex;justify-content:center;margin:12px 0;}
-.upi-pay-btn,.upi-paid-btn{display:block;width:100%;box-sizing:border-box;padding:12px;border-radius:11px;font-weight:700;text-decoration:none;cursor:pointer;}
-.upi-pay-btn{background:#111827;color:#fff;}
-.upi-paid-btn{margin-top:9px;border:1px solid #16a34a;background:#ecfdf5;color:#166534;}
-.upi-transaction-box{text-align:left;margin-top:12px;padding:12px;border-radius:12px;background:#fff;border:1px solid #e5e7eb;}
-.upi-transaction-box label{display:block!important;font-weight:600;margin:0 0 7px!important;}
-.upi-transaction-box input{width:100%;box-sizing:border-box;padding:12px;border:1px solid #ddd;border-radius:10px;font-size:15px;}
-.upi-transaction-box small{display:block;color:#666;margin-top:7px;line-height:1.4;}
-.upi-not-configured{padding:10px;color:#7c2d12;line-height:1.5;}
-.upi-not-configured p{display:block!important;}
-.upi-not-configured code{background:#f3f4f6;padding:2px 4px;border-radius:4px;}
+/* =========================================================
+   UPI
+========================================================= */
 
+.upi-payment-box {
+  margin-top: 14px;
 
-/* Sugar Cafe UPI QR */
-.upi-static-qr {
-  width: 240px;
-  max-width: 100%;
-  height: auto;
-  display: block;
-  margin: 0 auto;
-  border-radius: 12px;
-}
-.upi-qr-note {
-  margin-top: 8px;
-  font-size: 12px;
-  line-height: 1.4;
-  text-align: center;
-  opacity: 0.78;
-}
-.upi-dynamic-qr {
-  margin-top: 18px;
+  padding: 16px;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 16px;
+
+  background: #fffaf5;
+
   text-align: center;
 }
-.upi-dynamic-title {
+
+.upi-title {
+  font-size: 17px;
   font-weight: 700;
   margin-bottom: 8px;
 }
-/* =====================================================
+
+.upi-id {
+  font-size: 14px;
+  color: #555;
+  margin-bottom: 12px;
+}
+
+.upi-qr-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 12px 0;
+}
+
+.upi-pay-btn,
+.upi-paid-btn {
+  display: block;
+
+  width: 100%;
+
+  box-sizing: border-box;
+
+  padding: 12px;
+
+  border-radius: 11px;
+
+  font-weight: 700;
+
+  text-decoration: none;
+
+  cursor: pointer;
+}
+
+.upi-pay-btn {
+  background: #111827;
+  color: #fff;
+}
+
+.upi-paid-btn {
+  margin-top: 9px;
+
+  border: 1px solid #16a34a;
+
+  background: #ecfdf5;
+
+  color: #166534;
+}
+
+.upi-transaction-box {
+  text-align: left;
+
+  margin-top: 12px;
+
+  padding: 12px;
+
+  border-radius: 12px;
+
+  background: #fff;
+
+  border: 1px solid #e5e7eb;
+}
+
+.upi-transaction-box label {
+  display: block !important;
+
+  font-weight: 600;
+
+  margin: 0 0 7px !important;
+}
+
+.upi-transaction-box input {
+  width: 100%;
+
+  box-sizing: border-box;
+
+  padding: 12px;
+
+  border: 1px solid #ddd;
+
+  border-radius: 10px;
+
+  font-size: 15px;
+}
+
+.upi-transaction-box small {
+  display: block;
+
+  color: #666;
+
+  margin-top: 7px;
+
+  line-height: 1.4;
+}
+
+.upi-not-configured {
+  padding: 10px;
+
+  color: #7c2d12;
+
+  line-height: 1.5;
+}
+
+.upi-not-configured p {
+  display: block !important;
+}
+
+.upi-not-configured code {
+  background: #f3f4f6;
+
+  padding: 2px 4px;
+
+  border-radius: 4px;
+}
+
+
+/* =========================================================
+   STATIC UPI QR
+========================================================= */
+
+.upi-static-qr {
+  width: 240px;
+
+  max-width: 100%;
+
+  height: auto;
+
+  display: block;
+
+  margin: 0 auto;
+
+  border-radius: 12px;
+}
+
+.upi-qr-note {
+  margin-top: 8px;
+
+  font-size: 12px;
+
+  line-height: 1.4;
+
+  text-align: center;
+
+  opacity: 0.78;
+}
+
+.upi-dynamic-qr {
+  margin-top: 18px;
+
+  text-align: center;
+}
+
+.upi-dynamic-title {
+  font-weight: 700;
+
+  margin-bottom: 8px;
+}
+
+
+/* =========================================================
    SPECIAL NOTE
-===================================================== */
+========================================================= */
 
 .special-note-card {
   position: relative;
@@ -223,9 +454,13 @@ body{
 
 .special-note-heading {
   display: flex;
+
   align-items: flex-start;
+
   justify-content: space-between;
+
   gap: 12px;
+
   margin-bottom: 10px;
 }
 
@@ -234,39 +469,58 @@ body{
 }
 
 .special-note-heading p {
+  display: block;
+
   margin: 4px 0 0;
+
   color: #8a7f77;
+
   font-size: 11px;
+
   line-height: 1.4;
 }
 
 .special-note-heading > span {
   flex-shrink: 0;
+
   padding: 5px 8px;
+
   border-radius: 100px;
+
   background: #f7f3ef;
+
   color: #9a9089;
+
   font-size: 8px;
+
   font-weight: 800;
+
   letter-spacing: 0.8px;
 }
 
 .special-note-card textarea {
   width: 100%;
+
   min-height: 95px;
+
   box-sizing: border-box;
+
   resize: vertical;
 
   padding: 12px;
 
   border: 1px solid #e6ddd5;
+
   border-radius: 12px;
 
   background: #faf8f5;
+
   color: #2d2520;
 
   font-family: inherit;
+
   font-size: 13px;
+
   line-height: 1.5;
 
   outline: none;
@@ -280,26 +534,713 @@ body{
 
 .special-note-card textarea:focus {
   background: #fff;
+
   border-color: #ff9a75;
+
   box-shadow:
-    0 0 0 3px rgba(255, 107, 53, 0.08);
+    0 0 0 3px
+      rgba(255, 107, 53, 0.08);
 }
 
 .special-note-footer {
   display: flex;
+
   justify-content: space-between;
+
   align-items: flex-start;
+
   gap: 10px;
+
   margin-top: 6px;
 }
 
 .special-note-footer small {
   color: #9a9089;
+
   font-size: 9px;
+
   line-height: 1.4;
 }
 
 .special-note-footer small:last-child {
   white-space: nowrap;
+
   font-weight: 700;
+}
+
+
+/* =========================================================
+   =========================================================
+   SUGARCAFE 6 + 1 LOYALTY
+   SCRATCH CARD UNLOCK
+   =========================================================
+========================================================= */
+
+.loyalty-unlock-card {
+  position: relative;
+
+  overflow: hidden;
+
+  background:
+    radial-gradient(
+      circle at 90% 0%,
+      rgba(255, 193, 7, 0.10),
+      transparent 35%
+    ),
+    linear-gradient(
+      145deg,
+      #fffdf8,
+      #fff7e8
+    ) !important;
+
+  border: 1px solid #f2d28a !important;
+
+  box-shadow:
+    0 10px 30px
+      rgba(0, 0, 0, 0.07),
+    0 0 0 1px
+      rgba(255, 193, 7, 0.03);
+
+  animation:
+    loyaltyCardIn
+    0.55s
+    cubic-bezier(
+      0.22,
+      1,
+      0.36,
+      1
+    );
+}
+
+@keyframes loyaltyCardIn {
+  from {
+    opacity: 0;
+
+    transform:
+      translateY(12px)
+      scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      translateY(0)
+      scale(1);
+  }
+}
+
+.loyalty-unlock-card::before {
+  content: "";
+
+  position: absolute;
+
+  width: 130px;
+
+  height: 130px;
+
+  top: -65px;
+
+  right: -45px;
+
+  border-radius: 50%;
+
+  background:
+    rgba(255, 193, 7, 0.10);
+
+  pointer-events: none;
+}
+
+
+/* =========================================================
+   LOYALTY HEADER
+========================================================= */
+
+.loyalty-header {
+  position: relative;
+
+  z-index: 1;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 11px;
+}
+
+.loyalty-icon {
+  width: 46px;
+
+  height: 46px;
+
+  flex-shrink: 0;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border-radius: 15px;
+
+  background: #fff;
+
+  border: 1px solid #f3dfad;
+
+  font-size: 24px;
+
+  box-shadow:
+    0 6px 15px
+      rgba(0, 0, 0, 0.06);
+
+  animation:
+    loyaltyGiftFloat
+    2.5s
+    ease-in-out
+    infinite;
+}
+
+@keyframes loyaltyGiftFloat {
+  0%,
+  100% {
+    transform:
+      translateY(0)
+      rotate(0deg);
+  }
+
+  50% {
+    transform:
+      translateY(-3px)
+      rotate(2deg);
+  }
+}
+
+.loyalty-kicker {
+  display: block;
+
+  margin: 0;
+
+  color: #9a6700;
+
+  font-size: 10px;
+
+  font-weight: 900;
+
+  letter-spacing: 1.4px;
+
+  line-height: 1.2;
+}
+
+.loyalty-heading {
+  margin: 3px 0 0;
+
+  color: #241b14;
+
+  font-size: 20px;
+
+  line-height: 1.2;
+
+  font-weight: 900;
+
+  letter-spacing: -0.35px;
+}
+
+
+/* =========================================================
+   LOYALTY CONTENT
+========================================================= */
+
+.loyalty-unlock-content {
+  position: relative;
+
+  z-index: 1;
+
+  margin-top: 17px;
+
+  padding: 18px 15px;
+
+  border-radius: 16px;
+
+  background: #fff;
+
+  border: 1px solid #f0e4cc;
+
+  text-align: center;
+
+  box-shadow:
+    0 5px 18px
+      rgba(0, 0, 0, 0.04);
+}
+
+
+/* =========================================================
+   TICKET
+========================================================= */
+
+.loyalty-ticket {
+  width: 58px;
+
+  height: 58px;
+
+  margin: 0 auto 11px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border-radius: 18px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #fff8df,
+      #fff0c4
+    );
+
+  border: 1px solid #f4d993;
+
+  font-size: 30px;
+
+  animation:
+    loyaltyTicketPop
+    0.7s
+    cubic-bezier(
+      0.22,
+      1,
+      0.36,
+      1
+    );
+}
+
+@keyframes loyaltyTicketPop {
+  0% {
+    opacity: 0;
+
+    transform:
+      scale(0.65)
+      translateY(8px);
+  }
+
+  70% {
+    transform:
+      scale(1.08)
+      translateY(-2px);
+  }
+
+  100% {
+    opacity: 1;
+
+    transform:
+      scale(1)
+      translateY(0);
+  }
+}
+
+
+/* =========================================================
+   SCRATCH TITLE
+========================================================= */
+
+.loyalty-scratch-title {
+  margin: 0;
+
+  color: #8a6100;
+
+  font-size: 20px;
+
+  line-height: 1.25;
+
+  font-weight: 900;
+
+  letter-spacing: -0.3px;
+}
+
+.loyalty-scratch-title::after {
+  content: " ✨";
+
+  display: inline-block;
+
+  animation:
+    sparklePulse
+    1.8s
+    ease-in-out
+    infinite;
+}
+
+@keyframes sparklePulse {
+  0%,
+  100% {
+    transform: scale(1);
+
+    opacity: 0.7;
+  }
+
+  50% {
+    transform: scale(1.18);
+
+    opacity: 1;
+  }
+}
+
+
+/* =========================================================
+   LOYALTY DESCRIPTION
+========================================================= */
+
+.loyalty-unlock-card
+.loyalty-unlock-description {
+  display: block !important;
+
+  width: 100% !important;
+
+  max-width: 480px;
+
+  box-sizing: border-box;
+
+  margin: 10px auto 0 !important;
+
+  padding: 0 !important;
+
+  color: #6f6259 !important;
+
+  text-align: center !important;
+
+  font-size: 14px !important;
+
+  line-height: 1.65 !important;
+
+  font-weight: 400 !important;
+
+  white-space: normal !important;
+
+  word-break: normal !important;
+
+  overflow-wrap: normal !important;
+}
+
+.loyalty-unlock-card
+.loyalty-unlock-description strong {
+  display: inline !important;
+
+  margin: 0 !important;
+
+  color: #4f4035 !important;
+
+  font-size: inherit !important;
+
+  font-weight: 800 !important;
+}
+
+
+/* =========================================================
+   NEXT ORDER NOTICE
+========================================================= */
+
+.loyalty-next-order-notice {
+  position: relative;
+
+  width: 100%;
+
+  box-sizing: border-box;
+
+  margin-top: 15px;
+
+  padding: 12px 13px;
+
+  border-radius: 12px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #fff8e1,
+      #fff3cd
+    );
+
+  border: 1px solid #f4d78d;
+
+  color: #8a6100;
+
+  text-align: center;
+
+  font-size: 12px;
+
+  line-height: 1.5;
+
+  font-weight: 700;
+
+  animation:
+    noticeFadeIn
+    0.7s
+    ease both;
+}
+
+.loyalty-next-order-notice strong {
+  font-weight: 900;
+}
+
+@keyframes noticeFadeIn {
+  from {
+    opacity: 0;
+
+    transform:
+      translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      translateY(0);
+  }
+}
+
+
+/* =========================================================
+   IMPORTANT
+   GLOBAL CHECKOUT p IS FLEX.
+   LOYALTY p MUST NEVER BE FLEX.
+========================================================= */
+
+.loyalty-unlock-card p {
+  flex-direction: initial !important;
+
+  align-items: initial !important;
+
+  justify-content: initial !important;
+}
+
+
+/* =========================================================
+   LOYALTY SCRATCH PENDING
+========================================================= */
+
+.loyalty-scratch-pending {
+  text-align: center;
+
+  padding: 4px 0;
+}
+
+.loyalty-scratch-pending-icon {
+  font-size: 34px;
+
+  margin-bottom: 7px;
+
+  animation:
+    loyaltyTicketPop
+    0.7s
+    ease;
+}
+
+.loyalty-scratch-pending-title {
+  display: block;
+
+  color: #9a6700;
+
+  font-size: 18px;
+
+  font-weight: 900;
+
+  line-height: 1.25;
+}
+
+.loyalty-scratch-pending-text {
+  display: block;
+
+  margin-top: 7px;
+
+  color: #795548;
+
+  font-size: 13px;
+
+  line-height: 1.55;
+}
+
+.loyalty-scratch-button {
+  width: 100%;
+
+  margin-top: 12px;
+
+  padding: 12px;
+
+  border: none;
+
+  border-radius: 11px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #f59e0b,
+      #f97316
+    );
+
+  color: #fff;
+
+  font-size: 13px;
+
+  font-weight: 800;
+
+  cursor: pointer;
+
+  box-shadow:
+    0 8px 18px
+      rgba(245, 158, 11, 0.22);
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.loyalty-scratch-button:hover {
+  transform: translateY(-2px);
+
+  box-shadow:
+    0 11px 22px
+      rgba(245, 158, 11, 0.28);
+}
+
+.loyalty-scratch-button:active {
+  transform: scale(0.98);
+}
+
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 520px) {
+
+  .checkout-page {
+    padding: 15px;
+
+    max-width: 420px;
+  }
+
+  .checkout-page h2 {
+    font-size: 25px;
+  }
+
+  .checkout-card {
+    padding: 16px;
+
+    border-radius: 17px;
+  }
+
+  .loyalty-unlock-card {
+    padding: 16px !important;
+
+    border-radius: 18px;
+  }
+
+  .loyalty-icon {
+    width: 42px;
+
+    height: 42px;
+
+    border-radius: 13px;
+
+    font-size: 22px;
+  }
+
+  .loyalty-kicker {
+    font-size: 9px;
+  }
+
+  .loyalty-heading {
+    font-size: 18px;
+  }
+
+  .loyalty-unlock-content {
+    margin-top: 14px;
+
+    padding: 17px 13px;
+
+    border-radius: 15px;
+  }
+
+  .loyalty-ticket {
+    width: 54px;
+
+    height: 54px;
+
+    margin-bottom: 10px;
+
+    border-radius: 16px;
+
+    font-size: 28px;
+  }
+
+  .loyalty-scratch-title {
+    font-size: 19px;
+  }
+
+  .loyalty-unlock-card
+  .loyalty-unlock-description {
+    font-size: 13px !important;
+
+    line-height: 1.65 !important;
+
+    padding: 0 2px !important;
+  }
+
+  .loyalty-next-order-notice {
+    font-size: 11px;
+
+    padding: 11px 10px;
+  }
+}
+
+
+/* =========================================================
+   VERY SMALL PHONES
+========================================================= */
+
+@media (max-width: 360px) {
+
+  .checkout-page {
+    padding: 12px;
+  }
+
+  .checkout-card {
+    padding: 14px;
+  }
+
+  .loyalty-unlock-card {
+    padding: 14px !important;
+  }
+
+  .loyalty-heading {
+    font-size: 17px;
+  }
+
+  .loyalty-scratch-title {
+    font-size: 18px;
+  }
+
+  .loyalty-unlock-card
+  .loyalty-unlock-description {
+    font-size: 12.5px !important;
+
+    line-height: 1.6 !important;
+  }
+
+  .loyalty-next-order-notice {
+    font-size: 10.5px;
+  }
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+
+  .loyalty-unlock-card *,
+  .loyalty-unlock-card::before {
+    animation: none !important;
+
+    transition: none !important;
+  }
 }
