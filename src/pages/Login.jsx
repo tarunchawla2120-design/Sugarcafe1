@@ -9,9 +9,11 @@ import {
   addDoc,
   updateDoc,
   serverTimestamp,
+  arrayUnion,
 } from "firebase/firestore";
 
 import { db } from "../firebase";
+import { registerForNotifications } from "../notification";
 import "./Login.css";
 
 function generateCustomerId() {
@@ -70,6 +72,7 @@ function Login() {
 
       let customerId;
       let customerData;
+      let customerRef;
 
       // ============================================
       // EXISTING CUSTOMER
@@ -77,6 +80,8 @@ function Login() {
 
       if (!customerSnapshot.empty) {
         const customerDoc = customerSnapshot.docs[0];
+
+        customerRef = customerDoc.ref;
 
         customerData = {
           id: customerDoc.id,
@@ -86,11 +91,10 @@ function Login() {
         customerId = customerData.customerId;
 
         // Old customer without ID
-        // Create it and save permanently.
         if (!customerId) {
           customerId = generateCustomerId();
 
-          await updateDoc(customerDoc.ref, {
+          await updateDoc(customerRef, {
             customerId,
             updatedAt: serverTimestamp(),
           });
@@ -103,7 +107,7 @@ function Login() {
           cleanName &&
           cleanName !== customerData.name
         ) {
-          await updateDoc(customerDoc.ref, {
+          await updateDoc(customerRef, {
             name: cleanName,
             updatedAt: serverTimestamp(),
           });
@@ -128,13 +132,13 @@ function Login() {
           updatedAt: serverTimestamp(),
         };
 
-        const newCustomerRef = await addDoc(
+        customerRef = await addDoc(
           customersRef,
           newCustomer
         );
 
         customerData = {
-          id: newCustomerRef.id,
+          id: customerRef.id,
           ...newCustomer,
         };
       }
@@ -156,6 +160,36 @@ function Login() {
           phone: cleanPhone,
         })
       );
+
+      // ============================================
+      // FIREBASE CLOUD MESSAGING
+      // ============================================
+
+      try {
+        const fcmToken = await registerForNotifications();
+
+        if (fcmToken && customerRef) {
+          await updateDoc(customerRef, {
+            fcmToken,
+            fcmTokens: arrayUnion(fcmToken),
+            fcmTokenUpdatedAt: serverTimestamp(),
+            notificationsEnabled: true,
+            updatedAt: serverTimestamp(),
+          });
+
+          console.log("FCM token saved successfully.");
+        }
+      } catch (notificationError) {
+        // Notification failure should NOT stop customer login.
+        console.error(
+          "Notification setup failed:",
+          notificationError
+        );
+      }
+
+      // ============================================
+      // REDIRECT
+      // ============================================
 
       const redirectTo =
         location.state?.from || "/home";
@@ -197,22 +231,22 @@ function Login() {
         <div className="login-heading">
 
           <div className="login-eyebrow">
-              WELCOME 
+            WELCOME
           </div>
 
           <h1>
-  First Online Café
-</h1>
+            First Online Café
+          </h1>
 
-<p className="login-main-tagline">
-  Delicious food now just a click away
-</p>
+          <p className="login-main-tagline">
+            Delicious food now just a click away
+          </p>
 
-<p>
-  Login to view your orders,
-  track deliveries and manage
-  your Sugar Café account.
-</p>
+          <p>
+            Login to view your orders,
+            track deliveries and manage
+            your Sugar Café account.
+          </p>
 
         </div>
 
@@ -313,7 +347,9 @@ function Login() {
           </div>
 
           <div>
-            <strong>Your account stays connected</strong>
+            <strong>
+              Your account stays connected
+            </strong>
 
             <p>
               Your mobile number keeps your
