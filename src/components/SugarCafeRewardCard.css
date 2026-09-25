@@ -1,1 +1,345 @@
+.sc-reward-card {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 20px 0;
+  padding: 20px;
+  border-radius: 24px;
+  background: linear-gradient(
+    145deg,
+    #fffaf0,
+    #fff
+  );
+  border: 1px solid #f1dfbd;
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.07);
+}
 
+.sc-reward-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.sc-reward-top span {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #a66b16;
+}
+
+.sc-reward-top h3 {
+  margin: 5px 0 0;
+  font-size: 21px;
+  line-height: 1.2;
+  color: #211b14;
+}
+
+.sc-reward-icon {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  background: #fff0d0;
+  font-size: 26px;
+}
+
+.sc-reward-description {
+  margin: 16px 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #665d52;
+}
+
+.sc-progress-dots {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  margin: 18px 0 10px;
+}
+
+.sc-progress-dots span {
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid #e7d9c2;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: #a66b16;
+}
+
+.sc-progress-dots span.filled {
+  background: #211b14;
+  color: #fff;
+  border-color: #211b14;
+}
+
+.sc-progress-text {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.sc-progress-text strong {
+  font-size: 22px;
+  color: #211b14;
+}
+
+.sc-progress-text span {
+  color: #766d62;
+  font-size: 13px;
+}
+
+.sc-rule {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fff;
+  color: #766d62;
+  font-size: 12px;
+}
+
+.sc-reward-next {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 13px;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.sc-reward-next strong {
+  font-size: 13px;
+  color: #211b14;
+}
+
+.sc-reward-next span {
+  font-size: 12px;
+  color: #887d70;
+}
+
+.sc-reward-unlocked {
+  background:
+    linear-gradient(
+      145deg,
+      #fff4d7,
+      #fff
+    );
+  border-color: #e7c77d;
+}
+
+.sc-scratch-card {
+  margin-top: 18px;
+  padding: 5px;
+  border-radius: 22px;
+  background: linear-gradient(
+    135deg,
+    #211b14,
+    #6f4c22
+  );
+}
+
+.sc-scratch-inner {
+  min-height: 245px;
+  border-radius: 18px;
+  padding: 24px 18px;
+  box-sizing: border-box;
+  text-align: center;
+  background:
+    radial-gradient(
+      circle at 20% 20%,
+      rgba(255,255,255,.14),
+      transparent 30%
+    ),
+    #9b6a2b;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.sc-scratch-lock {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.sc-scratch-inner small {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  opacity: .85;
+}
+
+.sc-scratch-inner strong {
+  margin-top: 5px;
+  font-size: 23px;
+}
+
+.sc-scratch-cover {
+  width: 100%;
+  margin-top: 20px;
+  padding: 15px;
+  box-sizing: border-box;
+  border-radius: 15px;
+  background: rgba(255,255,255,.14);
+  border: 1px solid rgba(255,255,255,.25);
+}
+
+.sc-scratch-cover span {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sc-scratch-cover button {
+  border: 0;
+  padding: 11px 24px;
+  border-radius: 999px;
+  background: #fff;
+  color: #211b14;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.sc-scratch-progress {
+  width: 100%;
+  height: 5px;
+  margin-top: 16px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255,255,255,.2);
+}
+
+.sc-scratch-progress div {
+  height: 100%;
+  border-radius: inherit;
+  background: #fff;
+  transition: width .25s ease;
+}
+
+.sc-reward-note {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 12px;
+  color: #776d61;
+}
+
+.sc-reward-revealed {
+  margin-top: 18px;
+  padding: 25px 15px;
+  text-align: center;
+  border-radius: 20px;
+  background: #fff;
+  border: 1px solid #ead8b8;
+}
+
+.sc-confetti {
+  font-size: 22px;
+}
+
+.sc-reward-revealed > span {
+  display: block;
+  margin-top: 8px;
+  font-size: 11px;
+  letter-spacing: 2px;
+  font-weight: 800;
+  color: #9b6a2b;
+}
+
+.sc-won-icon {
+  margin-top: 12px;
+  font-size: 50px;
+}
+
+.sc-reward-revealed h2 {
+  margin: 8px 0 5px;
+  font-size: 24px;
+  color: #211b14;
+}
+
+.sc-reward-revealed p {
+  margin: 0;
+  font-size: 13px;
+  color: #746b60;
+}
+
+.sc-counter-note {
+  margin-top: 16px;
+  padding: 11px;
+  border-radius: 12px;
+  background: #fff8e8;
+  color: #6e5b3e;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.sc-claim-button {
+  margin-top: 14px;
+  width: 100%;
+  border: 0;
+  padding: 13px;
+  border-radius: 12px;
+  background: #211b14;
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.sc-claimed {
+  margin-top: 15px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #ecfdf3;
+  color: #16804b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.sc-reward-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 15px;
+  padding-top: 13px;
+  border-top: 1px solid #eadfce;
+  color: #8b8073;
+  font-size: 11px;
+}
+
+/* MOBILE */
+
+@media (max-width: 480px) {
+  .sc-reward-card {
+    padding: 16px;
+    border-radius: 20px;
+  }
+
+  .sc-reward-top h3 {
+    font-size: 18px;
+  }
+
+  .sc-progress-dots {
+    gap: 5px;
+  }
+
+  .sc-progress-dots span {
+    height: 32px;
+    border-radius: 8px;
+  }
+
+  .sc-reward-next {
+    flex-direction: column;
+  }
+
+  .sc-reward-footer {
+    flex-direction: column;
+  }
+}
