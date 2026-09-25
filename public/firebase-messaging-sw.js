@@ -1,5 +1,10 @@
-importScripts("https://www.gstatic.com/firebasejs/12.17.0/firebase-app-compat.js");
-importScripts("https://www.gstatic.com/firebasejs/12.17.0/firebase-messaging-compat.js");
+importScripts(
+  "https://www.gstatic.com/firebasejs/12.17.0/firebase-app-compat.js"
+);
+
+importScripts(
+  "https://www.gstatic.com/firebasejs/12.17.0/firebase-messaging-compat.js"
+);
 
 firebase.initializeApp({
   apiKey: "AIzaSyBaWoS-bvWh454kn_Dq1nkTEjHBNVQKohs",
@@ -13,24 +18,24 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  console.log("[firebase-messaging-sw.js] Background message:", payload);
+  console.log(
+    "[firebase-messaging-sw.js] Background message:",
+    payload
+  );
 
-  const notificationTitle =
-    payload.notification?.title || "SugarCafe";
+  const title =
+    payload.notification?.title || "Sugar Café";
 
-  const notificationOptions = {
+  const options = {
     body:
       payload.notification?.body ||
-      "SugarCafe mein kuch tasty aapka wait kar raha hai! 🍕",
-    icon: "/sugarcafe-logo.png",
-    badge: "/sugarcafe-logo.png",
-    data: payload.data || {},
+      "Sugar Café mein kuch tasty aapka wait kar raha hai! 🍕",
+    data: {
+      url: payload.data?.url || "/",
+    },
   };
 
-  self.registration.showNotification(
-    notificationTitle,
-    notificationOptions
-  );
+  self.registration.showNotification(title, options);
 });
 
 self.addEventListener("notificationclick", (event) => {
@@ -54,6 +59,8 @@ self.addEventListener("notificationclick", (event) => {
       if (clients.openWindow) {
         return clients.openWindow(targetUrl);
       }
+
+      return null;
     })
   );
 });
