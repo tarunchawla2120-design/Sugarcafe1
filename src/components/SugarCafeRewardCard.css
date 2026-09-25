@@ -629,12 +629,14 @@
 @keyframes rewardImageFloat {
   0%,
   100% {
-    transform: translateY(0)
+    transform:
+      translateY(0)
       rotate(-1deg);
   }
 
   50% {
-    transform: translateY(-5px)
+    transform:
+      translateY(-5px)
       rotate(1deg);
   }
 }
@@ -724,6 +726,10 @@
   height: 100%;
 
   touch-action: none;
+
+  user-select: none;
+
+  -webkit-user-select: none;
 }
 
 
@@ -844,7 +850,7 @@
 
 
 /* =========================================================
-   REVEALED CARD
+   REVEAL AREA
 ========================================================= */
 
 .scratch-area.scratch-revealed {
@@ -871,6 +877,11 @@
     transform: scale(1);
   }
 }
+
+
+/* =========================================================
+   REVEALED REWARD
+========================================================= */
 
 .revealed-reward {
   position: absolute;
@@ -1161,7 +1172,60 @@
 
 
 /* =========================================================
-   REDEEM BOX
+   SAVING REWARD
+========================================================= */
+
+.scratch-saving {
+  margin: 0 20px 16px;
+
+  min-height: 42px;
+
+  box-sizing: border-box;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 8px;
+
+  border-radius: 13px;
+
+  background:
+    rgba(255, 255, 255, 0.055);
+
+  border: 1px solid
+    rgba(255, 255, 255, 0.07);
+
+  color:
+    rgba(255, 255, 255, 0.62);
+
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.scratch-saving-spinner {
+  display: inline-flex;
+
+  font-size: 15px;
+
+  animation:
+    savingSpin 1s
+    linear infinite;
+}
+
+@keyframes savingSpin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+/* =========================================================
+   REDEEM / NEXT ORDER BOX
 ========================================================= */
 
 .reward-redeem-box {
@@ -1290,7 +1354,7 @@
 
 
 /* =========================================================
-   PREMIUM REVEALED GLOW
+   REVEALED CARD
 ========================================================= */
 
 .premium-reward-card.is-revealed {
@@ -1309,17 +1373,15 @@
 ========================================================= */
 
 @media (max-width: 520px) {
+
   .sugar-reward-card {
     margin: 15px 0;
-
     border-radius: 21px;
   }
 
   .reward-card-top {
     min-height: 67px;
-
-    padding:
-      13px 14px;
+    padding: 13px 14px;
   }
 
   .reward-brand {
@@ -1329,9 +1391,7 @@
   .reward-brand-icon {
     width: 39px;
     height: 39px;
-
     border-radius: 12px;
-
     font-size: 19px;
   }
 
@@ -1347,13 +1407,11 @@
   .reward-ready-badge,
   .reward-cycle-badge {
     padding: 6px 8px;
-
     font-size: 8px;
   }
 
   .reward-main {
-    padding:
-      23px 14px 20px;
+    padding: 23px 14px 20px;
   }
 
   .reward-main h2 {
@@ -1365,8 +1423,7 @@
   }
 
   .scratch-intro {
-    padding:
-      20px 14px 7px;
+    padding: 20px 14px 7px;
   }
 
   .scratch-intro h2 {
@@ -1379,12 +1436,8 @@
 
   .scratch-area {
     width: calc(100% - 28px);
-
     height: 205px;
-
-    margin:
-      16px 14px;
-
+    margin: 16px 14px;
     border-radius: 19px;
   }
 
@@ -1395,13 +1448,11 @@
   .reward-item-image {
     width: 91px;
     height: 91px;
-
     border-radius: 18px;
   }
 
   .reward-underlay-content {
     max-width: 175px;
-
     margin-left: 12px;
   }
 
@@ -1429,7 +1480,6 @@
   .revealed-item-image {
     width: 76px;
     height: 76px;
-
     border-radius: 16px;
   }
 
@@ -1438,24 +1488,24 @@
   }
 
   .reward-redeem-box {
-    margin:
-      0 14px 15px;
-
+    margin: 0 14px 15px;
     padding: 12px;
   }
 
-  .reward-card-footer {
-    padding:
-      10px 14px;
+  .scratch-saving {
+    margin: 0 14px 14px;
+    min-height: 40px;
+    font-size: 9px;
+  }
 
+  .reward-card-footer {
+    padding: 10px 14px;
     flex-wrap: wrap;
   }
 
   .reward-order-button {
     width: calc(100% - 28px);
-
-    margin:
-      0 14px 15px;
+    margin: 0 14px 15px;
   }
 }
 
@@ -1465,6 +1515,7 @@
 ========================================================= */
 
 @media (max-width: 360px) {
+
   .scratch-area {
     height: 190px;
   }
@@ -1490,14 +1541,24 @@
   .revealed-reward strong {
     font-size: 17px;
   }
+
+  .reward-redeem-box {
+    gap: 8px;
+  }
+
+  .redeem-status {
+    padding: 5px 7px;
+    font-size: 7px;
+  }
 }
 
 
 /* =========================================================
-   REDUCED MOTION
+   ACCESSIBILITY / REDUCED MOTION
 ========================================================= */
 
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {
