@@ -35,35 +35,33 @@ import { useStoreSettings } from "../context/StoreContext";
 
 const LOYALTY_MIN_BILL = 500;
 
+/*
+   REWARD SEQUENCE
+
+   After 6 qualifying delivered orders,
+   the 7th order unlocks the scratch card.
+
+   Reward is NOT applied to the 7th order.
+   Customer scratches it and uses the reward
+   on the NEXT order.
+
+   After the 8th reward, sequence repeats.
+*/
+
 const LOYALTY_REWARDS = [
   {
     type: "free_menu_item",
-    itemName: "Cold Coffee",
+    itemName: "Classic Cold Coffee",
     discountPercent: 0,
   },
   {
     type: "free_menu_item",
-    itemName: "Cheese Puff",
+    itemName: "Cheese Aloo Tikki Burger",
     discountPercent: 0,
   },
   {
     type: "free_menu_item",
-    itemName: "Aloo Tikki Burger",
-    discountPercent: 0,
-  },
-  {
-    type: "free_menu_item",
-    itemName: "Peri Peri Fries",
-    discountPercent: 0,
-  },
-  {
-    type: "discount",
-    itemName: "",
-    discountPercent: 5,
-  },
-  {
-    type: "free_menu_item",
-    itemName: "Black Currant Shake",
+    itemName: "Aloo Cheese Puff",
     discountPercent: 0,
   },
   {
@@ -73,7 +71,12 @@ const LOYALTY_REWARDS = [
   },
   {
     type: "free_menu_item",
-    itemName: "Choco Lava",
+    itemName: "Diet Coke",
+    discountPercent: 0,
+  },
+  {
+    type: "free_menu_item",
+    itemName: "Salted French Fries",
     discountPercent: 0,
   },
   {
@@ -83,17 +86,7 @@ const LOYALTY_REWARDS = [
   },
   {
     type: "free_menu_item",
-    itemName: "Chocolate Pastry",
-    discountPercent: 0,
-  },
-  {
-    type: "free_menu_item",
-    itemName: "KitKat Shake",
-    discountPercent: 0,
-  },
-  {
-    type: "free_menu_item",
-    itemName: "Oreo Shake",
+    itemName: "Hot Chocolava",
     discountPercent: 0,
   },
 ];
@@ -2091,7 +2084,7 @@ function Checkout() {
                                   response.razorpay_signature,
                               }
                             ),
-                        }
+                          }
                       );
 
 
@@ -3851,10 +3844,6 @@ function Checkout() {
 
           <div className="checkout-card loyalty-unlock-card">
 
-            {/* ==========================================
-                HEADER
-            ========================================== */}
-
             <div className="loyalty-header">
 
               <div className="loyalty-icon">
@@ -3883,12 +3872,7 @@ function Checkout() {
             </div>
 
 
-            {/* ==========================================
-                CONTENT
-            ========================================== */}
-
             <div className="loyalty-unlock-content">
-
 
               {/* ========================================
                   7TH ORDER
@@ -3950,11 +3934,6 @@ function Checkout() {
               ) : pendingReward?.status ===
                 "scratch_pending" ? (
 
-
-                /* ========================================
-                   SCRATCH CARD WAITING
-                ======================================== */
-
                 <div className="loyalty-scratch-pending">
 
                   <div className="loyalty-ticket">
@@ -3996,7 +3975,6 @@ function Checkout() {
 
 
               ) : (
-
 
                 /* ========================================
                    REWARD AVAILABLE
