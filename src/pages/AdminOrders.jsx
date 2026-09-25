@@ -152,18 +152,28 @@ function KOTModal({ order, onClose, onPrint }) {
     >
       <div className="sc-kot-modal">
 
+        {/* HEADER */}
+
         <div className="sc-kot-head">
+
           <div>
             <b>☕ SUGAR CAFE</b>
             <span>KITCHEN ORDER TICKET</span>
           </div>
 
-          <button onClick={onClose}>×</button>
+          <button onClick={onClose}>
+            ×
+          </button>
+
         </div>
+
+        {/* ORDER META */}
 
         <div className="sc-kot-meta">
 
-          <b>#{label(order)}</b>
+          <b>
+            #{label(order)}
+          </b>
 
           <span>
             {date.toLocaleDateString("en-IN")} ·{" "}
@@ -173,13 +183,19 @@ function KOTModal({ order, onClose, onPrint }) {
             })}
           </span>
 
-          <em>{order.orderType || "Delivery"}</em>
+          <em>
+            {order.orderType || "Delivery"}
+          </em>
 
         </div>
 
+        {/* CUSTOMER */}
+
         <section>
 
-          <small>CUSTOMER</small>
+          <small>
+            CUSTOMER
+          </small>
 
           <strong>
             {order.customerName ||
@@ -199,11 +215,16 @@ function KOTModal({ order, onClose, onPrint }) {
 
         </section>
 
+        {/* ITEMS */}
+
         <section>
 
-          <small>ORDER ITEMS</small>
+          <small>
+            ORDER ITEMS
+          </small>
 
           {items.length ? (
+
             items.map((item, i) => {
 
               const qty = Number(
@@ -217,6 +238,7 @@ function KOTModal({ order, onClose, onPrint }) {
                   className="kot-item"
                   key={item.id || i}
                 >
+
                   <span>
                     {item.name ||
                       item.productName ||
@@ -230,30 +252,49 @@ function KOTModal({ order, onClose, onPrint }) {
                         qty
                     )}
                   </b>
+
                 </div>
               );
 
             })
+
           ) : (
-            <div>No items found.</div>
+
+            <div>
+              No items found.
+            </div>
+
           )}
 
         </section>
 
+        {/* SPECIAL NOTE */}
+
         {(order.instructions ||
           order.specialNote ||
           order.note) && (
+
           <div className="kot-note">
-            <b>★ SPECIAL NOTE:</b>{" "}
+
+            <b>
+              ★ SPECIAL NOTE:
+            </b>{" "}
+
             {order.instructions ||
               order.specialNote ||
               order.note}
+
           </div>
+
         )}
+
+        {/* TOTAL */}
 
         <div className="kot-total">
 
-          <span>Total</span>
+          <span>
+            Total
+          </span>
 
           <b>
             {money(order.total)}
@@ -261,10 +302,14 @@ function KOTModal({ order, onClose, onPrint }) {
 
         </div>
 
+        {/* MODAL ACTIONS */}
+
         <div className="kot-actions">
 
           <button
-            onClick={() => onPrint(order)}
+            onClick={() =>
+              onPrint(order)
+            }
           >
             🖨 Print KOT
           </button>
@@ -1053,7 +1098,9 @@ function AdminOrders() {
               SUGAR CAFE · LIVE CONTROL
             </div>
 
-            <h1>Orders</h1>
+            <h1>
+              Orders
+            </h1>
 
             <p>
               Every order, status and
@@ -1097,7 +1144,9 @@ function AdminOrders() {
               onClick={playBell}
             >
               🔔
-              <b>{counts.New || 0}</b>
+              <b>
+                {counts.New || 0}
+              </b>
             </button>
 
           </div>
@@ -1110,7 +1159,9 @@ function AdminOrders() {
 
           <div className="search">
 
-            <span>⌕</span>
+            <span>
+              ⌕
+            </span>
 
             <input
               value={query}
@@ -1185,7 +1236,9 @@ function AdminOrders() {
 
           <div className="empty-card">
 
-            <div>📦</div>
+            <div>
+              📦
+            </div>
 
             <h2>
               No orders found
@@ -1357,6 +1410,7 @@ function AdminOrders() {
                               </strong>
 
                             </div>
+
                           );
                         }
                       )}
@@ -1404,9 +1458,13 @@ function AdminOrders() {
 
                   </div>
 
-                  {/* ACTIONS */}
+                  {/* =================================================
+                      ACTIONS
+                  ================================================= */}
 
                   <div className="action-block">
+
+                    {/* NEW */}
 
                     {status === "New" && (
                       <>
@@ -1445,6 +1503,8 @@ function AdminOrders() {
 
                       </>
                     )}
+
+                    {/* PREPARING */}
 
                     {status === "Preparing" && (
                       <>
@@ -1496,31 +1556,25 @@ function AdminOrders() {
                       </>
                     )}
 
+                    {/* FOOD READY */}
+
                     {status === "Food Ready" && (
-                      <>
 
-                        <button
-                          className="action dispatch"
-                          onClick={() =>
-                            dispatch(order)
-                          }
-                        >
-                          🛵 Dispatch
-                        </button>
+                      <button
+                        className="action dispatch"
+                        onClick={() =>
+                          dispatch(order)
+                        }
+                      >
+                        🛵 Dispatch
+                      </button>
 
-                        <button
-                          className="action outline"
-                          onClick={() =>
-                            setKotOrder(order)
-                          }
-                        >
-                          🧾 View KOT
-                        </button>
-
-                      </>
                     )}
 
+                    {/* DISPATCHED */}
+
                     {status === "Dispatched" && (
+
                       <button
                         className="action ready"
                         onClick={() =>
@@ -1529,26 +1583,36 @@ function AdminOrders() {
                       >
                         ✓ Mark Delivered
                       </button>
+
                     )}
 
-                    {status === "Delivered" && (
-                      <button
-                        className="action outline"
-                        onClick={() =>
-                          setKotOrder(order)
-                        }
-                      >
-                        🧾 View KOT
-                      </button>
-                    )}
+                    {/* REJECTED */}
 
                     {status === "Rejected" && (
+
                       <div className="rejected">
                         Rejected ·{" "}
                         {order.rejectionReason ||
                           "Staff rejected"}
                       </div>
+
                     )}
+
+                    {/* =================================================
+                        UNIVERSAL VIEW KOT
+                        Available for EVERY order status
+                    ================================================= */}
+
+                    <button
+                      className="action outline view-kot-btn"
+                      onClick={() =>
+                        setKotOrder(order)
+                      }
+                    >
+                      🧾 View KOT
+                    </button>
+
+                    {/* UPI */}
 
                     {order.paymentMethod ===
                       "UPI Payment" &&
