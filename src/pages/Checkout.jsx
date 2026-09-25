@@ -31,17 +31,156 @@ import "./Checkout.css";
 import { useStoreSettings } from "../context/StoreContext";
 
 /* =====================================================
+   SUGAR CAFE LOYALTY
+   6+1 FIXED REWARD SYSTEM
+===================================================== */
+
+const LOYALTY_MIN_BILL = 500;
+
+/*
+   Fixed sequence.
+   Reward #1 -> Cold Coffee
+   Reward #2 -> Cheese Puff
+   Reward #3 -> Aloo Tikki Burger
+   Reward #4 -> Peri Peri Fries
+   Reward #5 -> 5% OFF
+   Reward #6 -> Black Currant Shake
+   Reward #7 -> Paneer Cheese Sandwich
+   Reward #8 -> Choco Lava
+   Reward #9 -> Hot Chocolate Brownie
+   Reward #10 -> Chocolate Pastry
+   Reward #11 -> KitKat Shake
+   Reward #12 -> Oreo Shake
+   Then repeat.
+*/
+
+const LOYALTY_REWARDS = [
+  {
+    type: "free_menu_item",
+    itemName: "Cold Coffee",
+    discountPercent: 0,
+  },
+
+  {
+    type: "free_menu_item",
+    itemName: "Cheese Puff",
+    discountPercent: 0,
+  },
+
+  {
+    type: "free_menu_item",
+    itemName: "Aloo Tikki Burger",
+    discountPercent: 0,
+  },
+
+  {
+    type: "free_menu_item",
+    itemName: "Peri Peri Fries",
+    discountPercent: 0,
+  },
+
+  {
+    type: "discount",
+    itemName: "",
+    discountPercent: 5,
+  },
+
+  {
+    type: "free_menu_item",
+    itemName: "Black Currant Shake",
+    discountPercent: 0,
+  },
+
+  {
+    type: "free_menu_item",
+    itemName: "Paneer Cheese Sandwich",
+    discountPercent: 0,
+  },
+
+  {
+    type: "free_menu_item",
+    itemName: "Choco Lava",
+    discountPercent: 0,
+  },
+
+  {
+    type: "free_menu_item",
+    itemName: "Hot Chocolate Brownie",
+    discountPercent: 0,
+  },
+
+  {
+    type: "free_menu_item",
+    itemName: "Chocolate Pastry",
+    discountPercent: 0,
+  },
+
+  {
+    type: "free_menu_item",
+    itemName: "KitKat Shake",
+    discountPercent: 0,
+  },
+
+  {
+    type: "free_menu_item",
+    itemName: "Oreo Shake",
+    discountPercent: 0,
+  },
+];
+
+/* =====================================================
+   FIRESTORE TIME HELPER
+===================================================== */
+
+function loyaltyTime(value) {
+  if (!value) return 0;
+
+  if (
+    typeof value.toMillis === "function"
+  ) {
+    return value.toMillis();
+  }
+
+  if (
+    typeof value.seconds === "number"
+  ) {
+    return value.seconds * 1000;
+  }
+
+  const parsed =
+    new Date(value).getTime();
+
+  return Number.isNaN(parsed)
+    ? 0
+    : parsed;
+}
+
+/* =====================================================
+   MENU NAME NORMALIZER
+===================================================== */
+
+function normalizeMenuName(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+/* =====================================================
    LEAFLET LOCATION ICON
 ===================================================== */
 
 const locationIcon = L.divIcon({
   className: "checkout-location-pin",
+
   html: `
     <div class="checkout-pin-marker">
       <div class="checkout-pin-dot"></div>
     </div>
   `,
+
   iconSize: [40, 40],
+
   iconAnchor: [20, 40],
 });
 
@@ -73,6 +212,7 @@ function MapMover({ position }) {
 
 function Checkout() {
   const navigate = useNavigate();
+
   const store = useStoreSettings();
 
   const {
@@ -85,12 +225,14 @@ function Checkout() {
      ORDER TYPE
   ===================================================== */
 
-  const [orderType, setOrderType] = useState(() => {
-    return (
-      localStorage.getItem("sugarCafeOrderType") ||
-      "Delivery"
-    );
-  });
+  const [orderType, setOrderType] =
+    useState(() => {
+      return (
+        localStorage.getItem(
+          "sugarCafeOrderType"
+        ) || "Delivery"
+      );
+    });
 
   const isTakeaway =
     orderType === "Takeaway";
@@ -101,11 +243,18 @@ function Checkout() {
 
   const TAKEAWAY_STORE = {
     name: "Sugar Crown – NTPC",
+
     address:
       "NTPC Gate, Sada Colony, Jamnipali, Korba, Chhattisgarh – 495450",
+
     lat: 22.417212,
+
     lng: 82.665984,
   };
+
+  /* =====================================================
+     BASIC STATES
+  ===================================================== */
 
   const [address, setAddress] =
     useState("");
@@ -135,11 +284,27 @@ function Checkout() {
     useState(false);
 
   /* =====================================================
+     LOYALTY STATE
+  ===================================================== */
+
+  const [loyaltyData, setLoyaltyData] =
+    useState({
+      loading: true,
+
+      qualifyingOrders: 0,
+
+      pendingReward: null,
+
+      currentReward: null,
+    });
+
+  /* =====================================================
      SHOP LOCATION
   ===================================================== */
 
   const SHOP_LOCATION = {
     lat: 22.417212,
+
     lng: 82.665984,
   };
 
@@ -222,7 +387,9 @@ function Checkout() {
           loggedIn: true,
         };
 
-        setCustomerProfile(profile);
+        setCustomerProfile(
+          profile
+        );
 
         setSavedAddresses(
           profile.addresses || []
@@ -244,13 +411,18 @@ function Checkout() {
         ) {
           const saved = {
             lat:
-              Number(loc.latitude),
+              Number(
+                loc.latitude
+              ),
 
             lng:
-              Number(loc.longitude),
+              Number(
+                loc.longitude
+              ),
           };
 
           setMarker(saved);
+
           setMapCenter(saved);
 
           if (
@@ -273,6 +445,248 @@ function Checkout() {
   }, []);
 
   /* =====================================================
+     LOAD LOYALTY STATUS
+===================================================== */
+
+  useEffect(() => {
+    const loadLoyaltyStatus =
+      async () => {
+        const customerId =
+          customerProfile?.customerId ||
+          localStorage.getItem(
+            "sugarCafeCustomerId"
+          );
+
+        if (!customerId) {
+          setLoyaltyData({
+            loading: false,
+
+            qualifyingOrders: 0,
+
+            pendingReward: null,
+
+            currentReward: null,
+          });
+
+          return;
+        }
+
+        try {
+          const ordersQuery =
+            query(
+              collection(
+                db,
+                "orders"
+              ),
+              where(
+                "customerId",
+                "==",
+                customerId
+              )
+            );
+
+          const snapshot =
+            await getDocs(
+              ordersQuery
+            );
+
+          const customerOrders =
+            snapshot.docs
+              .map(
+                (orderDoc) => ({
+                  id: orderDoc.id,
+
+                  ...orderDoc.data(),
+                })
+              )
+              .sort(
+                (a, b) =>
+                  loyaltyTime(
+                    a.createdAt
+                  ) -
+                  loyaltyTime(
+                    b.createdAt
+                  )
+              );
+
+          /* ---------------------------------------------
+             QUALIFYING ORDERS
+
+             ONLY DELIVERED + ₹500 OR MORE
+          --------------------------------------------- */
+
+          const qualifyingOrders =
+            customerOrders.filter(
+              (order) => {
+                const status =
+                  String(
+                    order.status || ""
+                  ).toLowerCase();
+
+                const bill =
+                  Number(
+                    order.subtotal ??
+                      order.total ??
+                      0
+                  );
+
+                return (
+                  status ===
+                    "delivered" &&
+                  bill >=
+                    LOYALTY_MIN_BILL
+                );
+              }
+            );
+
+          /* ---------------------------------------------
+             ALL EXISTING REWARD CYCLES
+          --------------------------------------------- */
+
+          const rewardCycles =
+            new Set();
+
+          customerOrders.forEach(
+            (order) => {
+              const reward =
+                order.loyaltyReward;
+
+              if (
+                reward &&
+                Number.isFinite(
+                  Number(
+                    reward.cycle
+                  )
+                )
+              ) {
+                rewardCycles.add(
+                  Number(
+                    reward.cycle
+                  )
+                );
+              }
+            }
+          );
+
+          /* ---------------------------------------------
+             PENDING / ACTIVE REWARD
+          --------------------------------------------- */
+
+          const pendingRewardOrder =
+            customerOrders
+              .filter(
+                (order) => {
+                  const reward =
+                    order.loyaltyReward;
+
+                  return (
+                    reward &&
+                    reward.status !==
+                      "redeemed"
+                  );
+                }
+              )
+              .sort(
+                (a, b) =>
+                  loyaltyTime(
+                    b.createdAt
+                  ) -
+                  loyaltyTime(
+                    a.createdAt
+                  )
+              )[0] || null;
+
+          /* ---------------------------------------------
+             HOW MANY 6-ORDER CYCLES COMPLETED
+          --------------------------------------------- */
+
+          const completedCycles =
+            Math.floor(
+              qualifyingOrders.length /
+                6
+            );
+
+          let currentReward =
+            null;
+
+          /*
+             Example:
+
+             6 qualifying orders
+             => cycle 1 available
+
+             7 qualifying orders
+             => cycle 1 already used/pending,
+                so NO new reward yet
+
+             12 qualifying orders
+             => cycle 2 available
+          */
+
+          if (
+            completedCycles > 0 &&
+            !pendingRewardOrder
+          ) {
+            const cycleAlreadyExists =
+              rewardCycles.has(
+                completedCycles
+              );
+
+            if (
+              !cycleAlreadyExists
+            ) {
+              const rewardIndex =
+                (completedCycles - 1) %
+                LOYALTY_REWARDS.length;
+
+              currentReward = {
+                cycle:
+                  completedCycles,
+
+                rewardIndex,
+
+                ...LOYALTY_REWARDS[
+                  rewardIndex
+                ],
+              };
+            }
+          }
+
+          setLoyaltyData({
+            loading: false,
+
+            qualifyingOrders:
+              qualifyingOrders.length,
+
+            pendingReward:
+              pendingRewardOrder,
+
+            currentReward,
+          });
+        } catch (error) {
+          console.error(
+            "Loyalty status error:",
+            error
+          );
+
+          setLoyaltyData({
+            loading: false,
+
+            qualifyingOrders: 0,
+
+            pendingReward: null,
+
+            currentReward: null,
+          });
+        }
+      };
+
+    loadLoyaltyStatus();
+  }, [
+    customerProfile?.customerId,
+  ]);
+
+  /* =====================================================
      DISTANCE
   ===================================================== */
 
@@ -285,11 +699,13 @@ function Checkout() {
     const R = 6371;
 
     const dLat =
-      ((lat2 - lat1) * Math.PI) /
+      ((lat2 - lat1) *
+        Math.PI) /
       180;
 
     const dLon =
-      ((lon2 - lon1) * Math.PI) /
+      ((lon2 - lon1) *
+        Math.PI) /
       180;
 
     const a =
@@ -361,7 +777,67 @@ function Checkout() {
     }
   }
 
-  const discount = 0;
+  /* =====================================================
+     LOYALTY DISCOUNT
+  ===================================================== */
+
+  let discount = 0;
+
+  const pendingReward =
+    loyaltyData.pendingReward
+      ?.loyaltyReward || null;
+
+  const currentReward =
+    loyaltyData.currentReward ||
+    null;
+
+  /*
+     5% carried reward
+     ------------------
+     This happens when previous
+     reward order was prepaid.
+  */
+
+  if (
+    pendingReward &&
+    pendingReward.type ===
+      "discount" &&
+    Number(
+      pendingReward.discountPercent
+    ) === 5
+  ) {
+    discount =
+      Number(totalPrice) * 0.05;
+  }
+
+  /*
+     5% current reward
+     -----------------
+     If this is the reward order
+     and customer chooses COD,
+     apply immediately.
+  */
+
+  if (
+    !pendingReward &&
+    currentReward &&
+    currentReward.type ===
+      "discount" &&
+    Number(
+      currentReward.discountPercent
+    ) === 5 &&
+    paymentMethod ===
+      "Cash on Delivery"
+  ) {
+    discount =
+      Number(totalPrice) * 0.05;
+  }
+
+  discount =
+    Math.round(
+      discount * 100
+    ) / 100;
+
   const gst = 0;
 
   const grandTotal =
@@ -417,257 +893,302 @@ function Checkout() {
      MANUAL ADDRESS
   ===================================================== */
 
-  const useManualAddress = async () => {
-    const value =
-      manualAddress.trim();
+  const useManualAddress =
+    async () => {
+      const value =
+        manualAddress.trim();
 
-    if (!value) {
-      alert(
-        "Please enter your complete delivery address."
-      );
-      return;
-    }
-
-    setGeocodingManual(true);
-
-    try {
-      const queryText =
-        `${value}, Korba, Chhattisgarh, India`;
-
-      const response =
-        await fetch(
-          `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(
-            queryText
-          )}&limit=5&addressdetails=1&countrycodes=in`,
-          {
-            headers: {
-              Accept:
-                "application/json",
-            },
-          }
-        );
-
-      if (!response.ok) {
-        throw new Error(
-          "Address search failed"
-        );
-      }
-
-      const results =
-        await response.json();
-
-      if (
-        !Array.isArray(results) ||
-        results.length === 0
-      ) {
+      if (!value) {
         alert(
-          "Address nahi mila. Please House/Area/Landmark ke saath thoda complete address enter karein."
+          "Please enter your complete delivery address."
         );
+
         return;
       }
 
-      const korbaResult =
-        results.find((item) =>
-          String(
-            item.display_name || ""
-          )
-            .toLowerCase()
-            .includes("korba")
-        ) || results[0];
+      setGeocodingManual(true);
 
-      const lat =
-        Number(korbaResult.lat);
+      try {
+        const queryText =
+          `${value}, Korba, Chhattisgarh, India`;
 
-      const lng =
-        Number(korbaResult.lon);
+        const response =
+          await fetch(
+            `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(
+              queryText
+            )}&limit=5&addressdetails=1&countrycodes=in`,
+            {
+              headers: {
+                Accept:
+                  "application/json",
+              },
+            }
+          );
 
-      if (
-        !Number.isFinite(lat) ||
-        !Number.isFinite(lng)
-      ) {
-        throw new Error(
-          "Invalid location received"
+        if (!response.ok) {
+          throw new Error(
+            "Address search failed"
+          );
+        }
+
+        const results =
+          await response.json();
+
+        if (
+          !Array.isArray(
+            results
+          ) ||
+          results.length === 0
+        ) {
+          alert(
+            "Address nahi mila. Please House/Area/Landmark ke saath thoda complete address enter karein."
+          );
+
+          return;
+        }
+
+        const korbaResult =
+          results.find((item) =>
+            String(
+              item.display_name ||
+                ""
+            )
+              .toLowerCase()
+              .includes("korba")
+          ) ||
+          results[0];
+
+        const lat =
+          Number(
+            korbaResult.lat
+          );
+
+        const lng =
+          Number(
+            korbaResult.lon
+          );
+
+        if (
+          !Number.isFinite(lat) ||
+          !Number.isFinite(lng)
+        ) {
+          throw new Error(
+            "Invalid location received"
+          );
+        }
+
+        const formatted =
+          korbaResult.display_name ||
+          value;
+
+        const newLocation = {
+          lat,
+          lng,
+        };
+
+        setMarker(
+          newLocation
+        );
+
+        setMapCenter(
+          newLocation
+        );
+
+        setAddress(
+          formatted
+        );
+
+        localStorage.setItem(
+          "userLocation",
+          JSON.stringify({
+            latitude: lat,
+
+            longitude: lng,
+
+            address:
+              formatted,
+
+            fullAddress:
+              formatted,
+          })
+        );
+
+        if (mapRef.current) {
+          mapRef.current.setView(
+            [lat, lng],
+            16,
+            {
+              animate: true,
+            }
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Manual address error:",
+          error
+        );
+
+        alert(
+          "Address check nahi ho paya. Please thoda complete address enter karke dobara try karein."
+        );
+      } finally {
+        setGeocodingManual(
+          false
         );
       }
-
-      const formatted =
-        korbaResult.display_name ||
-        value;
-
-      const newLocation = {
-        lat,
-        lng,
-      };
-
-      setMarker(newLocation);
-      setMapCenter(newLocation);
-      setAddress(formatted);
-
-      localStorage.setItem(
-        "userLocation",
-        JSON.stringify({
-          latitude: lat,
-          longitude: lng,
-          address: formatted,
-          fullAddress: formatted,
-        })
-      );
-
-      if (mapRef.current) {
-        mapRef.current.setView(
-          [lat, lng],
-          16,
-          {
-            animate: true,
-          }
-        );
-      }
-    } catch (error) {
-      console.error(
-        "Manual address error:",
-        error
-      );
-
-      alert(
-        "Address check nahi ho paya. Please thoda complete address enter karke dobara try karein."
-      );
-    } finally {
-      setGeocodingManual(false);
-    }
-  };
+    };
 
   /* =====================================================
      CURRENT LOCATION
   ===================================================== */
 
-  const getCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      alert(
-        "Your browser does not support location."
-      );
-      return;
-    }
+  const getCurrentLocation =
+    () => {
+      if (
+        !navigator.geolocation
+      ) {
+        alert(
+          "Your browser does not support location."
+        );
 
-    setLoadingLocation(true);
+        return;
+      }
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const {
-            latitude,
-            longitude,
-          } = position.coords;
+      setLoadingLocation(true);
 
-          const newLocation = {
-            lat: latitude,
-            lng: longitude,
-          };
-
-          setMapCenter(
-            newLocation
-          );
-
-          setMarker(
-            newLocation
-          );
-
-          const detectedAddress =
-            await reverseGeocode(
-              latitude,
-              longitude
-            );
-
-          setAddress(
-            detectedAddress
-          );
-
-          localStorage.setItem(
-            "userLocation",
-            JSON.stringify({
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            const {
               latitude,
               longitude,
-              address:
-                detectedAddress,
-              fullAddress:
-                detectedAddress,
-            })
-          );
+            } =
+              position.coords;
 
-          if (mapRef.current) {
-            mapRef.current.setView(
-              [
+            const newLocation = {
+              lat: latitude,
+
+              lng: longitude,
+            };
+
+            setMapCenter(
+              newLocation
+            );
+
+            setMarker(
+              newLocation
+            );
+
+            const detectedAddress =
+              await reverseGeocode(
                 latitude,
+                longitude
+              );
+
+            setAddress(
+              detectedAddress
+            );
+
+            localStorage.setItem(
+              "userLocation",
+              JSON.stringify({
+                latitude,
+
                 longitude,
-              ],
-              16,
-              {
-                animate: true,
-              }
+
+                address:
+                  detectedAddress,
+
+                fullAddress:
+                  detectedAddress,
+              })
+            );
+
+            if (
+              mapRef.current
+            ) {
+              mapRef.current.setView(
+                [
+                  latitude,
+                  longitude,
+                ],
+                16,
+                {
+                  animate: true,
+                }
+              );
+            }
+          } catch (error) {
+            console.error(
+              "Location processing error:",
+              error
+            );
+
+            alert(
+              "Location mil gayi, lekin address load nahi ho paya."
+            );
+          } finally {
+            setLoadingLocation(
+              false
             );
           }
-        } catch (error) {
+        },
+
+        (error) => {
           console.error(
-            "Location processing error:",
+            "Location Error:",
             error
           );
 
-          alert(
-            "Location mil gayi, lekin address load nahi ho paya."
+          setLoadingLocation(
+            false
           );
-        } finally {
-          setLoadingLocation(false);
+
+          if (
+            error.code ===
+            error.PERMISSION_DENIED
+          ) {
+            alert(
+              "Location permission denied. Browser settings mein location permission Allow karein."
+            );
+          } else if (
+            error.code ===
+            error.POSITION_UNAVAILABLE
+          ) {
+            alert(
+              "Your location is currently unavailable. Please try again."
+            );
+          } else if (
+            error.code ===
+            error.TIMEOUT
+          ) {
+            alert(
+              "Location lene mein time lag raha hai. Please try again."
+            );
+          } else {
+            alert(
+              "Unable to get your location."
+            );
+          }
+        },
+
+        {
+          enableHighAccuracy: true,
+
+          timeout: 15000,
+
+          maximumAge: 0,
         }
-      },
-
-      (error) => {
-        console.error(
-          "Location Error:",
-          error
-        );
-
-        setLoadingLocation(false);
-
-        if (
-          error.code ===
-          error.PERMISSION_DENIED
-        ) {
-          alert(
-            "Location permission denied. Browser settings mein location permission Allow karein."
-          );
-        } else if (
-          error.code ===
-          error.POSITION_UNAVAILABLE
-        ) {
-          alert(
-            "Your location is currently unavailable. Please try again."
-          );
-        } else if (
-          error.code ===
-          error.TIMEOUT
-        ) {
-          alert(
-            "Location lene mein time lag raha hai. Please try again."
-          );
-        } else {
-          alert(
-            "Unable to get your location."
-          );
-        }
-      },
-
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0,
-      }
-    );
-  };
+      );
+    };
 
   /* =====================================================
      MAP LOAD
   ===================================================== */
 
-  const onMapLoad = (map) => {
+  const onMapLoad = (
+    map
+  ) => {
     mapRef.current = map;
   };
 
@@ -675,121 +1196,216 @@ function Checkout() {
      MARKER DRAG
   ===================================================== */
 
-  const onMarkerDragEnd = async (
-    event
-  ) => {
-    const position =
-      event.target.getLatLng();
+  const onMarkerDragEnd =
+    async (event) => {
+      const position =
+        event.target.getLatLng();
 
-    const lat =
-      position.lat;
+      const lat =
+        position.lat;
 
-    const lng =
-      position.lng;
+      const lng =
+        position.lng;
 
-    const newLocation = {
-      lat,
-      lng,
-    };
-
-    setMarker(
-      newLocation
-    );
-
-    setMapCenter(
-      newLocation
-    );
-
-    const newAddress =
-      await reverseGeocode(
+      const newLocation = {
         lat,
-        lng
+        lng,
+      };
+
+      setMarker(
+        newLocation
       );
 
-    setAddress(
-      newAddress
-    );
+      setMapCenter(
+        newLocation
+      );
 
-    localStorage.setItem(
-      "userLocation",
-      JSON.stringify({
-        latitude: lat,
-        longitude: lng,
-        address:
-          newAddress,
-        fullAddress:
-          newAddress,
-      })
-    );
-  };
+      const newAddress =
+        await reverseGeocode(
+          lat,
+          lng
+        );
+
+      setAddress(
+        newAddress
+      );
+
+      localStorage.setItem(
+        "userLocation",
+        JSON.stringify({
+          latitude: lat,
+
+          longitude: lng,
+
+          address:
+            newAddress,
+
+          fullAddress:
+            newAddress,
+        })
+      );
+    };
 
   /* =====================================================
      CUSTOMER DATA
   ===================================================== */
 
-  const getCustomerData = () => {
-    if (!customerProfile) {
-      return null;
-    }
+  const getCustomerData =
+    () => {
+      if (!customerProfile) {
+        return null;
+      }
 
-    return {
-      userId:
-        customerProfile.uid || "",
+      return {
+        userId:
+          customerProfile.uid ||
+          "",
 
-      customerId:
-        customerProfile.customerId ||
-        localStorage.getItem(
-          "sugarCafeCustomerId"
-        ) ||
-        "",
+        customerId:
+          customerProfile.customerId ||
+          localStorage.getItem(
+            "sugarCafeCustomerId"
+          ) ||
+          "",
 
-      customerName:
-        customerProfile.name ||
-        "Customer",
+        customerName:
+          customerProfile.name ||
+          "Customer",
 
-      customerPhone:
-        customerProfile.phone ||
-        "",
+        customerPhone:
+          customerProfile.phone ||
+          "",
 
-      customerEmail:
-        customerProfile.email ||
-        "",
+        customerEmail:
+          customerProfile.email ||
+          "",
 
-      photoURL:
-        customerProfile.photoURL ||
-        "",
+        photoURL:
+          customerProfile.photoURL ||
+          "",
+      };
     };
-  };
+
+  /* =====================================================
+     FIND MENU ITEM FOR LOYALTY REWARD
+  ===================================================== */
+
+  const findLoyaltyMenuItem =
+    async (
+      rewardName
+    ) => {
+      if (!rewardName) {
+        return null;
+      }
+
+      try {
+        const menuSnapshot =
+          await getDocs(
+            collection(
+              db,
+              "menu"
+            )
+          );
+
+        const menuItems =
+          menuSnapshot.docs.map(
+            (menuDoc) => ({
+              id: menuDoc.id,
+
+              ...menuDoc.data(),
+            })
+          );
+
+        const wanted =
+          normalizeMenuName(
+            rewardName
+          );
+
+        /*
+           First try exact normalized match.
+        */
+
+        const exact =
+          menuItems.find(
+            (item) =>
+              normalizeMenuName(
+                item.name
+              ) === wanted
+          );
+
+        if (exact) {
+          return exact;
+        }
+
+        /*
+           Then try partial match.
+        */
+
+        const partial =
+          menuItems.find(
+            (item) => {
+              const name =
+                normalizeMenuName(
+                  item.name
+                );
+
+              return (
+                name.includes(
+                  wanted
+                ) ||
+                wanted.includes(
+                  name
+                )
+              );
+            }
+          );
+
+        return partial || null;
+      } catch (error) {
+        console.error(
+          "Loyalty menu lookup error:",
+          error
+        );
+
+        return null;
+      }
+    };
 
   /* =====================================================
      RAZORPAY
   ===================================================== */
 
-  const loadRazorpay = () =>
-    new Promise((resolve) => {
-      if (window.Razorpay) {
-        resolve(true);
-        return;
-      }
+  const loadRazorpay =
+    () =>
+      new Promise(
+        (resolve) => {
+          if (
+            window.Razorpay
+          ) {
+            resolve(true);
 
-      const script =
-        document.createElement(
-          "script"
-        );
+            return;
+          }
 
-      script.src =
-        "https://checkout.razorpay.com/v1/checkout.js";
+          const script =
+            document.createElement(
+              "script"
+            );
 
-      script.onload = () =>
-        resolve(true);
+          script.src =
+            "https://checkout.razorpay.com/v1/checkout.js";
 
-      script.onerror = () =>
-        resolve(false);
+          script.onload = () =>
+            resolve(true);
 
-      document.body.appendChild(
-        script
+          script.onerror = () =>
+            resolve(false);
+
+          document.body.appendChild(
+            script
+          );
+        }
       );
-    });
 
   /* =====================================================
      SAVE CUSTOMER ADDRESS
@@ -797,27 +1413,32 @@ function Checkout() {
 
   const saveCustomerAddress =
     async () => {
-      const selectedAddress = {
-        id: `${Date.now()}`,
+      const selectedAddress =
+        {
+          id: `${Date.now()}`,
 
-        label:
-          "Delivery Address",
+          label:
+            "Delivery Address",
 
-        address:
-          address.trim(),
+          address:
+            address.trim(),
 
-        fullAddress:
-          address.trim(),
+          fullAddress:
+            address.trim(),
 
-        latitude:
-          Number(marker.lat),
+          latitude:
+            Number(
+              marker.lat
+            ),
 
-        longitude:
-          Number(marker.lng),
+          longitude:
+            Number(
+              marker.lng
+            ),
 
-        savedAt:
-          new Date().toISOString(),
-      };
+          savedAt:
+            new Date().toISOString(),
+        };
 
       try {
         const savedUser =
@@ -827,7 +1448,9 @@ function Checkout() {
 
         if (savedUser) {
           const profile =
-            JSON.parse(savedUser);
+            JSON.parse(
+              savedUser
+            );
 
           const customerId =
             profile.customerId ||
@@ -867,24 +1490,26 @@ function Checkout() {
               ? existingAddresses
               : [
                   ...existingAddresses,
+
                   selectedAddress,
                 ];
 
-          const updatedProfile = {
-            ...profile,
+          const updatedProfile =
+            {
+              ...profile,
 
-            customerId,
+              customerId,
 
-            addresses:
-              updatedAddresses,
+              addresses:
+                updatedAddresses,
 
-            defaultAddress:
-              selectedAddress,
+              defaultAddress:
+                selectedAddress,
 
-            guest: false,
+              guest: false,
 
-            loggedIn: true,
-          };
+              loggedIn: true,
+            };
 
           localStorage.setItem(
             "sugarCafeUser",
@@ -977,9 +1602,49 @@ function Checkout() {
     ) => {
       const orderRef =
         await addDoc(
-          collection(db, "orders"),
+          collection(
+            db,
+            "orders"
+          ),
           orderData
         );
+
+      /* ---------------------------------------------
+         IF THIS ORDER USED A CARRIED REWARD,
+         MARK SOURCE REWARD AS REDEEMED
+      --------------------------------------------- */
+
+      if (
+        orderData.loyaltyReward
+          ?.sourceOrderId
+      ) {
+        try {
+          await updateDoc(
+            doc(
+              db,
+              "orders",
+              orderData
+                .loyaltyReward
+                .sourceOrderId
+            ),
+            {
+              "loyaltyReward.status":
+                "redeemed",
+
+              "loyaltyReward.appliedOrderId":
+                orderRef.id,
+
+              "loyaltyReward.redeemedAt":
+                Timestamp.now(),
+            }
+          );
+        } catch (error) {
+          console.error(
+            "Source loyalty reward update error:",
+            error
+          );
+        }
+      }
 
       localStorage.setItem(
         "lastOrderId",
@@ -1004,7 +1669,9 @@ function Checkout() {
       if (savedUser) {
         try {
           const profile =
-            JSON.parse(savedUser);
+            JSON.parse(
+              savedUser
+            );
 
           const customerId =
             profile.customerId ||
@@ -1045,24 +1712,26 @@ function Checkout() {
               ? existingAddresses
               : [
                   ...existingAddresses,
+
                   selectedAddress,
                 ];
 
-          const updatedProfile = {
-            ...profile,
+          const updatedProfile =
+            {
+              ...profile,
 
-            customerId,
+              customerId,
 
-            addresses:
-              updatedAddresses,
+              addresses:
+                updatedAddresses,
 
-            defaultAddress:
-              selectedAddress,
+              defaultAddress:
+                selectedAddress,
 
-            guest: false,
+              guest: false,
 
-            loggedIn: true,
-          };
+              loggedIn: true,
+            };
 
           localStorage.setItem(
             "sugarCafeUser",
@@ -1102,7 +1771,9 @@ function Checkout() {
   ===================================================== */
 
   const readApiResponse =
-    async (response) => {
+    async (
+      response
+    ) => {
       const raw =
         await response.text();
 
@@ -1113,12 +1784,20 @@ function Checkout() {
       }
 
       try {
-        return JSON.parse(raw);
+        return JSON.parse(
+          raw
+        );
       } catch {
         const preview =
           raw
-            .replace(/\s+/g, " ")
-            .slice(0, 180);
+            .replace(
+              /\s+/g,
+              " "
+            )
+            .slice(
+              0,
+              180
+            );
 
         throw new Error(
           `Payment service returned an invalid response (HTTP ${response.status}). ${preview}`
@@ -1153,6 +1832,7 @@ function Checkout() {
 
             body: JSON.stringify({
               orderData,
+
               selectedAddress,
             }),
           }
@@ -1163,7 +1843,9 @@ function Checkout() {
           gatewayResponse
         );
 
-      if (!gatewayResponse.ok) {
+      if (
+        !gatewayResponse.ok
+      ) {
         throw new Error(
           gatewayData.error ||
             "Unable to start online payment."
@@ -1180,144 +1862,159 @@ function Checkout() {
       }
 
       await new Promise(
-        (resolve, reject) => {
+        (
+          resolve,
+          reject
+        ) => {
           const razorpay =
-            new window.Razorpay({
-              key:
-                gatewayData.keyId,
+            new window.Razorpay(
+              {
+                key:
+                  gatewayData.keyId,
 
-              amount:
-                gatewayData.amount,
+                amount:
+                  gatewayData.amount,
 
-              currency:
-                gatewayData.currency,
+                currency:
+                  gatewayData.currency,
 
-              name:
-                "Sugar Cafe",
-
-              description:
-                `Sugar Cafe Order ${orderData.orderNumber}`,
-
-              order_id:
-                gatewayData.orderId,
-
-              prefill: {
                 name:
-                  customer.customerName ||
-                  "",
+                  "Sugar Cafe",
 
-                email:
-                  customer.customerEmail ||
-                  "",
+                description:
+                  `Sugar Cafe Order ${orderData.orderNumber}`,
 
-                contact:
-                  customer.customerPhone ||
-                  "",
-              },
+                order_id:
+                  gatewayData.orderId,
 
-              handler:
-                async (
-                  response
-                ) => {
-                  try {
-                    const verifyResponse =
-                      await fetch(
-                        `${
-                          import.meta.env
-                            .VITE_PAYMENT_API_URL ||
-                          ""
-                        }/api/payment/verify`,
-                        {
-                          method: "POST",
+                prefill: {
+                  name:
+                    customer.customerName ||
+                    "",
 
-                          headers: {
-                            "Content-Type":
-                              "application/json",
-                          },
+                  email:
+                    customer.customerEmail ||
+                    "",
 
-                          body:
-                            JSON.stringify({
-                              razorpayOrderId:
-                                response.razorpay_order_id,
-
-                              razorpayPaymentId:
-                                response.razorpay_payment_id,
-
-                              razorpaySignature:
-                                response.razorpay_signature,
-                            }),
-                        }
-                      );
-
-                    const verifyData =
-                      await readApiResponse(
-                        verifyResponse
-                      );
-
-                    if (
-                      !verifyResponse.ok ||
-                      !verifyData.verified
-                    ) {
-                      reject(
-                        new Error(
-                          "Payment verification failed."
-                        )
-                      );
-
-                      return;
-                    }
-
-                    if (
-                      !verifyData.finalized
-                    ) {
-                      const paidOrder = {
-                        ...orderData,
-
-                        paymentMethod:
-                          "Online Payment",
-
-                        paymentStatus:
-                          "Paid",
-
-                        paymentNote:
-                          "Paid and verified by Razorpay.",
-
-                        razorpayOrderId:
-                          response.razorpay_order_id,
-
-                        razorpayPaymentId:
-                          response.razorpay_payment_id,
-
-                        razorpaySignature:
-                          response.razorpay_signature,
-                      };
-
-                      await saveCompletedOrder(
-                        paidOrder,
-                        selectedAddress
-                      );
-                    }
-
-                    resolve();
-                  } catch (error) {
-                    reject(error);
-                  }
+                  contact:
+                    customer.customerPhone ||
+                    "",
                 },
 
-              modal: {
-                ondismiss:
-                  () =>
-                    reject(
-                      new Error(
-                        "Payment cancelled."
-                      )
-                    ),
-              },
-            });
+                handler:
+                  async (
+                    response
+                  ) => {
+                    try {
+                      const verifyResponse =
+                        await fetch(
+                          `${
+                            import.meta.env
+                              .VITE_PAYMENT_API_URL ||
+                            ""
+                          }/api/payment/verify`,
+                          {
+                            method:
+                              "POST",
+
+                            headers:
+                              {
+                                "Content-Type":
+                                  "application/json",
+                              },
+
+                            body:
+                              JSON.stringify(
+                                {
+                                  razorpayOrderId:
+                                    response.razorpay_order_id,
+
+                                  razorpayPaymentId:
+                                    response.razorpay_payment_id,
+
+                                  razorpaySignature:
+                                    response.razorpay_signature,
+                                }
+                              ),
+                          }
+                        );
+
+                      const verifyData =
+                        await readApiResponse(
+                          verifyResponse
+                        );
+
+                      if (
+                        !verifyResponse.ok ||
+                        !verifyData.verified
+                      ) {
+                        reject(
+                          new Error(
+                            "Payment verification failed."
+                          )
+                        );
+
+                        return;
+                      }
+
+                      if (
+                        !verifyData.finalized
+                      ) {
+                        const paidOrder =
+                          {
+                            ...orderData,
+
+                            paymentMethod:
+                              "Online Payment",
+
+                            paymentStatus:
+                              "Paid",
+
+                            paymentNote:
+                              "Paid and verified by Razorpay.",
+
+                            razorpayOrderId:
+                              response.razorpay_order_id,
+
+                            razorpayPaymentId:
+                              response.razorpay_payment_id,
+
+                            razorpaySignature:
+                              response.razorpay_signature,
+                          };
+
+                        await saveCompletedOrder(
+                          paidOrder,
+
+                          selectedAddress
+                        );
+                      }
+
+                      resolve();
+                    } catch (error) {
+                      reject(
+                        error
+                      );
+                    }
+                  },
+
+                modal: {
+                  ondismiss:
+                    () =>
+                      reject(
+                        new Error(
+                          "Payment cancelled."
+                        )
+                      ),
+                },
+              }
+            );
 
           razorpay.on(
             "payment.failed",
-            (response) => {
+            (
+              response
+            ) => {
               reject(
                 new Error(
                   response?.error
@@ -1337,350 +2034,669 @@ function Checkout() {
      PLACE ORDER
   ===================================================== */
 
-  const placeOrder = async () => {
+  const placeOrder =
+    async () => {
+      /* ---------------------------------------------
+         DELIVERY CHECK
+      --------------------------------------------- */
 
-    /* DELIVERY CHECK ONLY FOR DELIVERY */
+      if (!isTakeaway) {
+        if (
+          !store.deliveryAvailable
+        ) {
+          alert(
+            store.announcement ||
+              `Delivery orders are available only from ${store.orderTimingLabel}.`
+          );
 
-    if (!isTakeaway) {
-      if (!store.deliveryAvailable) {
-        alert(
-          store.announcement ||
-            `Delivery orders are available only from ${store.orderTimingLabel}.`
-        );
-
-        return;
-      }
-    }
-
-    /* PAYMENT CHECK */
-
-    if (
-      paymentMethod ===
-        "Online Payment" &&
-      !store.upiEnabled
-    ) {
-      alert(
-        "UPI payment is currently unavailable. Please choose another payment method."
-      );
-
-      return;
-    }
-
-    if (
-      paymentMethod ===
-        "Cash on Delivery" &&
-      !store.codEnabled
-    ) {
-      alert(
-        "Cash on Delivery is currently unavailable. Please choose another payment method."
-      );
-
-      return;
-    }
-
-    if (!cart.length) {
-      alert(
-        "Your cart is empty."
-      );
-
-      return;
-    }
-
-    /* CUSTOMER LOGIN */
-
-    if (
-      !customerProfile ||
-      !customerProfile.name ||
-      !customerProfile.phone
-    ) {
-      alert(
-        "Please login with your customer account before placing the order."
-      );
-
-      navigate(
-        "/login",
-        {
-          state: {
-            from: "/checkout",
-          },
+          return;
         }
-      );
-
-      return;
-    }
-
-    const customer =
-      getCustomerData();
-
-    if (
-      !customer?.customerPhone
-    ) {
-      alert(
-        "Mobile number is required to place the order."
-      );
-
-      return;
-    }
-
-    if (
-      !customer?.customerId
-    ) {
-      alert(
-        "Customer account is not ready. Please login again."
-      );
-
-      navigate(
-        "/login",
-        {
-          state: {
-            from: "/checkout",
-          },
-        }
-      );
-
-      return;
-    }
-
-    /* DELIVERY ADDRESS ONLY FOR DELIVERY */
-
-    if (!isTakeaway) {
-      if (!address.trim()) {
-        alert(
-          "Please select your delivery address."
-        );
-
-        return;
       }
 
-      if (!deliveryAvailable) {
-        alert(
-          `Sorry! We currently deliver within ${MAX_DELIVERY_DISTANCE} km of our shop.`
-        );
-
-        return;
-      }
-    }
-
-    try {
-      setPlacingOrder(true);
-
-      const orderItems =
-        cart.map((item) => ({
-          id:
-            item.id || "",
-
-          name:
-            item.name || "",
-
-          price:
-            Number(
-              item.price || 0
-            ),
-
-          qty:
-            Number(
-              item.qty ||
-                item.quantity ||
-                1
-            ),
-
-          image:
-            item.image || "",
-
-          category:
-            item.category || "",
-        }));
-
-      const orderData = {
-        orderNumber:
-          `SC-${Date.now()}`,
-
-        userId:
-          customer.userId || "",
-
-        customerId:
-          customer.customerId,
-
-        customerName:
-          customer.customerName,
-
-        phone:
-          customer.customerPhone,
-
-        email:
-          customer.customerEmail,
-
-        photoURL:
-          customer.photoURL,
-
-        /* TAKEAWAY STORE OR DELIVERY ADDRESS */
-
-        address: isTakeaway
-          ? TAKEAWAY_STORE.address
-          : address,
-
-        storeName: isTakeaway
-          ? TAKEAWAY_STORE.name
-          : store.cafeName ||
-            "Sugar Cafe",
-
-        storeAddress: isTakeaway
-          ? TAKEAWAY_STORE.address
-          : "",
-
-        specialNote:
-          specialNote.trim(),
-
-        latitude: isTakeaway
-          ? TAKEAWAY_STORE.lat
-          : marker.lat,
-
-        longitude: isTakeaway
-          ? TAKEAWAY_STORE.lng
-          : marker.lng,
-
-        distance: isTakeaway
-          ? 0
-          : Number(
-              distance.toFixed(2)
-            ),
-
-        /* IMPORTANT */
-
-        orderType: isTakeaway
-          ? "Takeaway"
-          : "Delivery",
-
-        paymentMethod,
-
-        paymentStatus:
-          paymentMethod ===
-          "Online Payment"
-            ? "Paid"
-            : "Pending",
-
-        paymentNote:
-          paymentMethod ===
-          "Online Payment"
-            ? "Paid and verified by Razorpay."
-            : "",
-
-        items:
-          orderItems,
-
-        subtotal:
-          Number(totalPrice),
-
-        deliveryCharge:
-          Number(deliveryCharge),
-
-        discount:
-          Number(discount),
-
-        gst:
-          Number(gst),
-
-        total:
-          Number(grandTotal),
-
-        status:
-          "New",
-
-        preparationMinutes:
-          Number(
-            store.preparationMinutes ??
-              15
-          ),
-
-        preparationStartedAt:
-          null,
-
-        preparationEndAt:
-          null,
-
-        foodReadyAt:
-          null,
-
-        dispatchedAt:
-          null,
-
-        deliveredAt:
-          null,
-
-        createdAt:
-          Timestamp.now(),
-      };
-
-      /* ADDRESS OBJECT */
-
-      const selectedAddress =
-        isTakeaway
-          ? {
-              id: `takeaway-${Date.now()}`,
-
-              label:
-                "Pickup Store",
-
-              address:
-                TAKEAWAY_STORE.address,
-
-              fullAddress:
-                TAKEAWAY_STORE.address,
-
-              latitude:
-                TAKEAWAY_STORE.lat,
-
-              longitude:
-                TAKEAWAY_STORE.lng,
-
-              savedAt:
-                new Date().toISOString(),
-            }
-          : await saveCustomerAddress();
-
-      /* PAYMENT */
+      /* ---------------------------------------------
+         PAYMENT CHECK
+      --------------------------------------------- */
 
       if (
         paymentMethod ===
-        "Online Payment"
+          "Online Payment" &&
+        !store.upiEnabled
       ) {
-        await startOnlinePayment({
-          customer,
-          orderData,
-          selectedAddress,
-        });
-      } else {
-        await saveCompletedOrder(
-          orderData,
-          selectedAddress
+        alert(
+          "UPI payment is currently unavailable. Please choose another payment method."
         );
+
+        return;
       }
 
-      alert(
-        isTakeaway
-          ? "🛍️ Takeaway order received! Sugar Café is preparing your order."
-          : "🕐 Order received! Sugar Café is reviewing your order."
-      );
+      if (
+        paymentMethod ===
+          "Cash on Delivery" &&
+        !store.codEnabled
+      ) {
+        alert(
+          "Cash on Delivery is currently unavailable. Please choose another payment method."
+        );
 
-      navigate("/success");
+        return;
+      }
 
-    } catch (error) {
-      console.error(
-        "❌ Order placement error:",
-        error
-      );
+      /* ---------------------------------------------
+         CART
+      --------------------------------------------- */
 
-      const message =
-        error?.message ||
-        "Unknown error";
+      if (!cart.length) {
+        alert(
+          "Your cart is empty."
+        );
 
-      alert(
-        `Order place nahi ho paya.\n\n${message}`
-      );
-    } finally {
-      setPlacingOrder(false);
-    }
-  };
+        return;
+      }
+
+      /* ---------------------------------------------
+         CUSTOMER LOGIN
+      --------------------------------------------- */
+
+      if (
+        !customerProfile ||
+        !customerProfile.name ||
+        !customerProfile.phone
+      ) {
+        alert(
+          "Please login with your customer account before placing the order."
+        );
+
+        navigate(
+          "/login",
+          {
+            state: {
+              from:
+                "/checkout",
+            },
+          }
+        );
+
+        return;
+      }
+
+      const customer =
+        getCustomerData();
+
+      if (
+        !customer?.customerPhone
+      ) {
+        alert(
+          "Mobile number is required to place the order."
+        );
+
+        return;
+      }
+
+      if (
+        !customer?.customerId
+      ) {
+        alert(
+          "Customer account is not ready. Please login again."
+        );
+
+        navigate(
+          "/login",
+          {
+            state: {
+              from:
+                "/checkout",
+            },
+          }
+        );
+
+        return;
+      }
+
+      /* ---------------------------------------------
+         DELIVERY ADDRESS
+      --------------------------------------------- */
+
+      if (!isTakeaway) {
+        if (!address.trim()) {
+          alert(
+            "Please select your delivery address."
+          );
+
+          return;
+        }
+
+        if (
+          !deliveryAvailable
+        ) {
+          alert(
+            `Sorry! We currently deliver within ${MAX_DELIVERY_DISTANCE} km of our shop.`
+          );
+
+          return;
+        }
+      }
+
+      try {
+        setPlacingOrder(
+          true
+        );
+
+        /* -------------------------------------------
+           NORMAL CART ITEMS
+        ------------------------------------------- */
+
+        const orderItems =
+          cart.map(
+            (item) => ({
+              id:
+                item.id || "",
+
+              name:
+                item.name || "",
+
+              price:
+                Number(
+                  item.price || 0
+                ),
+
+              qty:
+                Number(
+                  item.qty ||
+                    item.quantity ||
+                    1
+                ),
+
+              image:
+                item.image || "",
+
+              category:
+                item.category ||
+                "",
+            })
+          );
+
+        let finalOrderItems = [
+          ...orderItems,
+        ];
+
+        let orderLoyaltyReward =
+          null;
+
+        /* -------------------------------------------
+           PREVIOUS CARRIED REWARD
+        ------------------------------------------- */
+
+        if (
+          pendingReward
+        ) {
+          const reward =
+            pendingReward;
+
+          orderLoyaltyReward = {
+            ...reward,
+
+            sourceOrderId:
+              loyaltyData
+                .pendingReward
+                ?.id || null,
+
+            status:
+              "applied",
+
+            appliedAt:
+              Timestamp.now(),
+          };
+
+          /* -----------------------------------------
+             CARRIED 5% DISCOUNT
+          ----------------------------------------- */
+
+          if (
+            reward.type ===
+              "discount" &&
+            Number(
+              reward.discountPercent
+            ) === 5
+          ) {
+            orderLoyaltyReward.appliedDiscount =
+              Number(
+                discount
+              );
+          }
+
+          /* -----------------------------------------
+             CARRIED FREE ITEM
+          ----------------------------------------- */
+
+          if (
+            reward.type ===
+            "free_menu_item"
+          ) {
+            const menuItem =
+              await findLoyaltyMenuItem(
+                reward.itemName
+              );
+
+            if (menuItem) {
+              finalOrderItems.push(
+                {
+                  id:
+                    menuItem.id,
+
+                  name:
+                    menuItem.name,
+
+                  price: 0,
+
+                  qty: 1,
+
+                  image:
+                    menuItem.image ||
+                    menuItem.imageUrl ||
+                    "",
+
+                  category:
+                    menuItem.category ||
+                    "Loyalty Reward",
+
+                  isFreeReward:
+                    true,
+
+                  loyaltyReward:
+                    true,
+
+                  originalPrice:
+                    Number(
+                      menuItem.price ||
+                        0
+                    ),
+                }
+              );
+
+              orderLoyaltyReward.itemId =
+                menuItem.id;
+
+              orderLoyaltyReward.itemName =
+                menuItem.name;
+
+              orderLoyaltyReward.itemImage =
+                menuItem.image ||
+                menuItem.imageUrl ||
+                "";
+            } else {
+              console.warn(
+                "Loyalty reward menu item not found:",
+                reward.itemName
+              );
+            }
+          }
+        }
+
+        /* -------------------------------------------
+           NEW 6+1 REWARD
+        ------------------------------------------- */
+
+        if (
+          !orderLoyaltyReward &&
+          currentReward
+        ) {
+          const reward =
+            currentReward;
+
+          orderLoyaltyReward = {
+            cycle:
+              reward.cycle,
+
+            rewardIndex:
+              reward.rewardIndex,
+
+            type:
+              reward.type,
+
+            itemName:
+              reward.itemName ||
+              null,
+
+            discountPercent:
+              Number(
+                reward.discountPercent ||
+                  0
+              ),
+
+            /*
+               COD:
+               reward belongs to current order.
+
+               PREPAID:
+               reward carries forward.
+            */
+
+            status:
+              paymentMethod ===
+              "Cash on Delivery"
+                ? "reserved"
+                : "carried",
+
+            source:
+              "6+1-loyalty",
+
+            createdAt:
+              Timestamp.now(),
+          };
+
+          /* -----------------------------------------
+             CURRENT COD FREE ITEM
+          ----------------------------------------- */
+
+          if (
+            paymentMethod ===
+              "Cash on Delivery" &&
+            reward.type ===
+              "free_menu_item"
+          ) {
+            const menuItem =
+              await findLoyaltyMenuItem(
+                reward.itemName
+              );
+
+            if (menuItem) {
+              finalOrderItems.push(
+                {
+                  id:
+                    menuItem.id,
+
+                  name:
+                    menuItem.name,
+
+                  price: 0,
+
+                  qty: 1,
+
+                  image:
+                    menuItem.image ||
+                    menuItem.imageUrl ||
+                    "",
+
+                  category:
+                    menuItem.category ||
+                    "Loyalty Reward",
+
+                  isFreeReward:
+                    true,
+
+                  loyaltyReward:
+                    true,
+
+                  originalPrice:
+                    Number(
+                      menuItem.price ||
+                        0
+                    ),
+                }
+              );
+
+              orderLoyaltyReward.itemId =
+                menuItem.id;
+
+              orderLoyaltyReward.itemName =
+                menuItem.name;
+
+              orderLoyaltyReward.itemImage =
+                menuItem.image ||
+                menuItem.imageUrl ||
+                "";
+            } else {
+              console.warn(
+                "Current loyalty reward menu item not found:",
+                reward.itemName
+              );
+            }
+          }
+        }
+
+        /* -------------------------------------------
+           ORDER DATA
+        ------------------------------------------- */
+
+        const orderData = {
+          orderNumber:
+            `SC-${Date.now()}`,
+
+          userId:
+            customer.userId ||
+            "",
+
+          customerId:
+            customer.customerId,
+
+          customerName:
+            customer.customerName,
+
+          phone:
+            customer.customerPhone,
+
+          email:
+            customer.customerEmail,
+
+          photoURL:
+            customer.photoURL,
+
+          /* ADDRESS */
+
+          address:
+            isTakeaway
+              ? TAKEAWAY_STORE.address
+              : address,
+
+          storeName:
+            isTakeaway
+              ? TAKEAWAY_STORE.name
+              : store.cafeName ||
+                "Sugar Cafe",
+
+          storeAddress:
+            isTakeaway
+              ? TAKEAWAY_STORE.address
+              : "",
+
+          specialNote:
+            specialNote.trim(),
+
+          latitude:
+            isTakeaway
+              ? TAKEAWAY_STORE.lat
+              : marker.lat,
+
+          longitude:
+            isTakeaway
+              ? TAKEAWAY_STORE.lng
+              : marker.lng,
+
+          distance:
+            isTakeaway
+              ? 0
+              : Number(
+                  distance.toFixed(
+                    2
+                  )
+                ),
+
+          /* ORDER TYPE */
+
+          orderType:
+            isTakeaway
+              ? "Takeaway"
+              : "Delivery",
+
+          /* PAYMENT */
+
+          paymentMethod,
+
+          paymentStatus:
+            paymentMethod ===
+            "Online Payment"
+              ? "Paid"
+              : "Pending",
+
+          paymentNote:
+            paymentMethod ===
+            "Online Payment"
+              ? "Paid and verified by Razorpay."
+              : "",
+
+          /* ITEMS */
+
+          items:
+            finalOrderItems,
+
+          /* TOTALS */
+
+          subtotal:
+            Number(
+              totalPrice
+            ),
+
+          deliveryCharge:
+            Number(
+              deliveryCharge
+            ),
+
+          discount:
+            Number(
+              discount
+            ),
+
+          gst:
+            Number(
+              gst
+            ),
+
+          total:
+            Number(
+              grandTotal
+            ),
+
+          /* LOYALTY */
+
+          loyaltyReward:
+            orderLoyaltyReward,
+
+          /* STATUS */
+
+          status:
+            "New",
+
+          preparationMinutes:
+            Number(
+              store.preparationMinutes ??
+                15
+            ),
+
+          preparationStartedAt:
+            null,
+
+          preparationEndAt:
+            null,
+
+          foodReadyAt:
+            null,
+
+          dispatchedAt:
+            null,
+
+          deliveredAt:
+            null,
+
+          createdAt:
+            Timestamp.now(),
+        };
+
+        /* -------------------------------------------
+           ADDRESS OBJECT
+        ------------------------------------------- */
+
+        const selectedAddress =
+          isTakeaway
+            ? {
+                id: `takeaway-${Date.now()}`,
+
+                label:
+                  "Pickup Store",
+
+                address:
+                  TAKEAWAY_STORE.address,
+
+                fullAddress:
+                  TAKEAWAY_STORE.address,
+
+                latitude:
+                  TAKEAWAY_STORE.lat,
+
+                longitude:
+                  TAKEAWAY_STORE.lng,
+
+                savedAt:
+                  new Date().toISOString(),
+              }
+            : await saveCustomerAddress();
+
+        /* -------------------------------------------
+           PAYMENT
+        ------------------------------------------- */
+
+        if (
+          paymentMethod ===
+          "Online Payment"
+        ) {
+          await startOnlinePayment(
+            {
+              customer,
+
+              orderData,
+
+              selectedAddress,
+            }
+          );
+        } else {
+          await saveCompletedOrder(
+            orderData,
+
+            selectedAddress
+          );
+        }
+
+        /* -------------------------------------------
+           SUCCESS
+        ------------------------------------------- */
+
+        alert(
+          isTakeaway
+            ? "🛍️ Takeaway order received! Sugar Café is preparing your order."
+            : "🕐 Order received! Sugar Café is reviewing your order."
+        );
+
+        navigate(
+          "/success"
+        );
+      } catch (error) {
+        console.error(
+          "❌ Order placement error:",
+          error
+        );
+
+        const message =
+          error?.message ||
+          "Unknown error";
+
+        alert(
+          `Order place nahi ho paya.\n\n${message}`
+        );
+      } finally {
+        setPlacingOrder(
+          false
+        );
+      }
+    };
 
   /* =====================================================
      PAGE
@@ -1705,11 +2721,17 @@ function Checkout() {
 
         <div
           style={{
-            display: "grid",
+            display:
+              "grid",
+
             gridTemplateColumns:
               "1fr 1fr",
-            gap: "10px",
-            marginTop: "12px",
+
+            gap:
+              "10px",
+
+            marginTop:
+              "12px",
           }}
         >
 
@@ -1728,20 +2750,29 @@ function Checkout() {
               );
             }}
             style={{
-              padding: "14px",
-              borderRadius: "10px",
+              padding:
+                "14px",
+
+              borderRadius:
+                "10px",
+
               border:
                 orderType ===
                 "Delivery"
                   ? "2px solid #ff4d4f"
                   : "1px solid #ddd",
+
               background:
                 orderType ===
                 "Delivery"
                   ? "#fff1f2"
                   : "#fff",
-              fontWeight: "700",
-              cursor: "pointer",
+
+              fontWeight:
+                "700",
+
+              cursor:
+                "pointer",
             }}
           >
             🚚 Delivery
@@ -1762,20 +2793,29 @@ function Checkout() {
               );
             }}
             style={{
-              padding: "14px",
-              borderRadius: "10px",
+              padding:
+                "14px",
+
+              borderRadius:
+                "10px",
+
               border:
                 orderType ===
                 "Takeaway"
                   ? "2px solid #16a34a"
                   : "1px solid #ddd",
+
               background:
                 orderType ===
                 "Takeaway"
                   ? "#f0fdf4"
                   : "#fff",
-              fontWeight: "700",
-              cursor: "pointer",
+
+              fontWeight:
+                "700",
+
+              cursor:
+                "pointer",
             }}
           >
             🛍️ Takeaway
@@ -1788,12 +2828,20 @@ function Checkout() {
         {isTakeaway && (
           <div
             style={{
-              marginTop: "14px",
-              padding: "12px",
-              borderRadius: "10px",
+              marginTop:
+                "14px",
+
+              padding:
+                "12px",
+
+              borderRadius:
+                "10px",
+
               background:
                 "#f0fdf4",
-              color: "#166534",
+
+              color:
+                "#166534",
             }}
           >
 
@@ -1805,7 +2853,9 @@ function Checkout() {
             <br />
 
             <small>
-              {TAKEAWAY_STORE.address}
+              {
+                TAKEAWAY_STORE.address
+              }
             </small>
 
             <br />
@@ -1822,7 +2872,6 @@ function Checkout() {
 
       {/* =================================================
           DELIVERY ADDRESS
-          HIDDEN FOR TAKEAWAY
       ================================================= */}
 
       {!isTakeaway && (
@@ -1840,20 +2889,26 @@ function Checkout() {
               <div>
                 👤{" "}
                 <strong>
-                  {customerProfile.name ||
-                    "Customer"}
+                  {
+                    customerProfile.name ||
+                    "Customer"
+                  }
                 </strong>
               </div>
 
               <div>
                 📱{" "}
-                {customerProfile.phone}
+                {
+                  customerProfile.phone
+                }
               </div>
 
               {customerProfile.customerId && (
                 <div>
                   🆔{" "}
-                  {customerProfile.customerId}
+                  {
+                    customerProfile.customerId
+                  }
                 </div>
               )}
 
@@ -1871,7 +2926,9 @@ function Checkout() {
               </strong>
 
               {savedAddresses.map(
-                (saved) => (
+                (
+                  saved
+                ) => (
                   <button
                     type="button"
                     key={
@@ -1932,10 +2989,11 @@ function Checkout() {
                     <br />
 
                     <span>
-                      {saved.fullAddress ||
-                        saved.address}
+                      {
+                        saved.fullAddress ||
+                        saved.address
+                      }
                     </span>
-
                   </button>
                 )
               )}
@@ -1957,16 +3015,22 @@ function Checkout() {
             style={{
               width:
                 "100%",
+
               padding:
                 "12px",
+
               marginTop:
                 "5px",
+
               borderRadius:
                 "10px",
+
               border:
                 "1px solid #ddd",
+
               boxSizing:
                 "border-box",
+
               fontSize:
                 "15px",
             }}
@@ -2190,7 +3254,9 @@ function Checkout() {
                 <br />
 
                 Delivery charge: ₹
-                {deliveryCharge}
+                {
+                  deliveryCharge
+                }
               </>
             ) : (
               <>
@@ -2235,20 +3301,26 @@ function Checkout() {
               <div>
                 👤{" "}
                 <strong>
-                  {customerProfile.name ||
-                    "Customer"}
+                  {
+                    customerProfile.name ||
+                    "Customer"
+                  }
                 </strong>
               </div>
 
               <div>
                 📱{" "}
-                {customerProfile.phone}
+                {
+                  customerProfile.phone
+                }
               </div>
 
               {customerProfile.customerId && (
                 <div>
                   🆔{" "}
-                  {customerProfile.customerId}
+                  {
+                    customerProfile.customerId
+                  }
                 </div>
               )}
 
@@ -2309,7 +3381,10 @@ function Checkout() {
           </small>
 
           <small>
-            {specialNote.length}/300
+            {
+              specialNote.length
+            }
+            /300
           </small>
 
         </div>
@@ -2346,6 +3421,7 @@ function Checkout() {
           />
 
           <span>
+
             <strong>
               Cash on Delivery
             </strong>
@@ -2353,6 +3429,7 @@ function Checkout() {
             <small>
               Pay when your order is delivered
             </small>
+
           </span>
 
         </label>
@@ -2377,6 +3454,7 @@ function Checkout() {
           />
 
           <span>
+
             <strong>
               Online Payment
             </strong>
@@ -2413,6 +3491,353 @@ function Checkout() {
       </div>
 
       {/* =================================================
+          LOYALTY REWARD
+      ================================================= */}
+
+      {!loyaltyData.loading &&
+        (
+          currentReward ||
+          pendingReward
+        ) && (
+          <div
+            className="checkout-card"
+            style={{
+              background:
+                "linear-gradient(135deg,#fffaf0,#fff3d6)",
+
+              border:
+                "1px solid #f2c66d",
+
+              boxShadow:
+                "0 8px 24px rgba(0,0,0,.06)",
+            }}
+          >
+
+            <div
+              style={{
+                display:
+                  "flex",
+
+                alignItems:
+                  "center",
+
+                gap:
+                  "10px",
+              }}
+            >
+
+              <div
+                style={{
+                  width:
+                    "44px",
+
+                  height:
+                    "44px",
+
+                  borderRadius:
+                    "50%",
+
+                  display:
+                    "flex",
+
+                  alignItems:
+                    "center",
+
+                  justifyContent:
+                    "center",
+
+                  background:
+                    "#fff",
+
+                  fontSize:
+                    "24px",
+                }}
+              >
+                🎁
+              </div>
+
+              <div>
+
+                <div
+                  style={{
+                    fontSize:
+                      "11px",
+
+                    fontWeight:
+                      "900",
+
+                    letterSpacing:
+                      "1.5px",
+
+                    color:
+                      "#9a6700",
+                  }}
+                >
+                  SUGAR REWARDS
+                </div>
+
+                <h3
+                  style={{
+                    margin:
+                      "3px 0 0",
+                  }}
+                >
+                  {pendingReward
+                    ? "Reward Carry Forward"
+                    : "Reward Unlocked"}
+                </h3>
+
+              </div>
+
+            </div>
+
+            <div
+              style={{
+                marginTop:
+                  "14px",
+
+                padding:
+                  "14px",
+
+                background:
+                  "#fff",
+
+                borderRadius:
+                  "12px",
+              }}
+            >
+
+              {(
+                pendingReward ||
+                currentReward
+              )?.type ===
+              "discount" ? (
+                <>
+                  <strong
+                    style={{
+                      fontSize:
+                        "20px",
+
+                      color:
+                        "#15803d",
+                    }}
+                  >
+                    🎉 5% OFF
+                  </strong>
+
+                  {discount >
+                    0 && (
+                    <div
+                      style={{
+                        marginTop:
+                          "6px",
+
+                        fontSize:
+                          "14px",
+
+                        color:
+                          "#166534",
+
+                        fontWeight:
+                          "700",
+                      }}
+                    >
+                      ₹
+                      {
+                        discount
+                      }{" "}
+                      discount applied
+                    </div>
+                  )}
+
+                  {currentReward &&
+                    paymentMethod ===
+                      "Online Payment" && (
+                      <small
+                        style={{
+                          display:
+                            "block",
+
+                          marginTop:
+                            "8px",
+
+                          color:
+                            "#795548",
+                        }}
+                      >
+                        Online payment ke
+                        saath reward next
+                        order ke liye carry
+                        forward hoga.
+                      </small>
+                    )}
+                </>
+              ) : (
+                <>
+                  <strong
+                    style={{
+                      fontSize:
+                        "19px",
+
+                      color:
+                        "#9a6700",
+                    }}
+                  >
+                    🎉 FREE{" "}
+                    {
+                      (
+                        pendingReward ||
+                        currentReward
+                      )?.itemName
+                    }
+                  </strong>
+
+                  {currentReward &&
+                    paymentMethod ===
+                      "Online Payment" && (
+                      <small
+                        style={{
+                          display:
+                            "block",
+
+                          marginTop:
+                            "8px",
+
+                          color:
+                            "#795548",
+                        }}
+                      >
+                        Online payment ke
+                        saath free item next
+                        order mein milega.
+                      </small>
+                    )}
+                </>
+              )}
+
+            </div>
+
+          </div>
+        )}
+
+      {/* =================================================
+          LOYALTY PROGRESS
+      ================================================= */}
+
+      {!loyaltyData.loading &&
+        !currentReward &&
+        !pendingReward &&
+        loyaltyData.qualifyingOrders <
+          6 && (
+          <div
+            className="checkout-card"
+            style={{
+              background:
+                "#fff",
+
+              border:
+                "1px solid #eee",
+            }}
+          >
+
+            <div
+              style={{
+                fontSize:
+                  "12px",
+
+                fontWeight:
+                  "800",
+
+                letterSpacing:
+                  "1px",
+
+                color:
+                  "#888",
+              }}
+            >
+              🎁 SUGAR REWARDS
+            </div>
+
+            <div
+              style={{
+                marginTop:
+                  "6px",
+
+                fontWeight:
+                  "700",
+
+                fontSize:
+                  "16px",
+              }}
+            >
+              {loyaltyData.qualifyingOrders}
+              /6 qualifying orders
+            </div>
+
+            <div
+              style={{
+                marginTop:
+                  "8px",
+
+                height:
+                  "8px",
+
+                borderRadius:
+                  "20px",
+
+                background:
+                  "#eee",
+
+                overflow:
+                  "hidden",
+              }}
+            >
+
+              <div
+                style={{
+                  width:
+                    `${Math.min(
+                      100,
+                      (
+                        loyaltyData.qualifyingOrders /
+                        6
+                      ) *
+                        100
+                    )}%`,
+
+                  height:
+                    "100%",
+
+                  borderRadius:
+                    "20px",
+
+                  background:
+                    "linear-gradient(90deg,#f59e0b,#f97316)",
+                }}
+              />
+
+            </div>
+
+            <small
+              style={{
+                display:
+                  "block",
+
+                marginTop:
+                  "8px",
+
+                color:
+                  "#777",
+              }}
+            >
+              ₹500+ delivered orders count
+              towards your next reward.
+            </small>
+
+          </div>
+        )}
+
+      {/* =================================================
           ORDER SUMMARY
       ================================================= */}
 
@@ -2428,7 +3853,10 @@ function Checkout() {
           </span>
 
           <span>
-            ₹{totalPrice}
+            ₹
+            {
+              totalPrice
+            }
           </span>
         </p>
 
@@ -2440,9 +3868,36 @@ function Checkout() {
           </span>
 
           <span>
-            ₹{deliveryCharge}
+            ₹
+            {
+              deliveryCharge
+            }
           </span>
         </p>
+
+        {discount >
+          0 && (
+          <p
+            style={{
+              color:
+                "#15803d",
+
+              fontWeight:
+                "700",
+            }}
+          >
+            <span>
+              🎁 Loyalty Discount
+            </span>
+
+            <span>
+              -₹
+              {
+                discount
+              }
+            </span>
+          </p>
+        )}
 
         <p>
           <span>
@@ -2450,7 +3905,10 @@ function Checkout() {
           </span>
 
           <span>
-            ₹{gst}
+            ₹
+            {
+              gst
+            }
           </span>
         </p>
 
@@ -2461,27 +3919,38 @@ function Checkout() {
             style={{
               marginBottom:
                 "12px",
+
               padding:
                 "10px",
+
               borderRadius:
                 "8px",
+
               background:
                 "#f0fdf4",
+
               color:
                 "#166534",
+
               fontSize:
                 "14px",
+
               fontWeight:
                 "600",
             }}
           >
             🛍️ Takeaway from{" "}
-            {TAKEAWAY_STORE.name}
+            {
+              TAKEAWAY_STORE.name
+            }
           </div>
         )}
 
         <h2>
-          ₹{grandTotal}
+          ₹
+          {
+            grandTotal
+          }
         </h2>
 
         <button
