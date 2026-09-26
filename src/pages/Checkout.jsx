@@ -2357,22 +2357,80 @@ useEffect(() => {
   };
 
   /* =======================================================
-     PAGE
+     PAGE - PREMIUM SUGAR CAFE UI
   ======================================================= */
 
   return (
     <div className="checkout-page">
-      <h2>Checkout</h2>
 
-      {/* ORDER TYPE */}
-      <div className="checkout-card">
-        <h3>🛍️ Order Type</h3>
+      {/* =================================================
+          PREMIUM HEADER
+      ================================================= */}
+      <header className="checkout-header">
+
+        <button
+          type="button"
+          className="checkout-back"
+          onClick={() => navigate(-1)}
+          aria-label="Go back"
+        >
+          ←
+        </button>
+
+        <div className="checkout-header-content">
+          <span className="checkout-eyebrow">
+            SUGAR CAFE
+          </span>
+
+          <h1>Checkout</h1>
+
+          <p>
+            Almost there! Your delicious food is one step away ✨
+          </p>
+        </div>
+
+        <div className="secure-badge">
+          <span className="secure-icon">✓</span>
+          <div>
+            <strong>100%</strong>
+            <small>Secure</small>
+          </div>
+        </div>
+
+      </header>
+
+
+      {/* =================================================
+          ORDER TYPE
+      ================================================= */}
+
+      <section className="checkout-card order-type-card">
+
+        <div className="section-heading">
+          <div className="section-icon orange-icon">
+            🛵
+          </div>
+
+          <div>
+            <span className="section-kicker">
+              CHOOSE YOUR OPTION
+            </span>
+
+            <h2>Order Type</h2>
+
+            <p>
+              How would you like to receive your order?
+            </p>
+          </div>
+        </div>
 
         <div className="order-type-grid">
+
           <button
             type="button"
             onClick={() => {
               setOrderType("Delivery");
+
               localStorage.setItem(
                 "sugarCafeOrderType",
                 "Delivery"
@@ -2384,13 +2442,31 @@ useEffect(() => {
                 : "order-type-btn delivery"
             }
           >
-            🚚 Delivery
+
+            <span className="order-type-visual">
+              🛵
+            </span>
+
+            <span className="order-type-text">
+              <strong>Delivery</strong>
+
+              <small>
+                We deliver to your location
+              </small>
+            </span>
+
+            <span className="radio-modern">
+              {orderType === "Delivery" && "✓"}
+            </span>
+
           </button>
+
 
           <button
             type="button"
             onClick={() => {
               setOrderType("Takeaway");
+
               localStorage.setItem(
                 "sugarCafeOrderType",
                 "Takeaway"
@@ -2402,105 +2478,233 @@ useEffect(() => {
                 : "order-type-btn takeaway"
             }
           >
-            🛍️ Takeaway
+
+            <span className="order-type-visual">
+              🛍️
+            </span>
+
+            <span className="order-type-text">
+              <strong>Takeaway</strong>
+
+              <small>
+                Pick up from our cafe
+              </small>
+            </span>
+
+            <span className="radio-modern">
+              {orderType === "Takeaway" && "✓"}
+            </span>
+
           </button>
+
         </div>
 
-        {isTakeaway && (
-          <div className="takeaway-info">
-            <strong>
-              🏪 {TAKEAWAY_STORE.name}
-            </strong>
-            <br />
-            <small>
-              {TAKEAWAY_STORE.address}
-            </small>
-            <br />
-            <small>
-              Your order will be prepared for pickup.
-            </small>
-          </div>
-        )}
-      </div>
 
-      {/* DELIVERY LOCATION */}
-      {!isTakeaway && (
-        <div className="checkout-card location-card">
-          <div className="location-card-heading">
-            <div>
-              <h3>📍 Delivery Location</h3>
-              <p>
-                Detect your location or move the map to adjust it.
-              </p>
+        {isTakeaway && (
+          <div className="takeaway-info premium-info">
+
+            <div className="info-icon">
+              🏪
             </div>
 
-            {locationConfirmed && (
+            <div>
+              <strong>
+                {TAKEAWAY_STORE.name}
+              </strong>
+
+              <p>
+                {TAKEAWAY_STORE.address}
+              </p>
+
+              <small>
+                Your order will be prepared for pickup.
+              </small>
+            </div>
+
+          </div>
+        )}
+
+      </section>
+
+
+      {/* =================================================
+          DELIVERY LOCATION
+      ================================================= */}
+
+      {!isTakeaway && (
+        <section className="checkout-card location-card premium-location-card">
+
+          <div className="location-card-heading">
+
+            <div className="section-heading compact">
+
+              <div className="section-icon location-icon">
+                📍
+              </div>
+
+              <div>
+                <span className="section-kicker">
+                  DELIVERY
+                </span>
+
+                <h2>
+                  Delivery Location
+                </h2>
+
+                <p>
+                  Your location is detected automatically
+                </p>
+              </div>
+
+            </div>
+
+            {locationConfirmed ? (
               <span className="location-confirmed-badge">
-                ✓ Confirmed
+                <span>✓</span>
+                Confirmed
+              </span>
+            ) : (
+              <span className="location-detected-badge">
+                <span>✦</span>
+                Auto Detect
               </span>
             )}
+
           </div>
 
+
+          {/* CUSTOMER */}
+
           {customerProfile && (
-            <div className="checkout-customer-box">
-              <div>
-                👤{" "}
+            <div className="checkout-customer-box premium-customer-box">
+
+              <div className="customer-avatar">
+                {customerProfile.photoURL ? (
+                  <img
+                    src={customerProfile.photoURL}
+                    alt=""
+                  />
+                ) : (
+                  "👤"
+                )}
+              </div>
+
+              <div className="customer-details">
+
                 <strong>
                   {customerProfile.name || "Customer"}
                 </strong>
+
+                <span>
+                  📱 {customerProfile.phone}
+                </span>
+
+                {customerProfile.customerId && (
+                  <span>
+                    🆔 {customerProfile.customerId}
+                  </span>
+                )}
+
               </div>
-              <div>
-                📱 {customerProfile.phone}
-              </div>
-              {customerProfile.customerId && (
-                <div>
-                  🆔 {customerProfile.customerId}
-                </div>
-              )}
+
+              <span className="customer-verified">
+                ✓
+              </span>
+
             </div>
           )}
+
+
+          {/* SAVED ADDRESSES */}
 
           {savedAddresses.length > 0 && (
             <div className="saved-addresses">
-              <strong>Saved Addresses</strong>
 
-              {savedAddresses.map((saved) => (
-                <button
-                  type="button"
-                  key={
-                    saved.id ||
-                    `${saved.latitude}-${saved.longitude}-${saved.address}`
-                  }
-                  className="saved-address-btn"
-                  onClick={() =>
-                    selectSavedAddress(saved)
-                  }
-                >
-                  📍{" "}
-                  {saved.label || "Address"}
-                  <br />
-                  <span>
-                    {saved.fullAddress ||
-                      saved.address}
-                  </span>
-                </button>
-              ))}
+              <div className="subsection-title">
+                <span>Saved Addresses</span>
+
+                <small>
+                  Tap to use
+                </small>
+              </div>
+
+              <div className="saved-address-list">
+
+                {savedAddresses.map((saved) => (
+                  <button
+                    type="button"
+                    key={
+                      saved.id ||
+                      `${saved.latitude}-${saved.longitude}-${saved.address}`
+                    }
+                    className="saved-address-btn"
+                    onClick={() =>
+                      selectSavedAddress(saved)
+                    }
+                  >
+
+                    <span className="saved-address-icon">
+                      📍
+                    </span>
+
+                    <span>
+                      <strong>
+                        {saved.label || "Address"}
+                      </strong>
+
+                      <small>
+                        {saved.fullAddress ||
+                          saved.address}
+                      </small>
+                    </span>
+
+                    <span className="saved-arrow">
+                      →
+                    </span>
+
+                  </button>
+                ))}
+
+              </div>
+
             </div>
           )}
 
+
+          {/* CURRENT LOCATION */}
+
           <button
             type="button"
-            className="detect-location-button"
+            className="detect-location-button premium-location-button"
             onClick={getCurrentLocation}
             disabled={loadingLocation}
           >
-            {loadingLocation
-              ? "📍 Detecting your location..."
-              : "📍 Use My Current Location"}
+
+            <span className="location-button-icon">
+              {loadingLocation ? "◌" : "⌖"}
+            </span>
+
+            <span>
+              {loadingLocation
+                ? "Detecting your location..."
+                : "Use My Current Location"}
+            </span>
+
+            {!loadingLocation && (
+              <span className="button-arrow">
+                →
+              </span>
+            )}
+
           </button>
 
+
+          {/* MAP */}
+
           <div className="location-picker">
-            <div className="location-map">
+
+            <div className="location-map premium-map">
+
               <MapContainer
                 center={[
                   mapCenter.lat,
@@ -2515,6 +2719,7 @@ useEffect(() => {
                 }}
                 whenCreated={onMapCreated}
               >
+
                 <TileLayer
                   attribution="&copy; OpenStreetMap contributors"
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -2527,121 +2732,236 @@ useEffect(() => {
                   }
                 />
 
-                <Marker
-                  position={[
-                    mapCenter.lat,
-                    mapCenter.lng,
-                  ]}
-                  icon={locationIcon}
-                />
               </MapContainer>
 
-              <div className="fixed-center-pin">
-                <div className="fixed-pin-shadow" />
-                <div className="fixed-pin-head">
-                  <div className="fixed-pin-dot" />
+
+              {/* CENTER PIN */}
+
+              <div className="premium-center-pin">
+
+                <div className="pin-pulse" />
+
+                <div className="pin-marker">
+
+                  <div className="pin-inner" />
+
                 </div>
+
+                <div className="pin-shadow" />
+
               </div>
+
+
+              {/* MAP GPS */}
 
               <button
                 type="button"
-                className="map-gps-button"
+                className="map-gps-button premium-gps-button"
                 onClick={getCurrentLocation}
                 aria-label="Use current location"
               >
-                ◎
+                ⌾
               </button>
+
+
+              {/* MAP LABEL */}
+
+              <div className="map-cafe-label">
+                <span>🍴</span>
+                {cafeName}
+              </div>
+
+
+              {/* MAP STATUS */}
+
+              <div className="map-status-pill">
+                <span className="status-dot" />
+                Live location
+              </div>
+
             </div>
 
-            <div className="location-bottom-sheet">
+
+            {/* MAP BOTTOM INFO */}
+
+            <div className="location-bottom-sheet premium-location-sheet">
+
               <div className="location-sheet-handle" />
 
+
               <div className="location-sheet-title">
-                <div className="location-sheet-icon">
+
+                <div className="location-sheet-icon premium-sheet-icon">
                   📍
                 </div>
 
                 <div>
+
                   <strong>
-                    Select delivery location
+                    Your delivery location
                   </strong>
 
                   <span>
                     Move the map to adjust your exact location
                   </span>
+
                 </div>
+
               </div>
+
+
+              {/* ADDRESS */}
 
               <div
                 className={
                   deliveryAvailable
-                    ? "selected-location-box available"
-                    : "selected-location-box unavailable"
+                    ? "selected-location-box available premium-address-box"
+                    : "selected-location-box unavailable premium-address-box"
                 }
               >
+
                 <div className="location-pin-small">
-                  📍
+                  🏠
                 </div>
 
                 <div className="selected-location-content">
+
+                  <span className="address-label">
+                    Selected address
+                  </span>
+
                   <strong>
                     {address ||
-                      "Tap 'Use My Current Location'"}
+                      "Detecting your location..."}
                   </strong>
 
-                  <span>
+                  <span className="address-distance">
                     {address
                       ? `${distance.toFixed(
                           1
                         )} km from ${cafeName}`
                       : "Your address will appear here automatically"}
                   </span>
+
                 </div>
 
                 <button
                   type="button"
-                  className="location-refresh"
+                  className="location-refresh premium-refresh"
                   onClick={getCurrentLocation}
                   aria-label="Refresh location"
                 >
-                  ◎
+                  ⌾
                 </button>
+
               </div>
 
-              <div className="location-delivery-info">
-                <div>
-                  <span>Distance</span>
-                  <strong>
-                    {distance.toFixed(1)} km
-                  </strong>
+
+              {/* DISTANCE / DELIVERY */}
+
+              <div className="location-delivery-info premium-delivery-info">
+
+                <div className="location-stat">
+
+                  <span className="stat-icon">
+                    🗺️
+                  </span>
+
+                  <span>
+                    <small>
+                      Distance
+                    </small>
+
+                    <strong>
+                      {distance.toFixed(1)} km
+                    </strong>
+                  </span>
+
                 </div>
 
-                <div>
-                  <span>Delivery</span>
-                  <strong>
-                    {deliveryAvailable
-                      ? `₹${deliveryCharge}`
-                      : "Unavailable"}
-                  </strong>
+
+                <div className="location-stat">
+
+                  <span className="stat-icon">
+                    🛵
+                  </span>
+
+                  <span>
+                    <small>
+                      Delivery charge
+                    </small>
+
+                    <strong>
+                      {deliveryAvailable
+                        ? `₹${deliveryCharge}`
+                        : "Unavailable"}
+                    </strong>
+                  </span>
+
                 </div>
+
               </div>
+
+
+              {/* AVAILABLE */}
+
+              {deliveryAvailable && (
+                <div className="delivery-mini-success">
+
+                  <span className="success-check">
+                    ✓
+                  </span>
+
+                  <div>
+                    <strong>
+                      Delivery available
+                    </strong>
+
+                    <small>
+                      We can deliver to this location
+                    </small>
+                  </div>
+
+                </div>
+              )}
+
+
+              {/* UNAVAILABLE */}
 
               {!deliveryAvailable && (
-                <div className="location-error">
-                  ⚠️ We currently deliver within{" "}
-                  {maxDeliveryDistanceKm} km.
+                <div className="location-error premium-error">
+
+                  <span>⚠️</span>
+
+                  <div>
+                    <strong>
+                      Delivery unavailable
+                    </strong>
+
+                    <small>
+                      We currently deliver within{" "}
+                      {maxDeliveryDistanceKm} km.
+                    </small>
+                  </div>
+
                 </div>
               )}
 
+
               {locationConfirmed && (
-                <div className="location-confirmed-message">
-                  ✓ Delivery location confirmed
+                <div className="location-confirmed-message premium-confirmed">
+
+                  <span>✓</span>
+
+                  Delivery location confirmed
+
                 </div>
               )}
+
 
               <button
                 type="button"
-                className="confirm-location-button"
+                className="confirm-location-button premium-confirm-button"
                 disabled={
                   !address ||
                   !deliveryAvailable ||
@@ -2651,233 +2971,429 @@ useEffect(() => {
                   confirmDeliveryLocation
                 }
               >
-                {locationConfirmed
-                  ? "✓ Location Confirmed"
-                  : "Confirm delivery location"}
+
+                {locationConfirmed ? (
+                  <>
+                    <span>✓</span>
+                    Location Confirmed
+                  </>
+                ) : (
+                  <>
+                    Confirm Delivery Location
+                    <span>→</span>
+                  </>
+                )}
+
               </button>
+
             </div>
+
           </div>
 
-          <div className="location-tip">
-            💡 Map ko finger se move karein. Center pin aapki selected delivery location hai.
+
+          <div className="location-tip premium-tip">
+
+            <span className="tip-icon">
+              💡
+            </span>
+
+            <span>
+              <strong>
+                Easy location selection
+              </strong>
+
+              <small>
+                Map ko finger se move karein. Center pin aapki selected delivery location hai.
+              </small>
+            </span>
+
           </div>
 
-          <div
-            className={
-              deliveryAvailable
-                ? "delivery-status available"
-                : "delivery-status unavailable"
-            }
-          >
-            {deliveryAvailable ? (
-              <>
-                📍 Delivery available
-                <br />
-                Distance:{" "}
-                {distance.toFixed(1)} km
-                <br />
-                Delivery charge: ₹
-                {deliveryCharge}
-              </>
-            ) : (
-              <>
-                ⚠️ Delivery unavailable
-                <br />
-                Your location is{" "}
-                {distance.toFixed(1)} km away.
-                <br />
-                We deliver within{" "}
-                {maxDeliveryDistanceKm} km.
-              </>
-            )}
-          </div>
-        </div>
+        </section>
       )}
-            {/* TAKEAWAY CUSTOMER */}
-      {isTakeaway && customerProfile && (
-        <div className="checkout-card">
-          <h3>👤 Customer Details</h3>
 
-          <div className="checkout-customer-box">
+
+      {/* =================================================
+          TAKEAWAY CUSTOMER
+      ================================================= */}
+
+      {isTakeaway && customerProfile && (
+        <section className="checkout-card">
+
+          <div className="section-heading compact">
+
+            <div className="section-icon">
+              👤
+            </div>
+
             <div>
-              👤{" "}
+              <span className="section-kicker">
+                CUSTOMER
+              </span>
+
+              <h2>
+                Customer Details
+              </h2>
+            </div>
+
+          </div>
+
+          <div className="checkout-customer-box premium-customer-box">
+
+            <div className="customer-avatar">
+              👤
+            </div>
+
+            <div className="customer-details">
+
               <strong>
                 {customerProfile.name || "Customer"}
               </strong>
+
+              <span>
+                📱 {customerProfile.phone}
+              </span>
+
+              {customerProfile.customerId && (
+                <span>
+                  🆔 {customerProfile.customerId}
+                </span>
+              )}
+
+            </div>
+
+          </div>
+
+        </section>
+      )}
+
+
+      {/* =================================================
+          SPECIAL NOTE
+      ================================================= */}
+
+      <section className="checkout-card special-note-card premium-note-card">
+
+        <div className="special-note-heading">
+
+          <div className="section-heading compact">
+
+            <div className="section-icon">
+              📝
             </div>
 
             <div>
-              📱 {customerProfile.phone}
+
+              <span className="section-kicker">
+                OPTIONAL
+              </span>
+
+              <h2>
+                Special Note
+              </h2>
+
+              <p>
+                Any special request for your order?
+              </p>
+
             </div>
 
-            {customerProfile.customerId && (
-              <div>
-                🆔 {customerProfile.customerId}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* SPECIAL NOTE */}
-      <div className="checkout-card special-note-card">
-        <div className="special-note-heading">
-          <div>
-            <h3>📝 Special Note</h3>
-            <p>
-              Any special request or correction for your order?
-            </p>
           </div>
 
-          <span>OPTIONAL</span>
+          <span className="optional-pill">
+            OPTIONAL
+          </span>
+
         </div>
 
-        <textarea
-          value={specialNote}
-          onChange={(e) =>
-            setSpecialNote(
-              e.target.value.slice(0, 300)
-            )
-          }
-          placeholder="Example: Less spicy, no onion, extra cheese, birthday message, etc."
-          rows={4}
-          maxLength={300}
-        />
+
+        <div className="note-input-wrapper">
+
+          <textarea
+            value={specialNote}
+            onChange={(e) =>
+              setSpecialNote(
+                e.target.value.slice(0, 300)
+              )
+            }
+            placeholder="Example: Less spicy, no onion, extra cheese, birthday message..."
+            rows={4}
+            maxLength={300}
+          />
+
+          <span className="textarea-icon">
+            ✎
+          </span>
+
+        </div>
+
 
         <div className="special-note-footer">
+
           <small>
-            Please write any special request you want the café to know.
+            Your request will be shared with the café.
           </small>
 
           <small>
             {specialNote.length}/300
           </small>
+
         </div>
-      </div>
 
-      {/* PAYMENT */}
-      <div className="checkout-card">
-        <h3>💳 Payment Method</h3>
+      </section>
 
-        <label>
-          <input
-            type="radio"
-            name="payment"
-            disabled={!codEnabled}
-            checked={
+
+      {/* =================================================
+          PAYMENT
+      ================================================= */}
+
+      <section className="checkout-card payment-card">
+
+        <div className="section-heading">
+
+          <div className="section-icon blue-icon">
+            💳
+          </div>
+
+          <div>
+
+            <span className="section-kicker">
+              SECURE CHECKOUT
+            </span>
+
+            <h2>
+              Payment Method
+            </h2>
+
+            <p>
+              Choose how you want to pay
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <div className="payment-options">
+
+          {/* COD */}
+
+          <label
+            className={
               paymentMethod ===
               "Cash on Delivery"
+                ? "payment-option active"
+                : "payment-option"
             }
-            onChange={() => {
-              setPaymentMethod(
+          >
+
+            <input
+              type="radio"
+              name="payment"
+              disabled={!codEnabled}
+              checked={
+                paymentMethod ===
                 "Cash on Delivery"
-              );
-
-              if (
-                Number(totalPrice) >=
-                DAILY_SCRATCH_MIN_BILL
-              ) {
-                unlockDailyScratch();
               }
-            }}
-          />
+              onChange={() => {
 
-          <span>
-            <strong>
-              Cash on Delivery
-            </strong>
+                setPaymentMethod(
+                  "Cash on Delivery"
+                );
 
-            <small>
-              Pay when your order is delivered
-            </small>
-          </span>
-        </label>
+                if (
+                  Number(totalPrice) >=
+                  DAILY_SCRATCH_MIN_BILL
+                ) {
+                  unlockDailyScratch();
+                }
 
-        <label>
-          <input
-            type="radio"
-            name="payment"
-            disabled={!upiEnabled}
-            checked={
+              }}
+            />
+
+            <span className="payment-icon cod-icon">
+              💵
+            </span>
+
+            <span className="payment-content">
+
+              <strong>
+                Cash on Delivery
+              </strong>
+
+              <small>
+                Pay when your order arrives
+              </small>
+
+            </span>
+
+            <span className="payment-check">
+              ✓
+            </span>
+
+          </label>
+
+
+          {/* ONLINE */}
+
+          <label
+            className={
               paymentMethod ===
               "Online Payment"
+                ? "payment-option active online"
+                : "payment-option online"
             }
-            onChange={() => {
-              setPaymentMethod(
+          >
+
+            <input
+              type="radio"
+              name="payment"
+              disabled={!upiEnabled}
+              checked={
+                paymentMethod ===
                 "Online Payment"
-              );
-
-              if (
-                Number(totalPrice) >=
-                DAILY_SCRATCH_MIN_BILL
-              ) {
-                unlockDailyScratch();
               }
-            }}
-          />
+              onChange={() => {
 
-          <span>
-            <strong>
-              Online Payment
-            </strong>
+                setPaymentMethod(
+                  "Online Payment"
+                );
 
-            <small>
-              UPI / Card / Net Banking via Razorpay
-            </small>
-          </span>
-        </label>
+                if (
+                  Number(totalPrice) >=
+                  DAILY_SCRATCH_MIN_BILL
+                ) {
+                  unlockDailyScratch();
+                }
+
+              }}
+            />
+
+            <span className="payment-icon online-icon">
+              💳
+            </span>
+
+            <span className="payment-content">
+
+              <strong>
+                Online Payment
+              </strong>
+
+              <small>
+                UPI / Card / Net Banking
+              </small>
+
+            </span>
+
+            <span className="payment-check">
+              ✓
+            </span>
+
+          </label>
+
+        </div>
+
 
         {paymentMethod ===
           "Online Payment" && (
-          <div className="upi-payment-box">
-            <strong>
-              Secure Online Payment
-            </strong>
 
-            <p>
-              UPI, cards and net banking are processed securely by Razorpay.
-            </p>
+          <div className="upi-payment-box premium-upi-box">
 
-            <small>
-              No UTR entry or staff payment verification is required.
-            </small>
+            <div className="upi-shield">
+              🔒
+            </div>
+
+            <div>
+
+              <strong>
+                Secure Razorpay Payment
+              </strong>
+
+              <p>
+                UPI, cards and net banking are processed securely.
+              </p>
+
+              <small>
+                Your payment details are protected.
+              </small>
+
+            </div>
+
           </div>
         )}
-      </div>
 
-      {/* DAILY SCRATCH */}
+      </section>
+
+
+      {/* =================================================
+          DAILY SCRATCH
+      ================================================= */}
+
       {!dailyScratch.loading &&
         dailyScratch.eligible && (
-          <div className="checkout-card daily-scratch-section">
-            <div className="daily-scratch-heading">
-              <span>
-                🎁 DAILY SCRATCH & WIN
-              </span>
 
-              <h3>
-                Daily Scratch Reward
-              </h3>
+          <section className="checkout-card daily-scratch-section premium-scratch-card">
+
+            <div className="scratch-glow" />
+
+            <div className="daily-scratch-heading">
+
+              <div className="scratch-gift-large">
+                🎁
+              </div>
+
+              <div>
+
+                <span>
+                  DAILY SCRATCH & WIN
+                </span>
+
+                <h2>
+                  Your Daily Reward
+                </h2>
+
+                <p>
+                  One order. One surprise. Every day.
+                </p>
+
+              </div>
+
             </div>
+
 
             {!dailyScratch.unlocked && (
               <>
-                <p className="daily-scratch-description">
-                  Your ₹
-                  {Number(totalPrice).toFixed(0)}{" "}
-                  order qualifies for today's Scratch & Win.
-                </p>
 
-                <div className="daily-scratch-unlock-note">
-                  💳 Select a payment method above to unlock your scratch card.
+                <div className="scratch-unlock-banner">
+
+                  <span>
+                    🔓
+                  </span>
+
+                  <div>
+
+                    <strong>
+                      Reward unlocked for you
+                    </strong>
+
+                    <small>
+                      Select a payment method above to unlock your scratch card.
+                    </small>
+
+                  </div>
+
                 </div>
+
               </>
             )}
+
 
             {dailyScratch.unlocked &&
               !dailyScratch.revealed && (
                 <>
+
                   <p className="daily-scratch-description">
-                    Your card is unlocked. Scratch it to reveal today's reward.
+                    Your card is ready! Scratch below to reveal your surprise.
                   </p>
 
                   <DailyScratchCard
@@ -2888,122 +3404,162 @@ useEffect(() => {
                       revealDailyScratch
                     }
                   />
+
                 </>
               )}
 
+
             {dailyScratch.revealed &&
               dailyScratch.reward && (
-                <div className="daily-scratch-revealed">
+
+                <div className="daily-scratch-revealed premium-reward-revealed">
+
+                  <div className="reward-confetti">
+                    ✨ 🎉 ✨
+                  </div>
+
                   <div className="daily-scratch-win-icon">
-                    🎉
+                    🎁
                   </div>
 
-                  <div className="daily-scratch-you-won">
+                  <span className="daily-scratch-you-won">
                     YOU WON
-                  </div>
+                  </span>
 
-                  <h3>
+                  <h2>
                     {dailyScratch.reward.title}
-                  </h3>
+                  </h2>
 
-                  {dailyScratch.reward.type ===
-                  "discount" ? (
-                    <p>
-                      🎁 5% discount applied to this current order.
-                    </p>
-                  ) : (
-                    <p>
-                      🎁 Your free item will be added to this order.
-                    </p>
-                  )}
+                  <p>
+                    {dailyScratch.reward.type ===
+                    "discount"
+                      ? "Your 5% discount has been added to this order."
+                      : "Your free reward will be added to this order."}
+                  </p>
+
                 </div>
+
               )}
-          </div>
+
+          </section>
         )}
+
+
+      {/* =================================================
+          SCRATCH PROGRESS
+      ================================================= */}
 
       {!dailyScratch.loading &&
         Number(totalPrice) > 0 &&
         Number(totalPrice) <
           DAILY_SCRATCH_MIN_BILL && (
-          <div className="checkout-card scratch-progress-note">
-            <strong>
-              🎁 Daily Scratch & Win
-            </strong>
 
-            <div>
-              Add ₹
-              {Math.max(
-                0,
-                DAILY_SCRATCH_MIN_BILL -
-                  Number(totalPrice)
-              ).toFixed(0)}{" "}
-              more to unlock today's Scratch & Win.
+          <section className="checkout-card scratch-progress-note premium-unlock-card">
+
+            <div className="unlock-card-icon">
+              🎁
             </div>
-          </div>
+
+            <div className="unlock-card-content">
+
+              <span>
+                DAILY SCRATCH & WIN
+              </span>
+
+              <strong>
+                Add ₹
+                {Math.max(
+                  0,
+                  DAILY_SCRATCH_MIN_BILL -
+                    Number(totalPrice)
+                ).toFixed(0)}{" "}
+                more
+              </strong>
+
+              <small>
+                to unlock today's Scratch & Win
+              </small>
+
+            </div>
+
+            <div className="unlock-arrow">
+              →
+            </div>
+
+          </section>
         )}
 
-      {/* 6+1 LOYALTY */}
+
+      {/* =================================================
+          6 + 1 REWARDS
+      ================================================= */}
+
       {!loyaltyData.loading &&
         (currentReward ||
           pendingReward) && (
-          <div className="checkout-card loyalty-unlock-card">
+
+          <section className="checkout-card loyalty-unlock-card premium-loyalty-card">
+
             <div className="loyalty-header">
-              <div className="loyalty-icon">
+
+              <div className="loyalty-icon premium-loyalty-icon">
                 🎁
               </div>
 
               <div>
+
                 <span className="loyalty-kicker">
                   SUGAR REWARDS
                 </span>
 
-                <h3 className="loyalty-heading">
+                <h2 className="loyalty-heading">
                   {currentReward?.scratchCardReady
                     ? "Scratch Card Unlocked!"
                     : pendingReward?.status ===
                       "scratch_pending"
                     ? "Your Scratch Card"
                     : "Reward Ready"}
-                </h3>
+                </h2>
+
               </div>
+
             </div>
 
+
             <div className="loyalty-unlock-content">
+
               {currentReward?.scratchCardReady ? (
                 <>
-                  <div className="loyalty-ticket">
-                    🎫✨
+
+                  <div className="loyalty-ticket premium-ticket">
+                    🎫
                   </div>
 
-                  <h3 className="loyalty-scratch-title">
-                    Scratch Card Unlocked!
-                  </h3>
+                  <h2 className="loyalty-scratch-title">
+                    6 Orders Completed! 🎉
+                  </h2>
 
                   <p className="loyalty-unlock-description">
-                    You’ve completed 6 qualifying orders!
+                    You've completed 6 qualifying orders.
                     <br />
                     This is your{" "}
-                    <strong>
-                      7th order.
-                    </strong>
+                    <strong>7th order.</strong>
                     <br />
                     <br />
-                    Place this order to unlock your Scratch Card.
-                    <br />
-                    After your order is placed, scratch the card to reveal your reward. 🎉
+                    Place this order and your Scratch Card will be ready.
                   </p>
 
                   <div className="loyalty-next-order-notice">
-                    🎁 Your reward can be used on your{" "}
-                    <strong>
-                      next order.
-                    </strong>
+                    🎁 Your reward can be used on your next order.
                   </div>
+
                 </>
               ) : pendingReward?.status ===
                 "scratch_pending" ? (
+
                 <div className="loyalty-scratch-pending">
-                  <div className="loyalty-ticket">
+
+                  <div className="loyalty-ticket premium-ticket">
                     🎫
                   </div>
 
@@ -3026,19 +3582,24 @@ useEffect(() => {
                   >
                     🎁 Scratch My Card
                   </button>
+
                 </div>
+
               ) : (
+
                 <>
                   {pendingReward?.type ===
                   "discount" ? (
+
                     <>
-                      <div className="loyalty-ticket">
+
+                      <div className="loyalty-ticket premium-ticket">
                         🎉
                       </div>
 
-                      <h3 className="loyalty-scratch-title">
+                      <h2 className="loyalty-scratch-title">
                         5% OFF
-                      </h3>
+                      </h2>
 
                       <p className="loyalty-unlock-description">
                         Your Scratch Card reward has been revealed.
@@ -3050,11 +3611,15 @@ useEffect(() => {
                       </p>
 
                       <div className="loyalty-next-order-notice">
-                        🎉 Your loyalty reward is being applied to this order.
+                        🎉 Loyalty reward applied to this order.
                       </div>
+
                     </>
+
                   ) : (
+
                     <>
+
                       {pendingReward?.itemImage && (
                         <img
                           src={
@@ -3068,17 +3633,17 @@ useEffect(() => {
                         />
                       )}
 
-                      <div className="loyalty-ticket">
+                      <div className="loyalty-ticket premium-ticket">
                         🎁
                       </div>
 
-                      <h3 className="loyalty-scratch-title">
+                      <h2 className="loyalty-scratch-title">
                         FREE{" "}
                         {pendingReward?.itemName}
-                      </h3>
+                      </h2>
 
                       <p className="loyalty-unlock-description">
-                        Your Scratch Card reward has been revealed.
+                        Your reward has been revealed.
                         <br />
                         <strong>
                           {pendingReward?.itemName}
@@ -3089,28 +3654,62 @@ useEffect(() => {
                       <div className="loyalty-next-order-notice">
                         🎉 Loyalty reward applied to this order.
                       </div>
+
                     </>
+
                   )}
+
                 </>
+
               )}
+
             </div>
-          </div>
+
+          </section>
         )}
+
+
+      {/* =================================================
+          6 / 1 PROGRESS
+      ================================================= */}
 
       {!loyaltyData.loading &&
         !currentReward &&
         !pendingReward &&
         loyaltyData.qualifyingOrders < 6 && (
-          <div className="checkout-card loyalty-progress-card">
-            <div className="loyalty-progress-kicker">
-              🎁 SUGAR REWARDS
+
+          <section className="checkout-card loyalty-progress-card premium-progress-card">
+
+            <div className="progress-header">
+
+              <div>
+
+                <span className="loyalty-progress-kicker">
+                  🎁 SUGAR REWARDS
+                </span>
+
+                <strong>
+                  {loyaltyData.qualifyingOrders}/6
+                </strong>
+
+              </div>
+
+              <span className="progress-next-label">
+                {6 -
+                  loyaltyData.qualifyingOrders}{" "}
+                more to go
+              </span>
+
             </div>
+
 
             <div className="loyalty-progress-title">
-              {loyaltyData.qualifyingOrders}/6 qualifying orders
+              qualifying orders
             </div>
 
+
             <div className="loyalty-progress-track">
+
               <div
                 className="loyalty-progress-fill"
                 style={{
@@ -3122,86 +3721,172 @@ useEffect(() => {
                   )}%`,
                 }}
               />
+
             </div>
+
 
             <small>
               ₹500+ delivered orders count towards your next Scratch Card.
             </small>
+
+          </section>
+        )}
+
+
+      {/* =================================================
+          ORDER SUMMARY
+      ================================================= */}
+
+      <section className="checkout-card order-summary-card premium-summary-card">
+
+        <div className="section-heading compact">
+
+          <div className="section-icon summary-icon">
+            🧾
           </div>
-        )}
 
-      {/* ORDER SUMMARY */}
-      <div className="checkout-card">
-        <h3>Order Summary</h3>
+          <div>
 
-        <p>
-          <span>Subtotal</span>
-
-          <span>
-            ₹
-            {Number(
-              totalPrice
-            ).toFixed(0)}
-          </span>
-        </p>
-
-        <p>
-          <span>
-            {isTakeaway
-              ? "Pickup"
-              : "Delivery"}
-          </span>
-
-          <span>
-            ₹
-            {Number(
-              deliveryCharge
-            ).toFixed(0)}
-          </span>
-        </p>
-
-        {discount > 0 && (
-          <p className="discount-row">
-            <span>
-              🎁 Discount
+            <span className="section-kicker">
+              YOUR ORDER
             </span>
 
-            <span>
-              -₹
-              {discount.toFixed(2)}
-            </span>
-          </p>
-        )}
+            <h2>
+              Order Summary
+            </h2>
 
-        {dailyScratch.revealed &&
-          dailyScratch.reward && (
-            <div className="scratch-summary">
-              🎁 Daily Scratch:{" "}
-              {dailyScratch.reward.title}
+          </div>
+
+        </div>
+
+
+        <div className="summary-lines">
+
+          <div className="summary-row">
+
+            <span>
+              Subtotal
+            </span>
+
+            <strong>
+              ₹{Number(totalPrice).toFixed(0)}
+            </strong>
+
+          </div>
+
+
+          <div className="summary-row">
+
+            <span>
+              {isTakeaway
+                ? "Pickup"
+                : `Delivery ${
+                    distance > 0
+                      ? `(${distance.toFixed(1)} km)`
+                      : ""
+                  }`}
+            </span>
+
+            <strong>
+              ₹{Number(deliveryCharge).toFixed(0)}
+            </strong>
+
+          </div>
+
+
+          {discount > 0 && (
+            <div className="summary-row discount-row">
+
+              <span>
+                🎁 Discount
+              </span>
+
+              <strong>
+                -₹{discount.toFixed(2)}
+              </strong>
+
             </div>
           )}
 
-        <p>
-          <span>GST</span>
-          <span>₹{gst}</span>
-        </p>
 
-        <hr />
+          <div className="summary-row">
 
-        {isTakeaway && (
-          <div className="takeaway-summary">
-            🛍️ Takeaway from{" "}
-            {TAKEAWAY_STORE.name}
+            <span>
+              GST
+            </span>
+
+            <strong>
+              ₹{gst}
+            </strong>
+
+          </div>
+
+        </div>
+
+
+        {dailyScratch.revealed &&
+          dailyScratch.reward && (
+
+          <div className="scratch-summary premium-scratch-summary">
+
+            <span>
+              🎁
+            </span>
+
+            Daily Scratch:{" "}
+            <strong>
+              {dailyScratch.reward.title}
+            </strong>
+
           </div>
         )}
 
-        <h2>
-          ₹
-          {grandTotal.toFixed(2)}
-        </h2>
+
+        {isTakeaway && (
+          <div className="takeaway-summary premium-takeaway-summary">
+
+            <span>
+              🛍️
+            </span>
+
+            <div>
+              <small>
+                Pickup from
+              </small>
+
+              <strong>
+                {TAKEAWAY_STORE.name}
+              </strong>
+            </div>
+
+          </div>
+        )}
+
+
+        <div className="summary-divider" />
+
+
+        <div className="summary-total">
+
+          <span>
+            Total Amount
+          </span>
+
+          <strong>
+            ₹{grandTotal.toFixed(2)}
+          </strong>
+
+        </div>
+
+
+        {/* CTA */}
 
         <button
-          className="place-order-btn"
+          className={
+            placingOrder
+              ? "place-order-btn premium-place-btn loading"
+              : "place-order-btn premium-place-btn"
+          }
           onClick={placeOrder}
           disabled={
             placingOrder ||
@@ -3212,23 +3897,72 @@ useEffect(() => {
                 !locationConfirmed))
           }
         >
-          {placingOrder
-            ? "Placing Order..."
-            : loyaltyData.loading
-            ? "Checking Rewards..."
-            : isTakeaway
-            ? "Place Takeaway Order"
-            : !deliveryAvailableSetting
-            ? `Delivery available ${orderTimingLabel}`
-            : !deliveryAvailable
-            ? "Delivery Not Available"
-            : !locationConfirmed
-            ? "Confirm Delivery Location First"
-            : "Place Delivery Order"}
+
+          <span className="place-order-icon">
+            {placingOrder
+              ? "◌"
+              : isTakeaway
+              ? "🛍️"
+              : "🛵"}
+          </span>
+
+          <span className="place-order-content">
+
+            <strong>
+              {placingOrder
+                ? "Placing Order..."
+                : loyaltyData.loading
+                ? "Checking Rewards..."
+                : isTakeaway
+                ? "Place Takeaway Order"
+                : !deliveryAvailableSetting
+                ? `Delivery available ${orderTimingLabel}`
+                : !deliveryAvailable
+                ? "Delivery Not Available"
+                : !locationConfirmed
+                ? "Confirm Delivery Location First"
+                : "Place Delivery Order"}
+            </strong>
+
+            {!placingOrder &&
+              !loyaltyData.loading &&
+              locationConfirmed &&
+              deliveryAvailable && (
+                <small>
+                  Pay ₹{grandTotal.toFixed(2)}
+                </small>
+              )}
+
+          </span>
+
+          <span className="place-order-arrow">
+            →
+          </span>
+
         </button>
-      </div>
+
+
+        <div className="checkout-security-note">
+
+          <span>
+            🔒
+          </span>
+
+          Secure checkout • Your information is protected
+
+        </div>
+
+      </section>
+
+
+      {/* =================================================
+          BOTTOM SPACING
+      ================================================= */}
+
+      <div className="checkout-bottom-space" />
+
     </div>
   );
 }
 
-export default Checkout;
+export default Checkout; 
