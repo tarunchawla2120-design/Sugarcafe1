@@ -1,16 +1,23 @@
 import "./BottomNav.css";
+
 import {
   FaHome,
   FaUtensils,
   FaShoppingCart,
   FaUser,
 } from "react-icons/fa";
-import { useLocation, useNavigate } from "react-router-dom";
+
+import {
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
+
 import { useCart } from "../context/CartContext";
 
 function BottomNav() {
   const navigate = useNavigate();
   const location = useLocation();
+
   const { totalItems } = useCart();
 
   const isHome =
@@ -29,35 +36,59 @@ function BottomNav() {
   return (
     <nav className="bottom-nav">
 
-      {/* HOME */}
+      {/* =================================================
+          HOME
+      ================================================= */}
+
       <div
-        className={`nav-item ${isHome ? "active" : ""}`}
+        className={`nav-item ${
+          isHome ? "active" : ""
+        }`}
         onClick={() => navigate("/")}
         style={{ cursor: "pointer" }}
       >
         <FaHome />
-        <span>Home</span>
+
+        <span>
+          Home
+        </span>
       </div>
 
-      {/* MENU */}
+
+      {/* =================================================
+          MENU
+      ================================================= */}
+
       <div
-        className={`nav-item ${isMenu ? "active" : ""}`}
+        className={`nav-item ${
+          isMenu ? "active" : ""
+        }`}
         onClick={() => navigate("/menu")}
         style={{ cursor: "pointer" }}
       >
         <FaUtensils />
-        <span>Menu</span>
+
+        <span>
+          Menu
+        </span>
       </div>
 
-      {/* CART */}
+
+      {/* =================================================
+          CART
+      ================================================= */}
+
       <div
-        className={`nav-item ${isCart ? "active" : ""}`}
+        className={`nav-item ${
+          isCart ? "active" : ""
+        }`}
+        onClick={() => navigate("/cart")}
         style={{
           position: "relative",
           cursor: "pointer",
         }}
-        onClick={() => navigate("/cart")}
       >
+
         <FaShoppingCart />
 
         {totalItems > 0 && (
@@ -66,17 +97,31 @@ function BottomNav() {
           </span>
         )}
 
-        <span>Cart</span>
+        <span>
+          Cart
+        </span>
+
       </div>
 
-      {/* PROFILE */}
+
+      {/* =================================================
+          PROFILE
+      ================================================= */}
+
       <div
-        className={`nav-item ${isProfile ? "active" : ""}`}
+        className={`nav-item ${
+          isProfile ? "active" : ""
+        }`}
         onClick={() => navigate("/profile")}
         style={{ cursor: "pointer" }}
       >
+
         <FaUser />
-        <span>Profile</span>
+
+        <span>
+          Profile
+        </span>
+
       </div>
 
     </nav>
