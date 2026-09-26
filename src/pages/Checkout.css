@@ -3037,3 +3037,1215 @@
   }
 
 }
+/* =========================================================
+   🌌 SUGAR CAFE — DARK BLUE PREMIUM THEME
+   Add this at the VERY END of Checkout.css
+========================================================= */
+
+:root {
+  --sc-orange: #ff6847;
+
+  --sc-text: #f8fbff;
+  --sc-muted: #9aaabd;
+
+  --sc-bg: #06111f;
+  --sc-card: #0d1b2a;
+
+  --sc-border: rgba(255, 255, 255, 0.09);
+
+  --sc-green: #29d17d;
+  --sc-green-bg: rgba(41, 209, 125, 0.12);
+
+  --sc-blue: #4d8dff;
+
+  --sc-shadow:
+    0 18px 50px rgba(0, 0, 0, 0.35);
+
+  --sc-shadow-hover:
+    0 22px 60px rgba(0, 0, 0, 0.45);
+}
+
+
+/* =========================================================
+   PAGE BACKGROUND
+========================================================= */
+
+.checkout-page {
+  min-height: 100vh;
+
+  color: #f8fbff;
+
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(36, 103, 255, 0.20),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 0% 25%,
+      rgba(0, 180, 255, 0.10),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 50% 100%,
+      rgba(49, 55, 120, 0.18),
+      transparent 38%
+    ),
+    linear-gradient(
+      180deg,
+      #071525 0%,
+      #06111f 45%,
+      #040c16 100%
+    );
+
+  overflow-x: hidden;
+}
+
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.checkout-header {
+  color: white;
+}
+
+.checkout-header h1 {
+  color: #ffffff;
+}
+
+.checkout-header p {
+  color: #9aaabd;
+}
+
+.checkout-eyebrow {
+  color: #ff7658;
+}
+
+
+/* Back Button */
+
+.checkout-back {
+  background:
+    linear-gradient(
+      145deg,
+      #132a42,
+      #0b1c2f
+    );
+
+  color: white;
+
+  border: 1px solid rgba(255,255,255,0.08);
+
+  box-shadow:
+    0 10px 28px rgba(0,0,0,0.35);
+}
+
+
+/* =========================================================
+   SECURE BADGE
+========================================================= */
+
+.secure-badge {
+  border: 1px solid rgba(41,209,125,0.20);
+
+  background:
+    rgba(20, 61, 52, 0.72);
+
+  box-shadow:
+    0 10px 30px rgba(0,0,0,0.25);
+}
+
+.secure-badge strong {
+  color: white;
+}
+
+.secure-badge small {
+  color: #40db91;
+}
+
+.secure-icon {
+  background:
+    linear-gradient(
+      145deg,
+      #25c978,
+      #159b5b
+    );
+}
+
+
+/* =========================================================
+   ALL CARDS
+========================================================= */
+
+.checkout-card {
+  border:
+    1px solid rgba(255,255,255,0.075);
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(17, 34, 52, 0.98),
+      rgba(9, 23, 38, 0.98)
+    );
+
+  box-shadow:
+    0 18px 50px rgba(0,0,0,0.32);
+
+  color: #f7fbff;
+}
+
+
+/* subtle top glow */
+
+.checkout-card::before {
+  content: "";
+
+  position: absolute;
+
+  top: 0;
+  left: 18%;
+
+  width: 64%;
+  height: 1px;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(75,145,255,0.45),
+      transparent
+    );
+
+  opacity: 0.65;
+
+  pointer-events: none;
+}
+
+
+/* =========================================================
+   ALL HEADINGS
+========================================================= */
+
+.checkout-card h2,
+.checkout-card h3,
+.checkout-card strong {
+  color: #f8fbff;
+}
+
+.checkout-card p {
+  color: #9aaabd;
+}
+
+
+/* =========================================================
+   ORDER TYPE
+========================================================= */
+
+.order-type-btn {
+  border:
+    1px solid rgba(255,255,255,0.10);
+
+  background:
+    linear-gradient(
+      145deg,
+      #12263b,
+      #0b1b2d
+    );
+
+  color: white;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.025);
+}
+
+.order-type-btn.active {
+  border-color: #ff6847;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255,104,71,0.16),
+      rgba(22,39,58,0.98)
+    );
+
+  box-shadow:
+    0 12px 30px rgba(255,90,65,0.13),
+    inset 0 0 0 1px rgba(255,104,71,0.06);
+}
+
+.order-type-text strong {
+  color: #ffffff;
+}
+
+.order-type-text small {
+  color: #91a2b5;
+}
+
+.radio-modern {
+  border-color: #536477;
+}
+
+.order-type-btn.active .radio-modern {
+  background: #ff6847;
+  border-color: #ff6847;
+}
+
+
+/* =========================================================
+   SECTION ICONS
+========================================================= */
+
+.section-icon,
+.orange-icon,
+.blue-icon,
+.location-icon,
+.summary-icon {
+  background:
+    linear-gradient(
+      145deg,
+      #17314b,
+      #0d2135
+    );
+
+  box-shadow:
+    inset 0 0 0 1px rgba(77,141,255,0.10);
+}
+
+
+/* =========================================================
+   CUSTOMER BOX
+========================================================= */
+
+.premium-customer-box,
+.checkout-customer-box {
+  background:
+    linear-gradient(
+      145deg,
+      #10253a,
+      #0b1c2d
+    );
+
+  border:
+    1px solid rgba(255,255,255,0.075);
+
+  color: white;
+}
+
+.customer-details strong {
+  color: white;
+}
+
+.customer-details span {
+  color: #91a2b5;
+}
+
+.customer-avatar {
+  background:
+    linear-gradient(
+      145deg,
+      #193854,
+      #10263b
+    );
+}
+
+
+/* =========================================================
+   SAVED ADDRESS
+========================================================= */
+
+.saved-address-btn {
+  border:
+    1px solid rgba(255,255,255,0.08);
+
+  background:
+    linear-gradient(
+      145deg,
+      #11263b,
+      #0b1b2c
+    );
+
+  color: white;
+}
+
+.saved-address-btn strong {
+  color: white;
+}
+
+.saved-address-btn small,
+.saved-address-btn span {
+  color: #91a2b5;
+}
+
+.saved-address-icon {
+  background:
+    rgba(52,121,255,0.13);
+}
+
+
+/* =========================================================
+   LOCATION
+========================================================= */
+
+.location-card {
+  background:
+    linear-gradient(
+      145deg,
+      #0d2033,
+      #071525
+    );
+}
+
+.location-card-heading h3 {
+  color: white;
+}
+
+.location-card-heading p {
+  color: #91a2b5;
+}
+
+.location-confirmed-badge {
+  color: #43df91;
+
+  background:
+    rgba(41,209,125,0.12);
+
+  border:
+    1px solid rgba(41,209,125,0.16);
+}
+
+
+/* =========================================================
+   CURRENT LOCATION BUTTON
+========================================================= */
+
+.detect-location-button,
+.premium-location-button {
+  background:
+    linear-gradient(
+      135deg,
+      #246cff,
+      #1748bd
+    );
+
+  color: white;
+
+  box-shadow:
+    0 12px 30px rgba(25,92,230,0.28);
+}
+
+.detect-location-button:active,
+.premium-location-button:active {
+  transform: scale(0.98);
+}
+
+
+/* =========================================================
+   MAP
+========================================================= */
+
+.location-map {
+  background: #091522;
+
+  border:
+    1px solid rgba(255,255,255,0.08);
+
+  box-shadow:
+    inset 0 0 50px rgba(0,0,0,0.35),
+    0 15px 35px rgba(0,0,0,0.28);
+}
+
+
+/* Darken OSM map */
+
+.location-map .leaflet-tile-pane {
+  filter:
+    brightness(0.72)
+    contrast(1.08)
+    saturate(0.82);
+}
+
+.location-map .leaflet-control-attribution {
+  background: rgba(5,15,25,0.72);
+
+  color: #8fa0b3;
+}
+
+.location-map .leaflet-control-attribution a {
+  color: #75a8ff;
+}
+
+
+/* =========================================================
+   MAP GPS BUTTON
+========================================================= */
+
+.map-gps-button,
+.premium-gps-button {
+  background:
+    linear-gradient(
+      145deg,
+      #18324d,
+      #0d2136
+    );
+
+  color: #ffffff;
+
+  border:
+    1px solid rgba(255,255,255,0.10);
+
+  box-shadow:
+    0 10px 25px rgba(0,0,0,0.40);
+}
+
+
+/* =========================================================
+   FIXED PIN
+========================================================= */
+
+.fixed-pin-head,
+.pin-marker {
+  background:
+    linear-gradient(
+      145deg,
+      #ff7054,
+      #ff4050
+    );
+
+  box-shadow:
+    0 10px 25px rgba(255,65,70,0.40);
+}
+
+.fixed-pin-shadow,
+.pin-shadow {
+  background: rgba(0,0,0,0.45);
+}
+
+
+/* =========================================================
+   LOCATION BOTTOM SHEET
+========================================================= */
+
+.location-bottom-sheet,
+.premium-location-sheet {
+  color: white;
+}
+
+.location-sheet-handle {
+  background: #34485b;
+}
+
+.location-sheet-title strong {
+  color: white;
+}
+
+.location-sheet-title span {
+  color: #8fa1b4;
+}
+
+.location-sheet-icon,
+.premium-sheet-icon {
+  background:
+    rgba(255,75,95,0.12);
+}
+
+
+/* =========================================================
+   SELECTED LOCATION
+========================================================= */
+
+.selected-location-box,
+.premium-address-box {
+  background:
+    linear-gradient(
+      145deg,
+      #122a40,
+      #0b1d30
+    ) !important;
+
+  border:
+    1px solid rgba(255,255,255,0.08);
+
+  color: white;
+}
+
+.selected-location-content strong {
+  color: #ffffff;
+}
+
+.selected-location-content span {
+  color: #91a2b5;
+}
+
+.location-pin-small {
+  background:
+    #17334d;
+
+  box-shadow:
+    0 7px 18px rgba(0,0,0,0.28);
+}
+
+.location-refresh,
+.premium-refresh {
+  background:
+    #17334d;
+
+  color: white;
+
+  border:
+    1px solid rgba(255,255,255,0.08);
+}
+
+
+/* =========================================================
+   LOCATION STATS
+========================================================= */
+
+.location-delivery-info,
+.premium-delivery-info {
+  color: white;
+}
+
+.location-delivery-info > div,
+.location-stat {
+  background:
+    linear-gradient(
+      145deg,
+      #10263b,
+      #0b1d2e
+    );
+
+  border:
+    1px solid rgba(255,255,255,0.07);
+}
+
+.location-delivery-info span,
+.location-stat small {
+  color: #7f93a8;
+}
+
+.location-delivery-info strong,
+.location-stat strong {
+  color: #ffffff;
+}
+
+
+/* =========================================================
+   DELIVERY STATUS
+========================================================= */
+
+.delivery-status.available,
+.delivery-mini-success,
+.premium-confirmed {
+  background:
+    rgba(35,188,113,0.10);
+
+  border:
+    1px solid rgba(41,209,125,0.18);
+
+  color: #45dc91;
+}
+
+.delivery-status.unavailable,
+.premium-error {
+  background:
+    rgba(255,80,70,0.08);
+
+  border:
+    1px solid rgba(255,80,70,0.18);
+
+  color: #ff8b82;
+}
+
+
+/* =========================================================
+   CONFIRM LOCATION
+========================================================= */
+
+.confirm-location-button,
+.premium-confirm-button {
+  background:
+    linear-gradient(
+      135deg,
+      #236cff,
+      #1646b7
+    );
+
+  color: white;
+
+  box-shadow:
+    0 12px 28px rgba(26,91,220,0.28);
+}
+
+.confirm-location-button:disabled,
+.premium-confirm-button:disabled {
+  background:
+    #26384b;
+
+  color: #718398;
+
+  opacity: 1;
+}
+
+
+/* =========================================================
+   LOCATION TIP
+========================================================= */
+
+.location-tip,
+.premium-tip {
+  background:
+    rgba(28,72,120,0.16);
+
+  border:
+    1px solid rgba(70,139,255,0.14);
+
+  color: #9eb4ca;
+}
+
+.premium-tip strong {
+  color: #72a8ff;
+}
+
+.premium-tip small {
+  color: #849bb0;
+}
+
+
+/* =========================================================
+   SPECIAL NOTE
+========================================================= */
+
+.special-note-card textarea,
+.note-input-wrapper textarea {
+  background:
+    #091a2b;
+
+  border:
+    1px solid rgba(255,255,255,0.09);
+
+  color: white;
+}
+
+.special-note-card textarea::placeholder,
+.note-input-wrapper textarea::placeholder {
+  color: #63778b;
+}
+
+.special-note-card textarea:focus,
+.note-input-wrapper textarea:focus {
+  background: #0c2033;
+
+  border-color: #397cff;
+
+  box-shadow:
+    0 0 0 4px rgba(57,124,255,0.10);
+}
+
+.special-note-footer {
+  color: #617488;
+}
+
+
+/* =========================================================
+   PAYMENT
+========================================================= */
+
+.checkout-card label {
+  color: white;
+}
+
+.payment-option {
+  background:
+    linear-gradient(
+      145deg,
+      #11263b,
+      #0b1d2f
+    );
+
+  border:
+    1px solid rgba(255,255,255,0.08);
+
+  color: white;
+}
+
+.payment-option.active {
+  border-color: #ff6847;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255,104,71,0.13),
+      #10253a
+    );
+
+  box-shadow:
+    0 10px 28px rgba(255,95,70,0.10);
+}
+
+.payment-content strong {
+  color: white;
+}
+
+.payment-content small {
+  color: #8da0b4;
+}
+
+.payment-icon {
+  background:
+    #17334d;
+}
+
+.payment-check {
+  border-color: #536579;
+}
+
+.payment-option.active .payment-check {
+  background: #ff6847;
+  border-color: #ff6847;
+}
+
+
+/* =========================================================
+   RAZORPAY
+========================================================= */
+
+.upi-payment-box,
+.premium-upi-box {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(41,111,255,0.12),
+      rgba(27,66,120,0.12)
+    );
+
+  border:
+    1px solid rgba(73,137,255,0.18);
+
+  color: white;
+}
+
+.upi-payment-box p,
+.premium-upi-box p {
+  color: #91a7bd;
+}
+
+.upi-payment-box small,
+.premium-upi-box small {
+  color: #72899f;
+}
+
+
+/* =========================================================
+   DAILY SCRATCH
+========================================================= */
+
+.daily-scratch-section,
+.premium-scratch-card {
+  border:
+    1px solid rgba(255,104,71,0.18);
+
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(255,104,71,0.14),
+      transparent 35%
+    ),
+    linear-gradient(
+      145deg,
+      #15273a,
+      #0b1c2d
+    );
+}
+
+.daily-scratch-heading span {
+  color: #ff7658;
+}
+
+.daily-scratch-heading h3,
+.daily-scratch-heading h2 {
+  color: white;
+}
+
+.daily-scratch-description {
+  color: #91a4b8;
+}
+
+.daily-scratch-unlock-note,
+.scratch-unlock-banner {
+  background:
+    rgba(255,255,255,0.045);
+
+  color: #9cafc2;
+
+  border:
+    1px solid rgba(255,255,255,0.06);
+}
+
+
+/* Scratch underlay */
+
+.daily-scratch-underlay {
+  background:
+    linear-gradient(
+      135deg,
+      #183b63,
+      #26365f
+    );
+}
+
+.daily-scratch-underlay strong {
+  color: white;
+}
+
+.daily-scratch-underlay span {
+  color: #b4c3d3;
+}
+
+
+/* =========================================================
+   SCRATCH REVEALED
+========================================================= */
+
+.daily-scratch-revealed,
+.premium-reward-revealed {
+  border:
+    1px solid rgba(41,209,125,0.20);
+
+  background:
+    radial-gradient(
+      circle at 50% 0%,
+      rgba(41,209,125,0.13),
+      transparent 45%
+    ),
+    #0d2530;
+
+  color: white;
+}
+
+.daily-scratch-you-won {
+  color: #46df92;
+}
+
+.daily-scratch-revealed h3,
+.premium-reward-revealed h2 {
+  color: white;
+}
+
+.daily-scratch-revealed p,
+.premium-reward-revealed p {
+  color: #9bb0bf;
+}
+
+
+/* =========================================================
+   6+1 LOYALTY
+========================================================= */
+
+.loyalty-unlock-card,
+.premium-loyalty-card {
+  border:
+    1px solid rgba(255,190,70,0.16);
+
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(255,180,50,0.10),
+      transparent 38%
+    ),
+    linear-gradient(
+      145deg,
+      #18283a,
+      #0d1e2f
+    );
+}
+
+.loyalty-header {
+  border-bottom:
+    1px dashed rgba(255,255,255,0.13);
+}
+
+.loyalty-kicker {
+  color: #ffbd58;
+}
+
+.loyalty-heading,
+.loyalty-scratch-title {
+  color: white;
+}
+
+.loyalty-unlock-description,
+.loyalty-scratch-pending-text {
+  color: #91a4b6;
+}
+
+.loyalty-next-order-notice {
+  background:
+    rgba(255,255,255,0.045);
+
+  color: #c2a06c;
+}
+
+.loyalty-ticket,
+.premium-ticket {
+  background:
+    linear-gradient(
+      145deg,
+      #17334d,
+      #10263b
+    );
+
+  box-shadow:
+    0 12px 28px rgba(0,0,0,0.25);
+}
+
+.loyalty-scratch-button {
+  background:
+    linear-gradient(
+      135deg,
+      #ff744c,
+      #ff4669
+    );
+}
+
+
+/* =========================================================
+   LOYALTY PROGRESS
+========================================================= */
+
+.loyalty-progress-card,
+.premium-progress-card {
+  background:
+    linear-gradient(
+      145deg,
+      #10263a,
+      #0a1a2b
+    );
+
+  border:
+    1px solid rgba(77,141,255,0.13);
+}
+
+.loyalty-progress-kicker {
+  color: #65a1ff;
+}
+
+.loyalty-progress-title {
+  color: white;
+}
+
+.loyalty-progress-track {
+  background: #1d3042;
+}
+
+.loyalty-progress-fill {
+  background:
+    linear-gradient(
+      90deg,
+      #347dff,
+      #55b7ff
+    );
+
+  box-shadow:
+    0 0 15px rgba(62,143,255,0.35);
+}
+
+.loyalty-progress-card small {
+  color: #778da2;
+}
+
+
+/* =========================================================
+   ORDER SUMMARY
+========================================================= */
+
+.checkout-card:last-child {
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(43,107,255,0.13),
+      transparent 40%
+    ),
+    linear-gradient(
+      145deg,
+      #10253a,
+      #081827
+    );
+}
+
+.summary-row,
+.checkout-card p span {
+  color: #92a4b7;
+}
+
+.summary-row strong {
+  color: white;
+}
+
+.discount-row {
+  color: #43d98b;
+}
+
+.scratch-summary,
+.premium-scratch-summary {
+  background:
+    rgba(255,181,60,0.08);
+
+  color: #ffc66c;
+
+  border:
+    1px solid rgba(255,181,60,0.10);
+}
+
+.takeaway-summary,
+.premium-takeaway-summary {
+  background:
+    rgba(58,126,255,0.08);
+
+  color: #91b5ed;
+
+  border:
+    1px solid rgba(58,126,255,0.10);
+}
+
+.checkout-card hr,
+.summary-divider {
+  border-color: rgba(255,255,255,0.10);
+}
+
+.checkout-card h2 {
+  color: white;
+}
+
+
+/* =========================================================
+   GRAND TOTAL
+========================================================= */
+
+.summary-total strong {
+  color: #ffffff;
+
+  text-shadow:
+    0 0 20px rgba(80,150,255,0.20);
+}
+
+
+/* =========================================================
+   PLACE ORDER
+========================================================= */
+
+.place-order-btn,
+.premium-place-btn {
+  background:
+    linear-gradient(
+      100deg,
+      #246cff,
+      #1747bb
+    );
+
+  color: white;
+
+  box-shadow:
+    0 15px 35px rgba(24,91,225,0.30);
+}
+
+.place-order-btn:active,
+.premium-place-btn:active {
+  transform: scale(0.98);
+}
+
+.place-order-btn:disabled,
+.premium-place-btn:disabled {
+  background:
+    linear-gradient(
+      100deg,
+      #263b52,
+      #1c2d40
+    );
+
+  color: #71869a;
+
+  box-shadow: none;
+}
+
+.place-order-arrow {
+  background: white;
+
+  color: #246cff;
+}
+
+
+/* =========================================================
+   SECURITY NOTE
+========================================================= */
+
+.checkout-security-note {
+  color: #64798e;
+}
+
+
+/* =========================================================
+   SCROLLBAR
+========================================================= */
+
+.checkout-page::-webkit-scrollbar {
+  width: 5px;
+}
+
+.checkout-page::-webkit-scrollbar-track {
+  background: #06111f;
+}
+
+.checkout-page::-webkit-scrollbar-thumb {
+  background: #203b56;
+  border-radius: 20px;
+}
+
+
+/* =========================================================
+   MOBILE POLISH
+========================================================= */
+
+@media (max-width: 700px) {
+
+  .checkout-page {
+    padding-top: 16px;
+    padding-bottom: 90px;
+  }
+
+  .checkout-card {
+    border-radius: 25px;
+  }
+
+  .location-map {
+    border-radius: 22px;
+  }
+
+  .place-order-btn {
+    min-height: 58px;
+  }
+
+}
+
+
+/* =========================================================
+   EXTRA DARK iPHONE MODE
+========================================================= */
+
+@media (prefers-color-scheme: dark) {
+
+  .checkout-page {
+    background:
+      radial-gradient(
+        circle at 100% 0%,
+        rgba(38,108,255,0.20),
+        transparent 30%
+      ),
+      linear-gradient(
+        180deg,
+        #071525,
+        #040c16
+      );
+  }
+
+}
