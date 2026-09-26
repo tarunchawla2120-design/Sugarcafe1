@@ -10,18 +10,18 @@ import PopularItems from "../components/PopularItems";
 import OfferBanner from "../components/OfferBanner";
 import ApprovedReviews from "../components/ApprovedReviews";
 import BottomNav from "../components/BottomNav";
-import CategoryPopup from "../components/CategoryPopup";
 import AppLayout from "../components/AppLayout";
 
 function Home() {
   const navigate = useNavigate();
 
   const [search, setSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
-  const [showPopup, setShowPopup] = useState(false);
+  const [selectedCategory, setSelectedCategory] =
+    useState("All");
 
   useEffect(() => {
-    const user = localStorage.getItem("sugarCafeUser");
+    const user =
+      localStorage.getItem("sugarCafeUser");
 
     if (!user) {
       navigate("/login", {
@@ -35,40 +35,66 @@ function Home() {
 
   return (
     <AppLayout>
-      <Navbar onSearch={setSearch} />
+
+      {/* NAVBAR */}
+
+      <Navbar
+        onSearch={setSearch}
+      />
+
+
+      {/* HERO */}
 
       <Hero />
+
+
+      {/* SEARCH */}
 
       <SearchBar
         search={search}
         setSearch={setSearch}
       />
 
+
+      {/* CATEGORIES */}
+
       <Categories
         selectedCategory={selectedCategory}
-        setSelectedCategory={setSelectedCategory}
+        setSelectedCategory={
+          setSelectedCategory
+        }
       />
+
+
+      {/* POPULAR ITEMS */}
 
       <PopularItems
         search={search}
-        selectedCategory={selectedCategory}
+        selectedCategory={
+          selectedCategory
+        }
       />
+
+
+      {/* OFFER */}
 
       <OfferBanner />
 
+
+      {/* REVIEWS */}
+
       <ApprovedReviews />
 
-      <BottomNav
-        onMenuClick={() => setShowPopup(true)}
-      />
 
-      <CategoryPopup
-        open={showPopup}
-        onClose={() => setShowPopup(false)}
-        setSelectedCategory={setSelectedCategory}
-      />
+      {/* BOTTOM NAV */}
+
+      <BottomNav />
+
+
+      {/* ADMIN */}
 
       <AdminButton />
+
     </AppLayout>
   );
 }
