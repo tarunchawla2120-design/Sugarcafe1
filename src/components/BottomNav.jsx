@@ -1,47 +1,84 @@
 import "./BottomNav.css";
-import { FaHome, FaUtensils, FaShoppingCart, FaUser } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
+import {
+  FaHome,
+  FaUtensils,
+  FaShoppingCart,
+  FaUser,
+} from "react-icons/fa";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 
-function BottomNav({ onMenuClick }) {
+function BottomNav() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { totalItems } = useCart();
+
+  const isHome =
+    location.pathname === "/" ||
+    location.pathname === "/home";
+
+  const isMenu =
+    location.pathname === "/menu";
+
+  const isCart =
+    location.pathname === "/cart";
+
+  const isProfile =
+    location.pathname === "/profile";
 
   return (
     <nav className="bottom-nav">
-      <div className="nav-item active">
+
+      {/* HOME */}
+      <div
+        className={`nav-item ${isHome ? "active" : ""}`}
+        onClick={() => navigate("/")}
+        style={{ cursor: "pointer" }}
+      >
         <FaHome />
         <span>Home</span>
       </div>
 
+      {/* MENU */}
       <div
-        className="nav-item"
-        onClick={onMenuClick}
+        className={`nav-item ${isMenu ? "active" : ""}`}
+        onClick={() => navigate("/menu")}
         style={{ cursor: "pointer" }}
       >
         <FaUtensils />
         <span>Menu</span>
       </div>
 
+      {/* CART */}
       <div
-        className="nav-item"
-        style={{ position: "relative", cursor: "pointer" }}
+        className={`nav-item ${isCart ? "active" : ""}`}
+        style={{
+          position: "relative",
+          cursor: "pointer",
+        }}
         onClick={() => navigate("/cart")}
       >
         <FaShoppingCart />
 
-{totalItems > 0 && (
-  <span className="cart-badge">
-    {totalItems}
-  </span>
-)}
+        {totalItems > 0 && (
+          <span className="cart-badge">
+            {totalItems}
+          </span>
+        )}
+
         <span>Cart</span>
       </div>
 
-      <div className="nav-item">
+      {/* PROFILE */}
+      <div
+        className={`nav-item ${isProfile ? "active" : ""}`}
+        onClick={() => navigate("/profile")}
+        style={{ cursor: "pointer" }}
+      >
         <FaUser />
         <span>Profile</span>
       </div>
+
     </nav>
   );
 }
