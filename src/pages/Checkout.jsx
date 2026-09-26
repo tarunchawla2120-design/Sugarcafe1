@@ -30,7 +30,7 @@ import { useStoreSettings } from "../context/StoreContext";
 
 
 /* =========================================================
-   SUGARCAFE 6 + 1 LOYALTY
+   SUGAR CAFE 6 + 1 LOYALTY
 ========================================================= */
 
 const LOYALTY_MIN_BILL = 500;
@@ -171,8 +171,6 @@ function DailyScratchCard({
 
     ctx.globalCompositeOperation = "source-over";
 
-    /* Scratch coating */
-
     const gradient = ctx.createLinearGradient(
       0,
       0,
@@ -187,8 +185,6 @@ function DailyScratchCard({
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, width, height);
 
-    /* Decorative lines */
-
     ctx.strokeStyle = "rgba(0,0,0,.10)";
     ctx.lineWidth = 2;
 
@@ -198,8 +194,6 @@ function DailyScratchCard({
       ctx.lineTo(x + height, height);
       ctx.stroke();
     }
-
-    /* Scratch text */
 
     ctx.globalCompositeOperation = "source-over";
 
@@ -216,7 +210,6 @@ function DailyScratchCard({
     );
 
     ctx.font = "600 23px Arial";
-
     ctx.fillStyle = "#666";
 
     ctx.fillText(
@@ -449,7 +442,6 @@ function DailyScratchCard({
         userSelect: "none",
       }}
     >
-
       <div
         style={{
           padding: "24px 18px",
@@ -461,7 +453,6 @@ function DailyScratchCard({
           textAlign: "center",
         }}
       >
-
         <div
           style={{
             fontSize: "48px",
@@ -489,24 +480,14 @@ function DailyScratchCard({
         >
           Scratch the card to reveal
         </span>
-
       </div>
-
 
       <canvas
         ref={canvasRef}
-        onPointerDown={
-          handlePointerDown
-        }
-        onPointerMove={
-          handlePointerMove
-        }
-        onPointerUp={
-          handlePointerUp
-        }
-        onPointerCancel={
-          handlePointerUp
-        }
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
         style={{
           position: "absolute",
           inset: 0,
@@ -518,7 +499,6 @@ function DailyScratchCard({
           touchAction: "none",
         }}
       />
-
     </div>
   );
 }
@@ -704,9 +684,6 @@ function Checkout() {
 
   const [manualAddress, setManualAddress] =
     useState("");
-
-  const [geocodingManual, setGeocodingManual] =
-    useState(false);
 
 
   /* =======================================================
@@ -935,7 +912,6 @@ function Checkout() {
                   )
               );
 
-
           const qualifyingOrders =
             customerOrders.filter(
               (order) => {
@@ -959,7 +935,6 @@ function Checkout() {
                 );
               }
             );
-
 
           const rewardOrders =
             customerOrders.filter(
@@ -991,7 +966,6 @@ function Checkout() {
                 )
               : 0;
 
-
           const alreadyAppliedSourceIds =
             new Set(
               customerOrders
@@ -1002,7 +976,6 @@ function Checkout() {
                 )
                 .filter(Boolean)
             );
-
 
           const activeRewardOrders =
             customerOrders
@@ -1052,14 +1025,12 @@ function Checkout() {
             activeRewardOrders[0] ||
             null;
 
-
           const nextCycle =
             maxCompletedCycle + 1;
 
           const requiredOrders =
             maxCompletedCycle * 6 +
             6;
-
 
           const rewardReadyForNextOrder =
             qualifyingOrders.length >=
@@ -1100,11 +1071,9 @@ function Checkout() {
                   0
                 ),
 
-              scratchCardReady:
-                true,
+              scratchCardReady: true,
             };
           }
-
 
           let progress =
             qualifyingOrders.length -
@@ -1117,7 +1086,6 @@ function Checkout() {
               6
             )
           );
-
 
           if (!cancelled) {
             setLoyaltyData({
@@ -1255,11 +1223,6 @@ function Checkout() {
               rewardIndex
             ];
 
-
-          /* ==========================================
-             RESTORE CURRENT CHECKOUT SCRATCH
-          ========================================== */
-
           let restored = null;
 
           try {
@@ -1289,7 +1252,6 @@ function Checkout() {
               storageError
             );
           }
-
 
           if (!cancelled) {
 
@@ -1643,9 +1605,6 @@ function Checkout() {
 
   /* =======================================================
      TOTAL DISCOUNT
-     
-     Existing 6+1 remains separate.
-     Daily Scratch can also apply its own reward.
   ======================================================= */
 
   let discount = 0;
@@ -1701,6 +1660,9 @@ function Checkout() {
 
   /* =======================================================
      REVERSE GEOCODING
+     
+     ONLY USED FOR CURRENT GPS LOCATION.
+     Manual address DOES NOT use this.
   ======================================================= */
 
   const reverseGeocode =
@@ -1750,154 +1712,198 @@ function Checkout() {
 
   /* =======================================================
      MANUAL ADDRESS
+     
+     IMPORTANT:
+     No Google/Nominatim search.
+     Address is saved exactly as typed.
   ======================================================= */
 
-  const useManualAddress =
-    async () => {
+  const useManualAddress = () => {
 
-      const value =
-        manualAddress.trim();
+    const value =
+      manualAddress.trim();
 
-      if (!value) {
+    if (!value) {
 
-        alert(
-          "Please enter your complete delivery address."
+      alert(
+        "Please enter your complete delivery address."
+      );
+
+      return;
+    }
+
+    /*
+     * Keep the typed address exactly as entered.
+     */
+
+    setAddress(value);
+
+    /*
+     * Coordinates come from the current map pin.
+     */
+
+    const savedLocation = {
+      latitude: Number(marker.lat),
+      longitude: Number(marker.lng),
+      address: value,
+      fullAddress: value,
+      manualAddress: true,
+      savedAt:
+        new Date().toISOString(),
+    };
+
+    try {
+
+      localStorage.setItem(
+        "userLocation",
+        JSON.stringify(
+          savedLocation
+        )
+      );
+
+    } catch (error) {
+
+      console.error(
+        "Manual address local save error:",
+        error
+      );
+    }
+
+
+    /*
+     * Also update local customer profile
+     * immediately when available.
+     */
+
+    try {
+
+      const savedUser =
+        localStorage.getItem(
+          "sugarCafeUser"
         );
 
-        return;
-      }
+      if (savedUser) {
 
-      setGeocodingManual(true);
-
-      try {
-
-        const queryText =
-          `${value}, Korba, Chhattisgarh, India`;
-
-        const response =
-          await fetch(
-            `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(
-              queryText
-            )}&limit=5&addressdetails=1&countrycodes=in`,
-            {
-              headers: {
-                Accept:
-                  "application/json",
-              },
-            }
+        const profile =
+          JSON.parse(
+            savedUser
           );
 
-        if (!response.ok) {
-          throw new Error(
-            "Address search failed"
-          );
-        }
-
-        const results =
-          await response.json();
-
-        if (
-          !Array.isArray(results) ||
-          results.length === 0
-        ) {
-
-          alert(
-            "Address nahi mila. Please House/Area/Landmark ke saath complete address enter karein."
-          );
-
-          return;
-        }
-
-        const korbaResult =
-          results.find((item) =>
-            String(
-              item.display_name ||
-              ""
-            )
-              .toLowerCase()
-              .includes("korba")
+        const customerId =
+          profile.customerId ||
+          localStorage.getItem(
+            "sugarCafeCustomerId"
           ) ||
-          results[0];
+          "";
 
-        const lat =
-          Number(
-            korbaResult.lat
-          );
+        const newAddress = {
 
-        const lng =
-          Number(
-            korbaResult.lon
-          );
+          id:
+            `manual-${Date.now()}`,
 
-        if (
-          !Number.isFinite(lat) ||
-          !Number.isFinite(lng)
-        ) {
-          throw new Error(
-            "Invalid location received"
-          );
-        }
+          label:
+            "Delivery Address",
 
-        const formatted =
-          korbaResult.display_name ||
-          value;
+          address:
+            value,
 
-        const newLocation = {
-          lat,
-          lng,
+          fullAddress:
+            value,
+
+          latitude:
+            Number(marker.lat),
+
+          longitude:
+            Number(marker.lng),
+
+          manualAddress:
+            true,
+
+          savedAt:
+            new Date().toISOString(),
         };
 
-        setMarker(
-          newLocation
-        );
+        const existingAddresses =
+          Array.isArray(
+            profile.addresses
+          )
+            ? profile.addresses
+            : [];
 
-        setMapCenter(
-          newLocation
-        );
+        const alreadyExists =
+          existingAddresses.some(
+            (item) =>
+              String(
+                item.address || ""
+              ).trim() === value &&
+              Number(
+                item.latitude
+              ) ===
+                Number(marker.lat) &&
+              Number(
+                item.longitude
+              ) ===
+                Number(marker.lng)
+          );
 
-        setAddress(
-          formatted
+        const updatedAddresses =
+          alreadyExists
+            ? existingAddresses
+            : [
+                ...existingAddresses,
+                newAddress,
+              ];
+
+        const updatedProfile = {
+          ...profile,
+
+          customerId,
+
+          addresses:
+            updatedAddresses,
+
+          defaultAddress:
+            newAddress,
+
+          guest: false,
+
+          loggedIn: true,
+        };
+
+        localStorage.setItem(
+          "sugarCafeUser",
+          JSON.stringify(
+            updatedProfile
+          )
         );
 
         localStorage.setItem(
-          "userLocation",
-          JSON.stringify({
-            latitude: lat,
-            longitude: lng,
-            address:
-              formatted,
-            fullAddress:
-              formatted,
-          })
+          "sugarCafeCustomerId",
+          customerId
         );
 
-        if (mapRef.current) {
-
-          mapRef.current.setView(
-            [lat, lng],
-            16,
-            {
-              animate: true,
-            }
-          );
-        }
-
-      } catch (error) {
-
-        console.error(
-          "Manual address error:",
-          error
+        setCustomerProfile(
+          updatedProfile
         );
 
-        alert(
-          "Address check nahi ho paya. Please complete address enter karke dobara try karein."
+        setSavedAddresses(
+          updatedAddresses
         );
-
-      } finally {
-
-        setGeocodingManual(false);
       }
-    };
+
+    } catch (error) {
+
+      console.error(
+        "Manual address profile save error:",
+        error
+      );
+    }
+
+
+    alert(
+      "✓ Delivery address saved successfully."
+    );
+  };
 
 
   /* =======================================================
@@ -1951,6 +1957,10 @@ function Checkout() {
               );
 
             setAddress(
+              detectedAddress
+            );
+
+            setManualAddress(
               detectedAddress
             );
 
@@ -2061,19 +2071,30 @@ function Checkout() {
 
   /* =======================================================
      MARKER DRAG
+     
+     IMPORTANT:
+     Dragging pin changes coordinates only.
+     It does NOT replace the customer's typed address.
   ======================================================= */
 
   const onMarkerDragEnd =
-    async (event) => {
+    (event) => {
 
       const position =
         event.target.getLatLng();
 
       const lat =
-        position.lat;
+        Number(position.lat);
 
       const lng =
-        position.lng;
+        Number(position.lng);
+
+      if (
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lng)
+      ) {
+        return;
+      }
 
       const newLocation = {
         lat,
@@ -2088,27 +2109,52 @@ function Checkout() {
         newLocation
       );
 
-      const newAddress =
-        await reverseGeocode(
-          lat,
-          lng
+
+      /*
+       * Preserve the current address text.
+       */
+
+      const currentAddress =
+        address.trim();
+
+
+      /*
+       * Save the new coordinates locally.
+       */
+
+      try {
+
+        localStorage.setItem(
+          "userLocation",
+          JSON.stringify({
+            latitude: lat,
+            longitude: lng,
+            address:
+              currentAddress,
+            fullAddress:
+              currentAddress,
+            manualAddress:
+              Boolean(currentAddress),
+            savedAt:
+              new Date().toISOString(),
+          })
         );
 
-      setAddress(
-        newAddress
-      );
+      } catch (error) {
 
-      localStorage.setItem(
-        "userLocation",
-        JSON.stringify({
-          latitude: lat,
-          longitude: lng,
-          address:
-            newAddress,
-          fullAddress:
-            newAddress,
-        })
-      );
+        console.error(
+          "Marker location save error:",
+          error
+        );
+      }
+
+
+      /*
+       * Do NOT reverse geocode here.
+       *
+       * Distance and delivery charge are automatically
+       * recalculated because marker state changed.
+       */
     };
 
 
@@ -2467,9 +2513,7 @@ function Checkout() {
         );
 
 
-      /* ================================================
-         MARK 6 + 1 SOURCE REWARD AS APPLIED
-      ================================================= */
+      /* 6 + 1 source reward */
 
       if (
         orderData.loyaltyReward
@@ -2508,9 +2552,7 @@ function Checkout() {
       }
 
 
-      /* ================================================
-         CLEAR DAILY SCRATCH SESSION
-      ================================================= */
+      /* Clear Daily Scratch */
 
       try {
 
@@ -3112,9 +3154,7 @@ function Checkout() {
       }
 
 
-      /* ================================================
-         DAILY SCRATCH VALIDATION
-      ================================================= */
+      /* DAILY SCRATCH VALIDATION */
 
       if (
         Number(totalPrice) >=
@@ -3151,9 +3191,7 @@ function Checkout() {
         setPlacingOrder(true);
 
 
-        /* ==============================================
-           NORMAL CART ITEMS
-        ============================================== */
+        /* NORMAL CART ITEMS */
 
         const orderItems =
           cart.map(
@@ -3196,9 +3234,7 @@ function Checkout() {
           null;
 
 
-        /* ==============================================
-           EXISTING 6 + 1 REWARD
-        ================================================= */
+        /* EXISTING 6 + 1 REWARD */
 
         if (
           pendingReward &&
@@ -3383,9 +3419,7 @@ function Checkout() {
         }
 
 
-        /* ==============================================
-           NEW 6 + 1 SCRATCH CARD
-        ================================================= */
+        /* NEW 6 + 1 SCRATCH CARD */
 
         if (
           !orderLoyaltyReward &&
@@ -3496,11 +3530,7 @@ function Checkout() {
         }
 
 
-        /* ==============================================
-           DAILY SCRATCH & WIN
-           
-           ONLY ONE DAILY SCRATCH REWARD
-        ================================================= */
+        /* DAILY SCRATCH & WIN */
 
         if (
           dailyScratch.eligible &&
@@ -3555,9 +3585,7 @@ function Checkout() {
           };
 
 
-          /* ==========================================
-             DAILY 5% OFF
-          ========================================== */
+          /* DAILY 5% */
 
           if (
             reward.type ===
@@ -3576,9 +3604,7 @@ function Checkout() {
           }
 
 
-          /* ==========================================
-             DAILY FREE FOOD
-          ========================================== */
+          /* DAILY FREE FOOD */
 
           if (
             reward.type ===
@@ -3670,9 +3696,7 @@ function Checkout() {
         }
 
 
-        /* ==============================================
-           ORDER DATA
-        ================================================= */
+        /* ORDER DATA */
 
         const orderData = {
 
@@ -3780,12 +3804,8 @@ function Checkout() {
               grandTotal
             ),
 
-          /* Existing 6+1 */
-
           loyaltyReward:
             orderLoyaltyReward,
-
-          /* New Daily Scratch */
 
           dailyScratchReward:
             orderDailyScratchReward,
@@ -3816,9 +3836,7 @@ function Checkout() {
         };
 
 
-        /* ==============================================
-           ADDRESS OBJECT
-        ================================================= */
+        /* ADDRESS OBJECT */
 
         const selectedAddress =
           isTakeaway
@@ -3849,9 +3867,7 @@ function Checkout() {
             : await saveCustomerAddress();
 
 
-        /* ==============================================
-           PAYMENT
-        ================================================= */
+        /* PAYMENT */
 
         if (
           paymentMethod ===
@@ -3873,9 +3889,7 @@ function Checkout() {
         }
 
 
-        /* ==============================================
-           SUCCESS
-        ================================================= */
+        /* SUCCESS */
 
         alert(
           isTakeaway
@@ -4178,10 +4192,17 @@ function Checkout() {
                       }
 
 
-                      setAddress(
+                      const savedAddressText =
                         saved.fullAddress ||
                         saved.address ||
-                        ""
+                        "";
+
+                      setAddress(
+                        savedAddressText
+                      );
+
+                      setManualAddress(
+                        savedAddressText
                       );
 
                       setMarker({
@@ -4230,7 +4251,7 @@ function Checkout() {
           <input
             type="text"
 
-            placeholder="🔍 Search your delivery address"
+            placeholder="Enter your complete delivery address"
 
             value={
               address
@@ -4256,10 +4277,14 @@ function Checkout() {
           />
 
 
+          {/* =================================================
+              MANUAL ADDRESS
+          ================================================= */}
+
           <div className="manual-address-box">
 
             <label htmlFor="manual-delivery-address">
-              Or enter address manually
+              ✍️ Enter address manually
             </label>
 
             <textarea
@@ -4277,7 +4302,7 @@ function Checkout() {
 
               placeholder="House/Flat No., Area, Landmark, City, PIN"
 
-              rows={3}
+              rows={4}
             />
 
 
@@ -4288,19 +4313,15 @@ function Checkout() {
                 useManualAddress
               }
 
-              disabled={
-                geocodingManual
-              }
-
               className="manual-address-btn"
             >
-              {geocodingManual
-                ? "Checking address..."
-                : "✓ Use This Manual Address"}
+              ✓ Save This Address
             </button>
 
           </div>
 
+
+          {/* CURRENT LOCATION */}
 
           <button
             type="button"
@@ -4350,25 +4371,11 @@ function Checkout() {
           </button>
 
 
-          <div
-            style={{
+          {/* =================================================
+              MAP
+          ================================================= */}
 
-              width:
-                "100%",
-
-              height:
-                "300px",
-
-              marginTop:
-                "15px",
-
-              borderRadius:
-                "10px",
-
-              overflow:
-                "hidden",
-            }}
-          >
+          <div className="checkout-map-wrapper">
 
             <MapContainer
 
@@ -4377,7 +4384,7 @@ function Checkout() {
                 mapCenter.lng,
               ]}
 
-              zoom={14}
+              zoom={15}
 
               scrollWheelZoom={
                 true
@@ -4395,9 +4402,11 @@ function Checkout() {
 
               <TileLayer
 
-                attribution="&copy; OpenStreetMap contributors"
+                attribution='&copy; OpenStreetMap contributors &copy; CARTO'
 
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+
+                maxZoom={20}
               />
 
 
@@ -4438,7 +4447,7 @@ function Checkout() {
             style={{
 
               marginTop:
-                "8px",
+                "10px",
 
               fontSize:
                 "13px",
@@ -4448,13 +4457,23 @@ function Checkout() {
 
               textAlign:
                 "center",
+
+              lineHeight:
+                "1.5",
             }}
           >
-            📍 Drag the pin to
+            📍 Drag the red pin to
             your exact delivery
-            location
+            location.
+            <br />
+            Address text will remain
+            unchanged.
           </div>
 
+
+          {/* =================================================
+              DELIVERY STATUS
+          ================================================= */}
 
           <div
             style={{
@@ -5053,7 +5072,7 @@ function Checkout() {
 
 
       {/* =================================================
-          BELOW ₹499 MESSAGE
+          BELOW ₹499
       ================================================= */}
 
       {!dailyScratch.loading &&
