@@ -434,6 +434,48 @@ function Checkout() {
       console.error("Customer checkout loading error:", error);
     }
   }, []);
+
+  /* =======================================================
+     REVERSE GEOCODING
+  ======================================================= */
+
+  const reverseGeocode = useCallback(
+    async (latitude, longitude) => {
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&accept-language=en`,
+          {
+            headers: {
+              Accept: "application/json",
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Address lookup failed");
+        }
+
+        const data = await response.json();
+
+        return (
+          data.display_name ||
+          formatAddressFallback(latitude, longitude)
+        );
+      } catch (error) {
+        console.error(
+          "Reverse geocoding error:",
+          error
+        );
+
+        return formatAddressFallback(
+          latitude,
+          longitude
+        );
+      }
+    },
+    []
+  );
+
 /* =======================================================
    AUTO DETECT CURRENT LOCATION ON CHECKOUT LOAD
 ======================================================= */
