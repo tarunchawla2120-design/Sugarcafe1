@@ -35,19 +35,6 @@ import { useStoreSettings } from "../context/StoreContext";
 
 const LOYALTY_MIN_BILL = 500;
 
-/*
-   REWARD SEQUENCE
-
-   After 6 qualifying delivered orders,
-   the 7th order unlocks the scratch card.
-
-   Reward is NOT applied to the 7th order.
-   Customer scratches it and uses the reward
-   on the NEXT order.
-
-   After the 8th reward, sequence repeats.
-*/
-
 const LOYALTY_REWARDS = [
   {
     type: "free_menu_item",
@@ -93,6 +80,36 @@ const LOYALTY_REWARDS = [
 
 
 /* =========================================================
+   DAILY SCRATCH & WIN
+========================================================= */
+
+const DAILY_SCRATCH_MIN_BILL = 499;
+
+const DAILY_SCRATCH_REWARDS = [
+  {
+    type: "discount",
+    discountPercent: 5,
+    title: "5% OFF",
+  },
+  {
+    type: "free_menu_item",
+    itemName: "Cheese Aloo Puff",
+    title: "FREE Cheese Aloo Puff",
+  },
+  {
+    type: "free_menu_item",
+    itemName: "Veg Aloo Tikka Burger",
+    title: "FREE Veg Aloo Tikka Burger",
+  },
+  {
+    type: "free_menu_item",
+    itemName: "French Fries",
+    title: "FREE French Fries",
+  },
+];
+
+
+/* =========================================================
    HELPERS
 ========================================================= */
 
@@ -122,6 +139,388 @@ function normalizeMenuName(value) {
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
+}
+
+
+/* =========================================================
+   DAILY SCRATCH CANVAS
+========================================================= */
+
+function DailyScratchCard({
+  disabled = false,
+  onReveal,
+}) {
+  const canvasRef = useRef(null);
+  const scratchingRef = useRef(false);
+  const revealedRef = useRef(false);
+
+  const prepareCanvas = () => {
+    const canvas = canvasRef.current;
+
+    if (!canvas) return;
+
+    const width = 640;
+    const height = 320;
+
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext("2d");
+
+    if (!ctx) return;
+
+    ctx.globalCompositeOperation = "source-over";
+
+    /* Scratch coating */
+
+    const gradient = ctx.createLinearGradient(
+      0,
+      0,
+      width,
+      height
+    );
+
+    gradient.addColorStop(0, "#f4f4f4");
+    gradient.addColorStop(0.5, "#cfcfcf");
+    gradient.addColorStop(1, "#eeeeee");
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+
+    /* Decorative lines */
+
+    ctx.strokeStyle = "rgba(0,0,0,.10)";
+    ctx.lineWidth = 2;
+
+    for (let x = -height; x < width; x += 28) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x + height, height);
+      ctx.stroke();
+    }
+
+    /* Scratch text */
+
+    ctx.globalCompositeOperation = "source-over";
+
+    ctx.fillStyle = "#333";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    ctx.font = "800 42px Arial";
+
+    ctx.fillText(
+      "SCRATCH HERE",
+      width / 2,
+      height / 2 - 15
+    );
+
+    ctx.font = "600 23px Arial";
+
+    ctx.fillStyle = "#666";
+
+    ctx.fillText(
+      "✨ Reveal your reward ✨",
+      width / 2,
+      height / 2 + 35
+    );
+  };
+
+
+  useEffect(() => {
+    if (!disabled) {
+      revealedRef.current = false;
+      prepareCanvas();
+    }
+
+    return () => {
+      scratchingRef.current = false;
+    };
+  }, [disabled]);
+
+
+  const getPoint = (event) => {
+    const canvas = canvasRef.current;
+
+    if (!canvas) return null;
+
+    const rect = canvas.getBoundingClientRect();
+
+    const scaleX =
+      canvas.width / rect.width;
+
+    const scaleY =
+      canvas.height / rect.height;
+
+    return {
+      x:
+        (event.clientX - rect.left) *
+        scaleX,
+
+      y:
+        (event.clientY - rect.top) *
+        scaleY,
+    };
+  };
+
+
+  const scratchAt = (event) => {
+    if (
+      disabled ||
+      revealedRef.current
+    ) {
+      return;
+    }
+
+    const canvas = canvasRef.current;
+
+    if (!canvas) return;
+
+    const point = getPoint(event);
+
+    if (!point) return;
+
+    const ctx = canvas.getContext("2d");
+
+    if (!ctx) return;
+
+    ctx.globalCompositeOperation =
+      "destination-out";
+
+    ctx.beginPath();
+
+    ctx.arc(
+      point.x,
+      point.y,
+      34,
+      0,
+      Math.PI * 2
+    );
+
+    ctx.fill();
+
+    checkScratchPercentage();
+  };
+
+
+  const checkScratchPercentage = () => {
+    if (revealedRef.current) return;
+
+    const canvas = canvasRef.current;
+
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+
+    if (!ctx) return;
+
+    try {
+      const imageData = ctx.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
+
+      let transparent = 0;
+      let total = 0;
+
+      const step = 10;
+
+      for (
+        let y = 0;
+        y < canvas.height;
+        y += step
+      ) {
+        for (
+          let x = 0;
+          x < canvas.width;
+          x += step
+        ) {
+          const index =
+            (y * canvas.width + x) * 4;
+
+          const alpha =
+            imageData.data[index + 3];
+
+          total++;
+
+          if (alpha < 80) {
+            transparent++;
+          }
+        }
+      }
+
+      const percentage =
+        total > 0
+          ? (transparent / total) * 100
+          : 0;
+
+      if (percentage >= 45) {
+        revealCard();
+      }
+    } catch (error) {
+      console.error(
+        "Scratch percentage error:",
+        error
+      );
+    }
+  };
+
+
+  const revealCard = () => {
+    if (revealedRef.current) return;
+
+    revealedRef.current = true;
+
+    const canvas = canvasRef.current;
+
+    if (canvas) {
+      const ctx =
+        canvas.getContext("2d");
+
+      if (ctx) {
+        ctx.clearRect(
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+      }
+    }
+
+    if (typeof onReveal === "function") {
+      onReveal();
+    }
+  };
+
+
+  const handlePointerDown = (event) => {
+    if (disabled) return;
+
+    scratchingRef.current = true;
+
+    try {
+      event.currentTarget.setPointerCapture(
+        event.pointerId
+      );
+    } catch {}
+
+    scratchAt(event);
+  };
+
+
+  const handlePointerMove = (event) => {
+    if (
+      !scratchingRef.current ||
+      disabled
+    ) {
+      return;
+    }
+
+    scratchAt(event);
+  };
+
+
+  const handlePointerUp = (event) => {
+    scratchingRef.current = false;
+
+    try {
+      event.currentTarget.releasePointerCapture(
+        event.pointerId
+      );
+    } catch {}
+  };
+
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        width: "100%",
+        maxWidth: "360px",
+        margin: "18px auto 0",
+        borderRadius: "20px",
+        overflow: "hidden",
+        boxShadow:
+          "0 15px 35px rgba(0,0,0,.14)",
+        background:
+          "linear-gradient(135deg,#fff7ed,#fff)",
+        userSelect: "none",
+      }}
+    >
+
+      <div
+        style={{
+          padding: "24px 18px",
+          minHeight: "180px",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          textAlign: "center",
+        }}
+      >
+
+        <div
+          style={{
+            fontSize: "48px",
+            marginBottom: "8px",
+          }}
+        >
+          🎁
+        </div>
+
+        <strong
+          style={{
+            fontSize: "22px",
+            color: "#241b17",
+          }}
+        >
+          Your Daily Reward
+        </strong>
+
+        <span
+          style={{
+            marginTop: "8px",
+            color: "#777",
+            fontSize: "14px",
+          }}
+        >
+          Scratch the card to reveal
+        </span>
+
+      </div>
+
+
+      <canvas
+        ref={canvasRef}
+        onPointerDown={
+          handlePointerDown
+        }
+        onPointerMove={
+          handlePointerMove
+        }
+        onPointerUp={
+          handlePointerUp
+        }
+        onPointerCancel={
+          handlePointerUp
+        }
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          cursor: disabled
+            ? "default"
+            : "grab",
+          touchAction: "none",
+        }}
+      />
+
+    </div>
+  );
 }
 
 
@@ -173,10 +572,6 @@ function MapMover({ position }) {
 function Checkout() {
   const navigate = useNavigate();
   const rawStore = useStoreSettings();
-
-  /* =======================================================
-     SAFE STORE SETTINGS
-  ======================================================= */
 
   const store = rawStore || {};
 
@@ -315,7 +710,7 @@ function Checkout() {
 
 
   /* =======================================================
-     LOYALTY STATE
+     6 + 1 LOYALTY STATE
   ======================================================= */
 
   const [loyaltyData, setLoyaltyData] =
@@ -325,6 +720,26 @@ function Checkout() {
       pendingReward: null,
       currentReward: null,
     });
+
+
+  /* =======================================================
+     DAILY SCRATCH STATE
+  ======================================================= */
+
+  const [dailyScratch, setDailyScratch] =
+    useState({
+      loading: true,
+      eligible: false,
+      unlocked: false,
+      revealed: false,
+      reward: null,
+      rewardIndex: null,
+      previousCount: 0,
+    });
+
+
+  const [dailyScratchRevealing, setDailyScratchRevealing] =
+    useState(false);
 
 
   /* =======================================================
@@ -450,7 +865,7 @@ function Checkout() {
 
 
   /* =======================================================
-     LOYALTY STATUS
+     6 + 1 LOYALTY STATUS
   ======================================================= */
 
   useEffect(() => {
@@ -521,13 +936,6 @@ function Checkout() {
               );
 
 
-          /* ================================================
-             QUALIFYING ORDERS
-
-             ONLY:
-             Delivered + ₹500 or more
-          ================================================= */
-
           const qualifyingOrders =
             customerOrders.filter(
               (order) => {
@@ -552,10 +960,6 @@ function Checkout() {
               }
             );
 
-
-          /* ================================================
-             COMPLETED LOYALTY CYCLES
-          ================================================= */
 
           const rewardOrders =
             customerOrders.filter(
@@ -588,10 +992,6 @@ function Checkout() {
               : 0;
 
 
-          /* ================================================
-             ALREADY APPLIED SOURCE REWARDS
-          ================================================= */
-
           const alreadyAppliedSourceIds =
             new Set(
               customerOrders
@@ -603,14 +1003,6 @@ function Checkout() {
                 .filter(Boolean)
             );
 
-
-          /* ================================================
-             ACTIVE REWARD
-
-             scratch_pending
-             OR
-             available
-          ================================================= */
 
           const activeRewardOrders =
             customerOrders
@@ -661,10 +1053,6 @@ function Checkout() {
             null;
 
 
-          /* ================================================
-             NEXT CYCLE
-          ================================================= */
-
           const nextCycle =
             maxCompletedCycle + 1;
 
@@ -672,18 +1060,6 @@ function Checkout() {
             maxCompletedCycle * 6 +
             6;
 
-
-          /* ================================================
-             SCRATCH CARD READY?
-
-             Cycle 1:
-             6 qualifying orders
-             → next order = 7th
-
-             Cycle 2:
-             12 qualifying orders
-             → next order = 13th
-          ================================================= */
 
           const rewardReadyForNextOrder =
             qualifyingOrders.length >=
@@ -729,10 +1105,6 @@ function Checkout() {
             };
           }
 
-
-          /* ================================================
-             PROGRESS
-          ================================================= */
 
           let progress =
             qualifyingOrders.length -
@@ -788,6 +1160,358 @@ function Checkout() {
   }, [
     customerProfile?.customerId,
   ]);
+
+
+  /* =======================================================
+     DAILY SCRATCH STATUS
+  ======================================================= */
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadDailyScratchStatus =
+      async () => {
+
+        const customerId =
+          customerProfile?.customerId ||
+          localStorage.getItem(
+            "sugarCafeCustomerId"
+          );
+
+        if (!customerId) {
+          if (!cancelled) {
+            setDailyScratch({
+              loading: false,
+              eligible:
+                Number(totalPrice) >=
+                DAILY_SCRATCH_MIN_BILL,
+              unlocked: false,
+              revealed: false,
+              reward: null,
+              rewardIndex: null,
+              previousCount: 0,
+            });
+          }
+
+          return;
+        }
+
+        try {
+
+          const ordersQuery =
+            query(
+              collection(
+                db,
+                "orders"
+              ),
+              where(
+                "customerId",
+                "==",
+                customerId
+              )
+            );
+
+          const snapshot =
+            await getDocs(
+              ordersQuery
+            );
+
+          if (cancelled) return;
+
+          const scratchOrders =
+            snapshot.docs
+              .map((orderDoc) => ({
+                id: orderDoc.id,
+                ...orderDoc.data(),
+              }))
+              .filter(
+                (order) =>
+                  order.dailyScratchReward
+                    ?.enabled === true
+              )
+              .sort(
+                (a, b) =>
+                  loyaltyTime(
+                    a.dailyScratchReward
+                      ?.createdAt ||
+                    a.createdAt
+                  ) -
+                  loyaltyTime(
+                    b.dailyScratchReward
+                      ?.createdAt ||
+                    b.createdAt
+                  )
+              );
+
+          const previousCount =
+            scratchOrders.length;
+
+          const rewardIndex =
+            previousCount %
+            DAILY_SCRATCH_REWARDS.length;
+
+          const reward =
+            DAILY_SCRATCH_REWARDS[
+              rewardIndex
+            ];
+
+
+          /* ==========================================
+             RESTORE CURRENT CHECKOUT SCRATCH
+          ========================================== */
+
+          let restored = null;
+
+          try {
+
+            const stored =
+              sessionStorage.getItem(
+                `sugarCafeDailyScratch_${customerId}`
+              );
+
+            if (stored) {
+              const parsed =
+                JSON.parse(stored);
+
+              if (
+                parsed &&
+                Number(
+                  parsed.rewardIndex
+                ) === rewardIndex
+              ) {
+                restored = parsed;
+              }
+            }
+
+          } catch (storageError) {
+            console.warn(
+              "Daily scratch session restore error:",
+              storageError
+            );
+          }
+
+
+          if (!cancelled) {
+
+            setDailyScratch({
+              loading: false,
+
+              eligible:
+                Number(totalPrice) >=
+                DAILY_SCRATCH_MIN_BILL,
+
+              unlocked:
+                restored?.unlocked ||
+                false,
+
+              revealed:
+                restored?.revealed ||
+                false,
+
+              reward:
+                restored?.reward ||
+                reward,
+
+              rewardIndex,
+
+              previousCount,
+            });
+          }
+
+        } catch (error) {
+
+          console.error(
+            "Daily Scratch status error:",
+            error
+          );
+
+          if (!cancelled) {
+            setDailyScratch({
+              loading: false,
+
+              eligible:
+                Number(totalPrice) >=
+                DAILY_SCRATCH_MIN_BILL,
+
+              unlocked: false,
+              revealed: false,
+
+              reward: null,
+
+              rewardIndex: null,
+
+              previousCount: 0,
+            });
+          }
+        }
+      };
+
+    loadDailyScratchStatus();
+
+    return () => {
+      cancelled = true;
+    };
+
+  }, [
+    customerProfile?.customerId,
+    totalPrice,
+  ]);
+
+
+  /* =======================================================
+     UPDATE DAILY SCRATCH ELIGIBILITY
+  ======================================================= */
+
+  useEffect(() => {
+
+    const eligible =
+      Number(totalPrice) >=
+      DAILY_SCRATCH_MIN_BILL;
+
+    setDailyScratch((prev) => {
+
+      if (
+        prev.eligible === eligible
+      ) {
+        return prev;
+      }
+
+      if (!eligible) {
+        return {
+          ...prev,
+
+          eligible: false,
+          unlocked: false,
+          revealed: false,
+        };
+      }
+
+      return {
+        ...prev,
+        eligible: true,
+      };
+    });
+
+  }, [totalPrice]);
+
+
+  /* =======================================================
+     UNLOCK DAILY SCRATCH
+  ======================================================= */
+
+  const unlockDailyScratch = () => {
+
+    if (
+      Number(totalPrice) <
+      DAILY_SCRATCH_MIN_BILL
+    ) {
+      return;
+    }
+
+    const reward =
+      dailyScratch.reward ||
+      DAILY_SCRATCH_REWARDS[
+        Number.isFinite(
+          dailyScratch.rewardIndex
+        )
+          ? dailyScratch.rewardIndex
+          : 0
+      ];
+
+    const rewardIndex =
+      Number.isFinite(
+        dailyScratch.rewardIndex
+      )
+        ? dailyScratch.rewardIndex
+        : 0;
+
+    const state = {
+      unlocked: true,
+      revealed: false,
+      reward,
+      rewardIndex,
+    };
+
+    try {
+      const customerId =
+        customerProfile?.customerId ||
+        localStorage.getItem(
+          "sugarCafeCustomerId"
+        ) ||
+        "guest";
+
+      sessionStorage.setItem(
+        `sugarCafeDailyScratch_${customerId}`,
+        JSON.stringify(state)
+      );
+    } catch {}
+
+    setDailyScratch((prev) => ({
+      ...prev,
+
+      eligible: true,
+      unlocked: true,
+      revealed: false,
+      reward,
+      rewardIndex,
+    }));
+  };
+
+
+  /* =======================================================
+     DAILY SCRATCH REVEAL
+  ======================================================= */
+
+  const revealDailyScratch = async () => {
+
+    if (
+      !dailyScratch.unlocked ||
+      dailyScratch.revealed ||
+      dailyScratchRevealing ||
+      !dailyScratch.reward
+    ) {
+      return;
+    }
+
+    setDailyScratchRevealing(true);
+
+    await new Promise(
+      (resolve) =>
+        setTimeout(resolve, 300)
+    );
+
+    const state = {
+      unlocked: true,
+      revealed: true,
+      reward:
+        dailyScratch.reward,
+      rewardIndex:
+        dailyScratch.rewardIndex,
+    };
+
+    try {
+
+      const customerId =
+        customerProfile?.customerId ||
+        localStorage.getItem(
+          "sugarCafeCustomerId"
+        ) ||
+        "guest";
+
+      sessionStorage.setItem(
+        `sugarCafeDailyScratch_${customerId}`,
+        JSON.stringify(state)
+      );
+
+    } catch {}
+
+    setDailyScratch((prev) => ({
+      ...prev,
+      revealed: true,
+    }));
+
+    setDailyScratchRevealing(false);
+  };
 
 
   /* =======================================================
@@ -888,7 +1612,7 @@ function Checkout() {
 
 
   /* =======================================================
-     CURRENT REWARD
+     CURRENT 6 + 1 REWARD
   ======================================================= */
 
   const currentReward =
@@ -897,7 +1621,7 @@ function Checkout() {
 
 
   /* =======================================================
-     PREVIOUS SCRATCH REWARD
+     PREVIOUS 6 + 1 SCRATCH REWARD
   ======================================================= */
 
   const pendingReward =
@@ -918,10 +1642,16 @@ function Checkout() {
 
 
   /* =======================================================
-     LOYALTY DISCOUNT
+     TOTAL DISCOUNT
+     
+     Existing 6+1 remains separate.
+     Daily Scratch can also apply its own reward.
   ======================================================= */
 
   let discount = 0;
+
+
+  /* 6 + 1 discount */
 
   if (
     rewardAvailable &&
@@ -932,10 +1662,28 @@ function Checkout() {
     ) === 5
   ) {
 
-    discount =
+    discount +=
       Number(totalPrice) *
       0.05;
   }
+
+
+  /* Daily Scratch 5% */
+
+  if (
+    dailyScratch.revealed &&
+    dailyScratch.reward?.type ===
+      "discount" &&
+    Number(
+      dailyScratch.reward.discountPercent
+    ) === 5
+  ) {
+
+    discount +=
+      Number(totalPrice) *
+      0.05;
+  }
+
 
   discount =
     Math.round(
@@ -1462,7 +2210,7 @@ function Checkout() {
       } catch (error) {
 
         console.error(
-          "Loyalty menu lookup error:",
+          "Menu lookup error:",
           error
         );
 
@@ -1720,7 +2468,7 @@ function Checkout() {
 
 
       /* ================================================
-         MARK SOURCE SCRATCH REWARD AS APPLIED
+         MARK 6 + 1 SOURCE REWARD AS APPLIED
       ================================================= */
 
       if (
@@ -1758,6 +2506,26 @@ function Checkout() {
           );
         }
       }
+
+
+      /* ================================================
+         CLEAR DAILY SCRATCH SESSION
+      ================================================= */
+
+      try {
+
+        const customerId =
+          orderData.customerId ||
+          localStorage.getItem(
+            "sugarCafeCustomerId"
+          ) ||
+          "guest";
+
+        sessionStorage.removeItem(
+          `sugarCafeDailyScratch_${customerId}`
+        );
+
+      } catch {}
 
 
       localStorage.setItem(
@@ -2084,7 +2852,7 @@ function Checkout() {
                                   response.razorpay_signature,
                               }
                             ),
-                          }
+                        }
                       );
 
 
@@ -2195,10 +2963,6 @@ function Checkout() {
   const placeOrder =
     async () => {
 
-      /* ================================================
-         LOYALTY LOADING
-      ================================================= */
-
       if (
         loyaltyData.loading
       ) {
@@ -2210,10 +2974,6 @@ function Checkout() {
         return;
       }
 
-
-      /* ================================================
-         DELIVERY STORE CHECK
-      ================================================= */
 
       if (
         !isTakeaway &&
@@ -2228,10 +2988,6 @@ function Checkout() {
         return;
       }
 
-
-      /* ================================================
-         PAYMENT CHECK
-      ================================================= */
 
       if (
         paymentMethod ===
@@ -2261,10 +3017,6 @@ function Checkout() {
       }
 
 
-      /* ================================================
-         CART
-      ================================================= */
-
       if (!cart.length) {
 
         alert(
@@ -2274,10 +3026,6 @@ function Checkout() {
         return;
       }
 
-
-      /* ================================================
-         CUSTOMER LOGIN
-      ================================================= */
 
       if (
         !customerProfile ||
@@ -2341,10 +3089,6 @@ function Checkout() {
       }
 
 
-      /* ================================================
-         DELIVERY ADDRESS
-      ================================================= */
-
       if (!isTakeaway) {
 
         if (!address.trim()) {
@@ -2361,6 +3105,40 @@ function Checkout() {
 
           alert(
             `Sorry! We currently deliver within ${maxDeliveryDistanceKm} km of our shop.`
+          );
+
+          return;
+        }
+      }
+
+
+      /* ================================================
+         DAILY SCRATCH VALIDATION
+      ================================================= */
+
+      if (
+        Number(totalPrice) >=
+        DAILY_SCRATCH_MIN_BILL
+      ) {
+
+        if (
+          !dailyScratch.unlocked
+        ) {
+
+          alert(
+            "🎁 Your bill is eligible for Daily Scratch & Win. Please select a payment method and scratch your card before placing the order."
+          );
+
+          return;
+        }
+
+
+        if (
+          !dailyScratch.revealed
+        ) {
+
+          alert(
+            "🎁 Please scratch your Daily Scratch Card to reveal your reward before placing the order."
           );
 
           return;
@@ -2414,12 +3192,13 @@ function Checkout() {
         let orderLoyaltyReward =
           null;
 
+        let orderDailyScratchReward =
+          null;
+
 
         /* ==============================================
-           PREVIOUS SCRATCH REWARD
-
-           ONLY "available" CAN BE APPLIED
-        ============================================== */
+           EXISTING 6 + 1 REWARD
+        ================================================= */
 
         if (
           pendingReward &&
@@ -2459,10 +3238,6 @@ function Checkout() {
           };
 
 
-          /* =========================================
-             5% DISCOUNT
-          ========================================= */
-
           if (
             reward.type ===
               "discount" &&
@@ -2473,14 +3248,10 @@ function Checkout() {
 
             orderLoyaltyReward.appliedDiscount =
               Number(
-                discount
-              );
+                totalPrice
+              ) * 0.05;
           }
 
-
-          /* =========================================
-             FREE MENU ITEM
-          ========================================= */
 
           if (
             reward.type ===
@@ -2489,8 +3260,6 @@ function Checkout() {
 
             let menuItem = null;
 
-
-            /* Saved exact snapshot */
 
             if (
               reward.itemId &&
@@ -2521,8 +3290,6 @@ function Checkout() {
               };
             }
 
-
-            /* Exact current menu fallback */
 
             if (!menuItem?.id) {
 
@@ -2617,12 +3384,8 @@ function Checkout() {
 
 
         /* ==============================================
-           NEW SCRATCH CARD
-
-           THIS IS THE 7TH ORDER.
-
-           REWARD IS NOT APPLIED.
-        ============================================== */
+           NEW 6 + 1 SCRATCH CARD
+        ================================================= */
 
         if (
           !orderLoyaltyReward &&
@@ -2674,10 +3437,6 @@ function Checkout() {
               Timestamp.now(),
           };
 
-
-          /* =========================================
-             EXACT MENU SNAPSHOT
-          ========================================= */
 
           if (
             reward.type ===
@@ -2738,8 +3497,182 @@ function Checkout() {
 
 
         /* ==============================================
+           DAILY SCRATCH & WIN
+           
+           ONLY ONE DAILY SCRATCH REWARD
+        ================================================= */
+
+        if (
+          dailyScratch.eligible &&
+          dailyScratch.unlocked &&
+          dailyScratch.revealed &&
+          dailyScratch.reward
+        ) {
+
+          const reward =
+            dailyScratch.reward;
+
+          const rewardIndex =
+            Number(
+              dailyScratch.rewardIndex
+            );
+
+
+          orderDailyScratchReward = {
+
+            enabled:
+              true,
+
+            rewardIndex:
+
+              Number.isFinite(
+                rewardIndex
+              )
+                ? rewardIndex
+                : 0,
+
+            type:
+              reward.type,
+
+            title:
+              reward.title ||
+              "",
+
+            status:
+              "applied",
+
+            scratchRevealed:
+              true,
+
+            discountPercent:
+              Number(
+                reward.discountPercent ||
+                0
+              ),
+
+            createdAt:
+              Timestamp.now(),
+          };
+
+
+          /* ==========================================
+             DAILY 5% OFF
+          ========================================== */
+
+          if (
+            reward.type ===
+              "discount" &&
+            Number(
+              reward.discountPercent
+            ) === 5
+          ) {
+
+            orderDailyScratchReward.appliedDiscount =
+              Math.round(
+                Number(totalPrice) *
+                  0.05 *
+                  100
+              ) / 100;
+          }
+
+
+          /* ==========================================
+             DAILY FREE FOOD
+          ========================================== */
+
+          if (
+            reward.type ===
+            "free_menu_item"
+          ) {
+
+            const menuItem =
+              await findLoyaltyMenuItem(
+                reward.itemName
+              );
+
+
+            if (!menuItem) {
+
+              throw new Error(
+                `Daily Scratch reward "${reward.itemName}" is currently unavailable in the menu. Please contact Sugar Cafe before placing this order.`
+              );
+            }
+
+
+            const rewardItemName =
+              menuItem.name ||
+              menuItem.title ||
+              reward.itemName;
+
+
+            const rewardItemImage =
+              menuItem.image ||
+              menuItem.imageUrl ||
+              menuItem.photoURL ||
+              "";
+
+
+            const rewardItemPrice =
+              Number(
+                menuItem.price ||
+                0
+              );
+
+
+            finalOrderItems.push({
+
+              id:
+                menuItem.id,
+
+              name:
+                rewardItemName,
+
+              price:
+                0,
+
+              qty:
+                1,
+
+              image:
+                rewardItemImage,
+
+              category:
+                menuItem.category ||
+                "Daily Scratch Reward",
+
+              isFreeReward:
+                true,
+
+              dailyScratchReward:
+                true,
+
+              originalPrice:
+                rewardItemPrice,
+            });
+
+
+            orderDailyScratchReward.itemId =
+              menuItem.id;
+
+            orderDailyScratchReward.itemName =
+              rewardItemName;
+
+            orderDailyScratchReward.itemImage =
+              rewardItemImage;
+
+            orderDailyScratchReward.itemPrice =
+              rewardItemPrice;
+
+            orderDailyScratchReward.itemCategory =
+              menuItem.category ||
+              "Daily Scratch Reward";
+          }
+        }
+
+
+        /* ==============================================
            ORDER DATA
-        ============================================== */
+        ================================================= */
 
         const orderData = {
 
@@ -2847,8 +3780,15 @@ function Checkout() {
               grandTotal
             ),
 
+          /* Existing 6+1 */
+
           loyaltyReward:
             orderLoyaltyReward,
+
+          /* New Daily Scratch */
+
+          dailyScratchReward:
+            orderDailyScratchReward,
 
           status:
             "New",
@@ -2878,7 +3818,7 @@ function Checkout() {
 
         /* ==============================================
            ADDRESS OBJECT
-        ============================================== */
+        ================================================= */
 
         const selectedAddress =
           isTakeaway
@@ -2911,7 +3851,7 @@ function Checkout() {
 
         /* ==============================================
            PAYMENT
-        ============================================== */
+        ================================================= */
 
         if (
           paymentMethod ===
@@ -2935,7 +3875,7 @@ function Checkout() {
 
         /* ==============================================
            SUCCESS
-        ============================================== */
+        ================================================= */
 
         alert(
           isTakeaway
@@ -3741,11 +4681,19 @@ function Checkout() {
               "Cash on Delivery"
             }
 
-            onChange={() =>
+            onChange={() => {
+
               setPaymentMethod(
                 "Cash on Delivery"
-              )
-            }
+              );
+
+              if (
+                Number(totalPrice) >=
+                DAILY_SCRATCH_MIN_BILL
+              ) {
+                unlockDailyScratch();
+              }
+            }}
           />
 
 
@@ -3781,11 +4729,19 @@ function Checkout() {
               "Online Payment"
             }
 
-            onChange={() =>
+            onChange={() => {
+
               setPaymentMethod(
                 "Online Payment"
-              )
-            }
+              );
+
+              if (
+                Number(totalPrice) >=
+                DAILY_SCRATCH_MIN_BILL
+              ) {
+                unlockDailyScratch();
+              }
+            }}
           />
 
 
@@ -3833,7 +4789,326 @@ function Checkout() {
 
 
       {/* =================================================
-          SUGAR REWARDS
+          DAILY SCRATCH & WIN
+      ================================================= */}
+
+      {!dailyScratch.loading &&
+        dailyScratch.eligible && (
+
+          <div
+            className="checkout-card"
+            style={{
+              background:
+                "linear-gradient(135deg,#fff7ed,#ffffff)",
+              border:
+                "1px solid #fed7aa",
+              overflow:
+                "hidden",
+            }}
+          >
+
+            <div
+              style={{
+                textAlign:
+                  "center",
+              }}
+            >
+
+              <div
+                style={{
+                  display:
+                    "inline-flex",
+                  alignItems:
+                    "center",
+                  gap:
+                    "8px",
+                  padding:
+                    "7px 13px",
+                  borderRadius:
+                    "999px",
+                  background:
+                    "#fff1f2",
+                  color:
+                    "#dc2626",
+                  fontSize:
+                    "12px",
+                  fontWeight:
+                    "800",
+                  letterSpacing:
+                    ".8px",
+                }}
+              >
+                🎁 DAILY SCRATCH & WIN
+              </div>
+
+
+              <h3
+                style={{
+                  margin:
+                    "14px 0 6px",
+                  fontSize:
+                    "22px",
+                }}
+              >
+                Daily Scratch Reward
+              </h3>
+
+
+              {!dailyScratch.unlocked && (
+
+                <>
+                  <p
+                    style={{
+                      color:
+                        "#666",
+                      lineHeight:
+                        "1.6",
+                      margin:
+                        "0 auto",
+                      maxWidth:
+                        "400px",
+                    }}
+                  >
+                    Your ₹
+                    {
+                      Number(
+                        totalPrice
+                      ).toFixed(0)
+                    }{" "}
+                    order qualifies for
+                    today's Scratch & Win.
+                  </p>
+
+
+                  <div
+                    style={{
+                      marginTop:
+                        "14px",
+                      padding:
+                        "12px",
+                      borderRadius:
+                        "12px",
+                      background:
+                        "#fff",
+                      border:
+                        "1px dashed #f59e0b",
+                      color:
+                        "#92400e",
+                      fontWeight:
+                        "700",
+                    }}
+                  >
+                    💳 Select a payment method
+                    above to unlock your scratch
+                    card.
+                  </div>
+
+                </>
+              )}
+
+
+              {dailyScratch.unlocked &&
+                !dailyScratch.revealed && (
+
+                  <>
+                    <p
+                      style={{
+                        color:
+                          "#666",
+                        margin:
+                          "8px 0 0",
+                      }}
+                    >
+                      Your card is unlocked.
+                      Scratch it to reveal
+                      today's reward.
+                    </p>
+
+
+                    <DailyScratchCard
+                      disabled={
+                        dailyScratchRevealing
+                      }
+                      onReveal={
+                        revealDailyScratch
+                      }
+                    />
+
+                  </>
+                )}
+
+
+              {dailyScratch.revealed &&
+                dailyScratch.reward && (
+
+                  <div
+                    style={{
+                      marginTop:
+                        "18px",
+                      padding:
+                        "20px",
+                      borderRadius:
+                        "18px",
+                      background:
+                        "linear-gradient(135deg,#fff,#fff7ed)",
+                      border:
+                        "1px solid #fdba74",
+                      boxShadow:
+                        "0 10px 30px rgba(0,0,0,.06)",
+                    }}
+                  >
+
+                    <div
+                      style={{
+                        fontSize:
+                          "48px",
+                      }}
+                    >
+                      🎉
+                    </div>
+
+
+                    <div
+                      style={{
+                        marginTop:
+                          "8px",
+                        fontSize:
+                          "12px",
+                        fontWeight:
+                          "800",
+                        letterSpacing:
+                          "1px",
+                        color:
+                          "#888",
+                      }}
+                    >
+                      YOU WON
+                    </div>
+
+
+                    <h3
+                      style={{
+                        margin:
+                          "7px 0",
+                        fontSize:
+                          "25px",
+                        color:
+                          "#111",
+                      }}
+                    >
+                      {
+                        dailyScratch
+                          .reward
+                          .title
+                      }
+                    </h3>
+
+
+                    {dailyScratch
+                      .reward
+                      .type ===
+                      "discount" ? (
+
+                      <p
+                        style={{
+                          margin:
+                            "8px 0 0",
+                          color:
+                            "#15803d",
+                          fontWeight:
+                            "700",
+                        }}
+                      >
+                        🎁 5% discount
+                        applied to this
+                        current order.
+                      </p>
+
+                    ) : (
+
+                      <p
+                        style={{
+                          margin:
+                            "8px 0 0",
+                          color:
+                            "#15803d",
+                          fontWeight:
+                            "700",
+                        }}
+                      >
+                        🎁 Your free item
+                        will be added to
+                        this order.
+                      </p>
+
+                    )}
+
+                  </div>
+                )}
+
+            </div>
+
+          </div>
+        )}
+
+
+      {/* =================================================
+          BELOW ₹499 MESSAGE
+      ================================================= */}
+
+      {!dailyScratch.loading &&
+        Number(totalPrice) > 0 &&
+        Number(totalPrice) <
+          DAILY_SCRATCH_MIN_BILL && (
+
+          <div
+            className="checkout-card"
+            style={{
+              background:
+                "#fff",
+              border:
+                "1px dashed #ddd",
+            }}
+          >
+
+            <div
+              style={{
+                fontWeight:
+                  "800",
+                fontSize:
+                  "14px",
+              }}
+            >
+              🎁 Daily Scratch & Win
+            </div>
+
+            <div
+              style={{
+                marginTop:
+                  "6px",
+                color:
+                  "#777",
+                fontSize:
+                  "13px",
+              }}
+            >
+              Add ₹
+              {Math.max(
+                0,
+                DAILY_SCRATCH_MIN_BILL -
+                  Number(totalPrice)
+              ).toFixed(0)}
+              {" "}
+              more to unlock today's
+              Scratch & Win.
+            </div>
+
+          </div>
+        )}
+
+
+      {/* =================================================
+          SUGAR REWARDS 6 + 1
       ================================================= */}
 
       {!loyaltyData.loading &&
@@ -3873,10 +5148,6 @@ function Checkout() {
 
 
             <div className="loyalty-unlock-content">
-
-              {/* ========================================
-                  7TH ORDER
-              ======================================== */}
 
               {currentReward?.scratchCardReady ? (
 
@@ -3975,10 +5246,6 @@ function Checkout() {
 
 
               ) : (
-
-                /* ========================================
-                   REWARD AVAILABLE
-                ======================================== */
 
                 <>
 
@@ -4307,7 +5574,7 @@ function Checkout() {
           >
 
             <span>
-              🎁 Loyalty Discount
+              🎁 Discount
             </span>
 
             <span>
@@ -4318,6 +5585,35 @@ function Checkout() {
             </span>
 
           </p>
+        )}
+
+
+        {dailyScratch.revealed &&
+          dailyScratch.reward && (
+
+          <div
+            style={{
+              margin:
+                "8px 0",
+              padding:
+                "10px 12px",
+              borderRadius:
+                "10px",
+              background:
+                "#fff7ed",
+              color:
+                "#9a3412",
+              fontSize:
+                "13px",
+              fontWeight:
+                "700",
+            }}
+          >
+            🎁 Daily Scratch:{" "}
+            {
+              dailyScratch.reward.title
+            }
+          </div>
         )}
 
 
