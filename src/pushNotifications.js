@@ -1,24 +1,29 @@
 /* =========================================================
-   SUGAR CAFE - PUSH NOTIFICATIONS
-   Customer Web Push Subscription
+   SUGAR CAFE - WEB PUSH NOTIFICATIONS
+   No Firebase Messaging / No FCM
 ========================================================= */
 
-const API_BASE_URL =
+const PAYMENT_API_URL =
   import.meta.env.VITE_PAYMENT_API_URL || "";
 
+const VAPID_PUBLIC_KEY =
+  import.meta.env.VITE_VAPID_PUBLIC_KEY || "";
 
 /* =========================================================
    HELPERS
 ========================================================= */
 
 function urlBase64ToUint8Array(base64String) {
-  const padding =
-    "=".repeat((4 - (base64String.length % 4)) % 4);
+  const padding = "=".repeat(
+    (4 - (base64String.length % 4)) % 4
+  );
 
-  const base64 =
-    (base64String + padding)
-      .replace(/-/g, "+")
-      .replace(/_/g, "/");
+  const base64 = (
+    base64String +
+    padding
+  )
+    .replace(/-/g, "+")
+    .replace(/_/g, "/");
 
   const rawData = window.atob(base64);
 
@@ -29,231 +34,137 @@ function urlBase64ToUint8Array(base64String) {
   );
 }
 
-
 /* =========================================================
-   GET CUSTOMER ID
+   SERVICE WORKER
 ========================================================= */
 
-function getCustomerId() {
-  try {
-    const directId =
-      localStorage.getItem(
-        "sugarCafeCustomerId"
-      );
-
-    if (directId) {
-      return directId;
-    }
-
-    const oldId =
-      localStorage.getItem("customerId");
-
-    if (oldId) {
-      return oldId;
-    }
-
-    const userRaw =
-      localStorage.getItem(
-        "sugarCafeUser"
-      );
-
-    if (userRaw) {
-      const user =
-        JSON.parse(userRaw);
-
-      return (
-        user?.customerId ||
-        user?.id ||
-        null
-      );
-    }
-
-    return null;
-  } catch (error) {
-    console.error(
-      "Unable to get customer ID:",
-      error
+async function getServiceWorkerRegistration() {
+  if (!("serviceWorker" in navigator)) {
+    throw new Error(
+      "This browser does not support Service Worker."
     );
-
-    return null;
   }
-}
 
-
-/* =========================================================
-   CHECK SUPPORT
-========================================================= */
-
-export function isPushSupported() {
-  return (
-    typeof window !== "undefined" &&
-    "serviceWorker" in navigator &&
-    "PushManager" in window &&
-    "Notification" in window
+  return navigator.serviceWorker.register(
+    "/sw.js"
   );
 }
 
-
 /* =========================================================
-   GET NOTIFICATION PERMISSION
+   GET CURRENT PUSH STATUS
 ========================================================= */
 
-export function getPushPermission() {
-  if (
-    typeof Notification ===
-    "undefined"
-  ) {
+export function getPushStatus() {
+  if (!("Notification" in window)) {
     return "unsupported";
   }
 
   return Notification.permission;
 }
 
-
-/* =========================================================
-   REGISTER SERVICE WORKER
-========================================================= */
-
-export async function registerPushServiceWorker() {
-  if (!isPushSupported()) {
-    throw new Error(
-      "Push notifications are not supported on this device/browser."
-    );
-  }
-
-  const registration =
-    await navigator.serviceWorker.register(
-      "/sw.js",
-      {
-        scope: "/",
-      }
-    );
-
-  await navigator.serviceWorker.ready;
-
-  return registration;
-}
-
-
-/* =========================================================
-   GET VAPID PUBLIC KEY
-========================================================= */
-
-async function getVapidPublicKey() {
-  const response =
-    await fetch(
-      `${API_BASE_URL}/api/notifications/vapid-public-key`,
-      {
-        method: "GET",
-        headers: {
-          Accept:
-            "application/json",
-        },
-      }
-    );
-
-  const data =
-    await response.json();
-
-  if (
-    !response.ok ||
-    !data?.publicKey
-  ) {
-    throw new Error(
-      data?.error ||
-        "Unable to get Web Push public key."
-    );
-  }
-
-  return data.publicKey;
-}
-
-
 /* =========================================================
    GET EXISTING SUBSCRIPTION
 ========================================================= */
 
-export async function getExistingPushSubscription() {
-  if (!isPushSupported()) {
-    return null;
-  }
-
-  const registration =
-    await navigator.serviceWorker.ready;
-
-  return registration.pushManager
-    .getSubscription();
+async function getExistingSubscription(
+  registration
+) {
+  return registration.pushManager.getSubscription();
 }
 
+/* =========================================================
+   CREATE PUSH SUBSCRIPTION
+========================================================= */
+
+async function createPushSubscription(
+  registration
+) {
+  if (!VAPID_PUBLIC_KEY) {
+    throw new Error(
+      "VITE_VAPID_PUBLIC_KEY is not configured."
+    );
+  }
+
+  return registration.pushManager.subscribe({
+    userVisibleOnly: true,
+
+    applicationServerKey:
+      urlBase64ToUint8Array(
+        VAPID_PUBLIC_KEY
+      ),
+  });
+}
 
 /* =========================================================
    SAVE SUBSCRIPTION TO SERVER
 ========================================================= */
 
-async function saveSubscription(
+async function saveSubscriptionToServer({
+  customerId,
   subscription,
-  customerId
-) {
-  const response =
-    await fetch(
-      `${API_BASE_URL}/api/notifications/subscribe`,
-      {
-        method: "POST",
-
-        headers: {
-          "Content-Type":
-            "application/json",
-        },
-
-        body: JSON.stringify({
-          customerId,
-          subscription:
-            subscription.toJSON(),
-        }),
-      }
+}) {
+  if (!PAYMENT_API_URL) {
+    throw new Error(
+      "VITE_PAYMENT_API_URL is not configured."
     );
+  }
 
-  const data =
-    await response.json();
+  const response = await fetch(
+    `${PAYMENT_API_URL}/api/notifications/subscribe`,
+    {
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json",
+      },
+
+      body: JSON.stringify({
+        customerId: String(customerId),
+        subscription,
+      }),
+    }
+  );
+
+  const data = await response.json();
 
   if (!response.ok) {
     throw new Error(
       data?.error ||
-        "Unable to save push subscription."
+        "Notification subscription save failed."
     );
   }
 
   return data;
 }
 
-
 /* =========================================================
-   SUBSCRIBE CUSTOMER
+   ENABLE ORDER NOTIFICATIONS
 ========================================================= */
 
-export async function subscribeToPushNotifications(
-  customerId = null
+export async function enableOrderNotifications(
+  customerId
 ) {
-  if (!isPushSupported()) {
-    return {
-      success: false,
-      reason: "unsupported",
-    };
+  if (!customerId) {
+    throw new Error(
+      "Customer ID is required."
+    );
   }
 
-  const finalCustomerId =
-    customerId || getCustomerId();
-
-  if (!finalCustomerId) {
-    return {
-      success: false,
-      reason: "customer-id-missing",
-    };
+  if (!("Notification" in window)) {
+    throw new Error(
+      "Notifications are not supported on this device/browser."
+    );
   }
 
-  /* ---------------------------------------------
-     Permission
-  --------------------------------------------- */
+  if (!("serviceWorker" in navigator)) {
+    throw new Error(
+      "Service Worker is not supported."
+    );
+  }
+
+  /* -----------------------------------------
+     Request notification permission
+  ----------------------------------------- */
 
   let permission =
     Notification.permission;
@@ -264,103 +175,102 @@ export async function subscribeToPushNotifications(
   }
 
   if (permission !== "granted") {
-    return {
-      success: false,
-      reason:
-        permission === "denied"
-          ? "permission-denied"
-          : "permission-not-granted",
-    };
+    if (permission === "denied") {
+      throw new Error(
+        "Notifications blocked hain. Browser settings se Sugar Cafe notifications allow karo."
+      );
+    }
+
+    throw new Error(
+      "Notification permission nahi mili."
+    );
   }
 
-  /* ---------------------------------------------
-     Service Worker
-  --------------------------------------------- */
-
-  await registerPushServiceWorker();
+  /* -----------------------------------------
+     Register service worker
+  ----------------------------------------- */
 
   const registration =
-    await navigator.serviceWorker.ready;
+    await getServiceWorkerRegistration();
 
-  /* ---------------------------------------------
+  await navigator.serviceWorker.ready;
+
+  /* -----------------------------------------
      Existing subscription
-  --------------------------------------------- */
+  ----------------------------------------- */
 
   let subscription =
-    await registration.pushManager
-      .getSubscription();
+    await getExistingSubscription(
+      registration
+    );
 
-  /* ---------------------------------------------
+  /* -----------------------------------------
      Create new subscription
-  --------------------------------------------- */
+  ----------------------------------------- */
 
   if (!subscription) {
-    const publicKey =
-      await getVapidPublicKey();
-
-    const applicationServerKey =
-      urlBase64ToUint8Array(
-        publicKey
-      );
-
     subscription =
-      await registration.pushManager.subscribe(
-        {
-          userVisibleOnly: true,
-
-          applicationServerKey,
-        }
+      await createPushSubscription(
+        registration
       );
   }
 
-  /* ---------------------------------------------
-     Save on backend
-  --------------------------------------------- */
+  /* -----------------------------------------
+     Save to backend
+  ----------------------------------------- */
 
-  await saveSubscription(
-    subscription,
-    finalCustomerId
-  );
+  const result =
+    await saveSubscriptionToServer({
+      customerId,
+      subscription:
+        subscription.toJSON(),
+    });
 
   return {
-    success: true,
+    ok: true,
+    permission,
     subscription,
-    permission: "granted",
+    server: result,
   };
 }
 
-
 /* =========================================================
-   UNSUBSCRIBE CUSTOMER
+   DISABLE ORDER NOTIFICATIONS
 ========================================================= */
 
-export async function unsubscribeFromPushNotifications(
-  customerId = null
+export async function disableOrderNotifications(
+  customerId
 ) {
-  if (!isPushSupported()) {
-    return {
-      success: false,
-      reason: "unsupported",
-    };
+  if (!customerId) {
+    throw new Error(
+      "Customer ID is required."
+    );
   }
 
-  const finalCustomerId =
-    customerId || getCustomerId();
+  if (!("serviceWorker" in navigator)) {
+    return;
+  }
+
+  const registration =
+    await navigator.serviceWorker.getRegistration(
+      "/sw.js"
+    );
+
+  if (!registration) {
+    return;
+  }
 
   const subscription =
-    await getExistingPushSubscription();
+    await registration.pushManager.getSubscription();
 
   if (!subscription) {
-    return {
-      success: true,
-      alreadyUnsubscribed: true,
-    };
+    return;
   }
 
-  try {
-    if (finalCustomerId) {
+  if (PAYMENT_API_URL) {
+    try {
       await fetch(
-        `${API_BASE_URL}/api/notifications/unsubscribe`,
+        `${PAYMENT_API_URL}/api/notifications/unsubscribe`,
         {
           method: "POST",
 
@@ -370,83 +280,47 @@ export async function unsubscribeFromPushNotifications(
           },
 
           body: JSON.stringify({
-            customerId:
-              finalCustomerId,
-
+            customerId: String(customerId),
             endpoint:
               subscription.endpoint,
           }),
         }
       );
+    } catch (error) {
+      console.warn(
+        "Failed to remove push subscription from server:",
+        error
+      );
     }
-  } catch (error) {
-    console.error(
-      "Unable to remove subscription from server:",
-      error
-    );
   }
 
   await subscription.unsubscribe();
-
-  return {
-    success: true,
-  };
 }
 
-
 /* =========================================================
-   ENABLE PUSH
-   Useful after a button click.
+   CHECK IF DEVICE IS SUBSCRIBED
 ========================================================= */
 
-export async function enableOrderNotifications(
-  customerId = null
-) {
+export async function isOrderNotificationsEnabled() {
+  if (!("serviceWorker" in navigator)) {
+    return false;
+  }
+
   try {
-    return await subscribeToPushNotifications(
-      customerId
-    );
-  } catch (error) {
-    console.error(
-      "Push notification setup failed:",
-      error
-    );
+    const registration =
+      await navigator.serviceWorker.getRegistration(
+        "/sw.js"
+      );
 
-    return {
-      success: false,
-      reason: "setup-failed",
-      error: error?.message || String(error),
-    };
+    if (!registration) {
+      return false;
+    }
+
+    const subscription =
+      await registration.pushManager.getSubscription();
+
+    return Boolean(subscription);
+  } catch {
+    return false;
   }
-}
-
-
-/* =========================================================
-   PUSH STATUS
-========================================================= */
-
-export async function getPushStatus() {
-  if (!isPushSupported()) {
-    return {
-      supported: false,
-      permission: "unsupported",
-      subscribed: false,
-    };
-  }
-
-  const subscription =
-    await getExistingPushSubscription();
-
-  return {
-    supported: true,
-
-    permission:
-      Notification.permission,
-
-    subscribed:
-      Boolean(subscription),
-
-    endpoint:
-      subscription?.endpoint || null,
-  };
 }
