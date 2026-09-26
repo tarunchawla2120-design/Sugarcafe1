@@ -1081,13 +1081,14 @@ useEffect(() => {
   const gst = 0;
 
   const grandTotal =
-    Number(totalPrice) +
-    Number(deliveryCharge) -
-    Number(discount) +
+  Number(totalPrice) +
+  Number(deliveryCharge) -
+  Number(discount) +
+  Number(gst);
 
-  /* =======================================================
-     MAP MOVE -> ADDRESS
-  ======================================================= */
+/* =======================================================
+   MAP MOVE -> ADDRESS
+======================================================= */
 
   const handleMapMoveEnd = useCallback(
     async (location) => {
