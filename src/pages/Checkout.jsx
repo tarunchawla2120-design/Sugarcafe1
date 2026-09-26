@@ -829,6 +829,11 @@ function Checkout() {
               loc.fullAddress ||
               loc.address
             );
+
+            setManualAddress(
+              loc.fullAddress ||
+              loc.address
+            );
           }
         }
       }
@@ -1660,9 +1665,6 @@ function Checkout() {
 
   /* =======================================================
      REVERSE GEOCODING
-     
-     ONLY USED FOR CURRENT GPS LOCATION.
-     Manual address DOES NOT use this.
   ======================================================= */
 
   const reverseGeocode =
@@ -1712,10 +1714,6 @@ function Checkout() {
 
   /* =======================================================
      MANUAL ADDRESS
-     
-     IMPORTANT:
-     No Google/Nominatim search.
-     Address is saved exactly as typed.
   ======================================================= */
 
   const useManualAddress = () => {
@@ -1732,15 +1730,7 @@ function Checkout() {
       return;
     }
 
-    /*
-     * Keep the typed address exactly as entered.
-     */
-
     setAddress(value);
-
-    /*
-     * Coordinates come from the current map pin.
-     */
 
     const savedLocation = {
       latitude: Number(marker.lat),
@@ -1769,11 +1759,6 @@ function Checkout() {
       );
     }
 
-
-    /*
-     * Also update local customer profile
-     * immediately when available.
-     */
 
     try {
 
@@ -2071,10 +2056,6 @@ function Checkout() {
 
   /* =======================================================
      MARKER DRAG
-     
-     IMPORTANT:
-     Dragging pin changes coordinates only.
-     It does NOT replace the customer's typed address.
   ======================================================= */
 
   const onMarkerDragEnd =
@@ -2110,17 +2091,9 @@ function Checkout() {
       );
 
 
-      /*
-       * Preserve the current address text.
-       */
-
       const currentAddress =
         address.trim();
 
-
-      /*
-       * Save the new coordinates locally.
-       */
 
       try {
 
@@ -2147,14 +2120,6 @@ function Checkout() {
           error
         );
       }
-
-
-      /*
-       * Do NOT reverse geocode here.
-       *
-       * Distance and delivery charge are automatically
-       * recalculated because marker state changed.
-       */
     };
 
 
@@ -3936,9 +3901,7 @@ function Checkout() {
       </h2>
 
 
-      {/* =================================================
-          ORDER TYPE
-      ================================================= */}
+      {/* ORDER TYPE */}
 
       <div className="checkout-card">
 
@@ -4096,9 +4059,7 @@ function Checkout() {
       </div>
 
 
-      {/* =================================================
-          DELIVERY ADDRESS
-      ================================================= */}
+      {/* DELIVERY ADDRESS */}
 
       {!isTakeaway && (
 
@@ -4248,6 +4209,8 @@ function Checkout() {
           )}
 
 
+          {/* MAIN ADDRESS */}
+
           <input
             type="text"
 
@@ -4257,11 +4220,14 @@ function Checkout() {
               address
             }
 
-            onChange={(e) =>
-              setAddress(
-                e.target.value
-              )
-            }
+            onChange={(e) => {
+              const value =
+                e.target.value;
+
+              setAddress(value);
+
+              setManualAddress(value);
+            }}
 
             style={{
               width: "100%",
@@ -4277,9 +4243,7 @@ function Checkout() {
           />
 
 
-          {/* =================================================
-              MANUAL ADDRESS
-          ================================================= */}
+          {/* MANUAL ADDRESS */}
 
           <div className="manual-address-box">
 
@@ -4294,11 +4258,19 @@ function Checkout() {
                 manualAddress
               }
 
-              onChange={(e) =>
+              onChange={(e) => {
+
+                const value =
+                  e.target.value;
+
                 setManualAddress(
-                  e.target.value
-                )
-              }
+                  value
+                );
+
+                setAddress(
+                  value
+                );
+              }}
 
               placeholder="House/Flat No., Area, Landmark, City, PIN"
 
@@ -4372,7 +4344,7 @@ function Checkout() {
 
 
           {/* =================================================
-              MAP
+              FINAL MAP — NO API KEY REQUIRED
           ================================================= */}
 
           <div className="checkout-map-wrapper">
@@ -4400,13 +4372,13 @@ function Checkout() {
               }
             >
 
+              {/* OPENSTREETMAP
+                  NO API KEY REQUIRED */}
+
               <TileLayer
-
-                attribution='&copy; OpenStreetMap contributors &copy; CARTO'
-
-                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-
-                maxZoom={20}
+                attribution="&copy; OpenStreetMap contributors"
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                maxZoom={19}
               />
 
 
@@ -4471,9 +4443,7 @@ function Checkout() {
           </div>
 
 
-          {/* =================================================
-              DELIVERY STATUS
-          ================================================= */}
+          {/* DELIVERY STATUS */}
 
           <div
             style={{
@@ -4553,9 +4523,7 @@ function Checkout() {
       )}
 
 
-      {/* =================================================
-          TAKEAWAY CUSTOMER
-      ================================================= */}
+      {/* TAKEAWAY CUSTOMER */}
 
       {isTakeaway &&
         customerProfile && (
@@ -4602,9 +4570,7 @@ function Checkout() {
         )}
 
 
-      {/* =================================================
-          SPECIAL NOTE
-      ================================================= */}
+      {/* SPECIAL NOTE */}
 
       <div className="checkout-card special-note-card">
 
@@ -4673,9 +4639,7 @@ function Checkout() {
       </div>
 
 
-      {/* =================================================
-          PAYMENT
-      ================================================= */}
+      {/* PAYMENT */}
 
       <div className="checkout-card">
 
@@ -4807,9 +4771,7 @@ function Checkout() {
       </div>
 
 
-      {/* =================================================
-          DAILY SCRATCH & WIN
-      ================================================= */}
+      {/* DAILY SCRATCH & WIN */}
 
       {!dailyScratch.loading &&
         dailyScratch.eligible && (
@@ -5071,9 +5033,7 @@ function Checkout() {
         )}
 
 
-      {/* =================================================
-          BELOW ₹499
-      ================================================= */}
+      {/* BELOW ₹499 */}
 
       {!dailyScratch.loading &&
         Number(totalPrice) > 0 &&
@@ -5126,9 +5086,7 @@ function Checkout() {
         )}
 
 
-      {/* =================================================
-          SUGAR REWARDS 6 + 1
-      ================================================= */}
+      {/* SUGAR REWARDS 6 + 1 */}
 
       {!loyaltyData.loading &&
         (
@@ -5407,9 +5365,7 @@ function Checkout() {
         )}
 
 
-      {/* =================================================
-          LOYALTY PROGRESS
-      ================================================= */}
+      {/* LOYALTY PROGRESS */}
 
       {!loyaltyData.loading &&
         !currentReward &&
@@ -5535,9 +5491,7 @@ function Checkout() {
         )}
 
 
-      {/* =================================================
-          ORDER SUMMARY
-      ================================================= */}
+      {/* ORDER SUMMARY */}
 
       <div className="checkout-card">
 
