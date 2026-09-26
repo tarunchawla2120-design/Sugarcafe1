@@ -1,9 +1,14 @@
 /* =========================================================
    SUGAR CAFE - CHECKOUT
-   FINAL CSS
+   FINAL PREMIUM CSS
 ========================================================= */
 
+* {
+  box-sizing: border-box;
+}
+
 body {
+  margin: 0;
   background: #f5f5f5;
 }
 
@@ -13,14 +18,21 @@ body {
   margin: auto;
   padding: 20px;
   min-height: 100vh;
-  box-sizing: border-box;
   background: #f5f5f5;
+  color: #241b17;
 }
 
-.checkout-page h2 {
-  margin-bottom: 20px;
+
+/* =========================================================
+   PAGE TITLE
+========================================================= */
+
+.checkout-page > h2 {
+  margin: 0 0 20px;
   font-size: 28px;
-  font-weight: 700;
+  line-height: 1.2;
+  font-weight: 800;
+  color: #241b17;
 }
 
 
@@ -29,21 +41,27 @@ body {
 ========================================================= */
 
 .checkout-card {
+  position: relative;
+  width: 100%;
   background: #fff;
   border-radius: 18px;
   padding: 20px;
   margin-bottom: 18px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 8px 20px rgba(0, 0, 0, 0.07);
   box-sizing: border-box;
 }
 
 .checkout-card h3 {
   margin: 0 0 15px;
+  color: #241b17;
+  font-size: 18px;
+  font-weight: 800;
 }
 
 
 /* =========================================================
-   INPUT
+   TEXT INPUT
 ========================================================= */
 
 .checkout-card input[type="text"] {
@@ -51,9 +69,19 @@ body {
   padding: 14px;
   border: 1px solid #ddd;
   border-radius: 12px;
-  font-size: 16px;
+  font-size: 15px;
   outline: none;
-  box-sizing: border-box;
+  background: #fff;
+  color: #222;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.checkout-card input[type="text"]:focus {
+  border-color: #ff6b35;
+  box-shadow:
+    0 0 0 4px rgba(255, 107, 53, 0.08);
 }
 
 
@@ -69,6 +97,11 @@ body {
   cursor: pointer;
 }
 
+.checkout-card label input[type="radio"] {
+  flex-shrink: 0;
+  accent-color: #ff6b35;
+}
+
 
 /* =========================================================
    ORDER SUMMARY
@@ -77,13 +110,17 @@ body {
 .checkout-card p {
   display: flex;
   justify-content: space-between;
+  gap: 15px;
   margin: 10px 0;
 }
 
 .checkout-card h2 {
   display: flex;
   justify-content: flex-end;
+  margin: 14px 0 0;
   color: #ff6b35;
+  font-size: 26px;
+  font-weight: 800;
 }
 
 
@@ -114,7 +151,8 @@ body {
 
   transition:
     transform 0.3s ease,
-    box-shadow 0.3s ease;
+    box-shadow 0.3s ease,
+    opacity 0.2s ease;
 
   box-shadow:
     0 10px 25px
@@ -123,12 +161,23 @@ body {
 
 .place-order-btn:hover {
   transform: translateY(-3px);
+
+  box-shadow:
+    0 14px 30px
+      rgba(255, 107, 53, 0.40);
+}
+
+.place-order-btn:active {
+  transform: scale(0.98);
 }
 
 .place-order-btn:disabled {
   opacity: 0.65;
   cursor: not-allowed;
   transform: none;
+  box-shadow:
+    0 8px 18px
+      rgba(255, 107, 53, 0.18);
 }
 
 
@@ -141,7 +190,12 @@ body {
   padding: 14px;
   border-radius: 14px;
 
-  background: #fff7ed;
+  background:
+    linear-gradient(
+      135deg,
+      #fff7ed,
+      #fff
+    );
 
   border: 1px solid #fed7aa;
 
@@ -165,18 +219,21 @@ body {
 
 .saved-addresses > strong {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 9px;
+  font-size: 14px;
+  color: #332923;
 }
 
 .saved-address-btn {
   width: 100%;
   text-align: left;
 
-  padding: 11px 12px;
+  padding: 12px;
+
   margin-bottom: 8px;
 
   border: 1px solid #e5e7eb;
-  border-radius: 12px;
+  border-radius: 13px;
 
   background: #fff;
 
@@ -184,10 +241,22 @@ body {
 
   font-size: 14px;
   line-height: 1.45;
+
+  color: #302923;
+
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    transform 0.15s ease;
 }
 
 .saved-address-btn:hover {
   border-color: #ff6b35;
+  background: #fffaf7;
+}
+
+.saved-address-btn:active {
+  transform: scale(0.99);
 }
 
 .saved-address-btn span {
@@ -196,71 +265,406 @@ body {
 
 
 /* =========================================================
-   MANUAL ADDRESS
+   ADDRESS SEARCH
+========================================================= */
+
+.checkout-card input[placeholder*="address"],
+.checkout-card input[placeholder*="Address"] {
+  background: #fff;
+}
+
+
+/* =========================================================
+   MANUAL ADDRESS - PREMIUM
 ========================================================= */
 
 .manual-address-box {
-  margin-top: 12px;
+  position: relative;
 
-  padding: 12px;
+  margin-top: 14px;
 
-  border: 1px dashed #d1d5db;
+  padding: 16px;
 
-  border-radius: 12px;
+  border-radius: 18px;
 
-  background: #fafafa;
+  background:
+    linear-gradient(
+      145deg,
+      #fffaf5,
+      #ffffff
+    );
+
+  border: 1px solid #f1dfd1;
+
+  box-shadow:
+    0 8px 24px
+      rgba(0, 0, 0, 0.05);
 }
+
+
+/* title */
 
 .manual-address-box label {
   display: block;
 
-  margin: 0 0 7px;
+  margin: 0 0 9px;
 
-  font-weight: 600;
+  color: #241b17;
+
+  font-size: 14px;
+
+  font-weight: 800;
 }
+
+
+/* textarea */
 
 .manual-address-box textarea {
   width: 100%;
+
+  min-height: 105px;
+
   box-sizing: border-box;
 
   resize: vertical;
 
-  padding: 12px;
+  padding: 14px;
 
-  border: 1px solid #ddd;
+  border: 1px solid #ded8d3;
 
-  border-radius: 10px;
+  border-radius: 14px;
+
+  background: #fff;
+
+  color: #222;
 
   font-size: 15px;
+
+  line-height: 1.5;
 
   outline: none;
 
   font-family: inherit;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
 }
+
+.manual-address-box textarea::placeholder {
+  color: #9b938e;
+}
+
+.manual-address-box textarea:focus {
+  border-color: #ff6b35;
+
+  background: #fff;
+
+  box-shadow:
+    0 0 0 4px
+      rgba(255, 107, 53, 0.10);
+}
+
+
+/* save button */
 
 .manual-address-btn {
   width: 100%;
 
-  margin-top: 8px;
+  margin-top: 10px;
 
-  padding: 11px;
+  padding: 14px;
 
   border: none;
 
-  border-radius: 10px;
+  border-radius: 13px;
 
-  background: #111827;
+  background:
+    linear-gradient(
+      135deg,
+      #111827,
+      #252f40
+    );
 
   color: #fff;
 
-  font-weight: 600;
+  font-size: 15px;
+
+  font-weight: 700;
 
   cursor: pointer;
+
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.2s ease;
+}
+
+.manual-address-btn:hover {
+  transform: translateY(-1px);
+
+  box-shadow:
+    0 8px 20px
+      rgba(17, 24, 39, 0.18);
+}
+
+.manual-address-btn:active {
+  transform: scale(0.98);
 }
 
 .manual-address-btn:disabled {
   opacity: 0.65;
+
   cursor: not-allowed;
+
+  transform: none;
+
+  box-shadow: none;
+}
+
+
+/* =========================================================
+   CURRENT LOCATION BUTTON
+========================================================= */
+
+.checkout-card button[style*="ff4d4f"] {
+  box-shadow:
+    0 8px 18px
+      rgba(255, 77, 79, 0.22);
+
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.2s ease;
+}
+
+.checkout-card button[style*="ff4d4f"]:hover {
+  transform: translateY(-1px);
+
+  box-shadow:
+    0 11px 23px
+      rgba(255, 77, 79, 0.28);
+}
+
+
+/* =========================================================
+   PREMIUM MAP
+========================================================= */
+
+.checkout-map-wrapper {
+  position: relative;
+
+  width: 100%;
+
+  height: 330px;
+
+  margin-top: 18px;
+
+  overflow: hidden;
+
+  border-radius: 22px;
+
+  background: #eef1f4;
+
+  border: 1px solid rgba(0, 0, 0, 0.08);
+
+  box-shadow:
+    0 12px 30px
+      rgba(0, 0, 0, 0.10);
+}
+
+.checkout-map-wrapper .leaflet-container {
+  width: 100%;
+  height: 100%;
+
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+
+/* =========================================================
+   MAP CONTAINER FALLBACK
+   Current JSX uses inline styles, so this also applies
+========================================================= */
+
+.checkout-card
+> div[style*="height: 300px"] {
+  border-radius: 18px !important;
+
+  box-shadow:
+    0 10px 25px
+      rgba(0, 0, 0, 0.10);
+
+  border:
+    1px solid rgba(0, 0, 0, 0.08);
+}
+
+
+/* =========================================================
+   LEAFLET MAP
+========================================================= */
+
+.leaflet-container {
+  background: #eef1f4;
+}
+
+.leaflet-control-zoom {
+  border: none !important;
+
+  box-shadow:
+    0 6px 16px
+      rgba(0, 0, 0, 0.15) !important;
+}
+
+.leaflet-control-zoom a {
+  width: 34px !important;
+  height: 34px !important;
+
+  line-height: 34px !important;
+
+  border: none !important;
+
+  color: #222 !important;
+
+  background: rgba(255, 255, 255, 0.94) !important;
+
+  backdrop-filter: blur(8px);
+
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.leaflet-control-zoom a:hover {
+  background: #fff !important;
+  color: #ff6b35 !important;
+}
+
+.leaflet-control-attribution {
+  background:
+    rgba(255, 255, 255, 0.82) !important;
+
+  backdrop-filter: blur(8px);
+
+  -webkit-backdrop-filter: blur(8px);
+
+  border-radius: 8px 0 0 0;
+
+  font-size: 8px !important;
+}
+
+
+/* =========================================================
+   MAP LOCATION PIN
+========================================================= */
+
+.checkout-location-pin {
+  background: transparent !important;
+  border: none !important;
+}
+
+.checkout-pin-marker {
+  position: relative;
+
+  width: 40px;
+  height: 40px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  background: #ff3b30;
+
+  border-radius:
+    50% 50% 50% 0;
+
+  transform:
+    rotate(-45deg);
+
+  border:
+    4px solid #fff;
+
+  box-shadow:
+    0 7px 18px
+      rgba(255, 59, 48, 0.40);
+}
+
+.checkout-pin-dot {
+  width: 12px;
+  height: 12px;
+
+  border-radius: 50%;
+
+  background: #fff;
+
+  transform:
+    rotate(45deg);
+
+  box-shadow:
+    0 0 0 3px
+      rgba(255, 255, 255, 0.20);
+}
+
+
+/* =========================================================
+   MAP BADGE
+========================================================= */
+
+.checkout-map-badge {
+  position: absolute;
+
+  top: 14px;
+  left: 50%;
+
+  transform:
+    translateX(-50%);
+
+  z-index: 1000;
+
+  padding:
+    9px 15px;
+
+  border-radius: 999px;
+
+  background:
+    rgba(20, 20, 24, 0.90);
+
+  color: #fff;
+
+  font-size: 12px;
+
+  font-weight: 700;
+
+  white-space: nowrap;
+
+  box-shadow:
+    0 6px 18px
+      rgba(0, 0, 0, 0.20);
+
+  backdrop-filter:
+    blur(10px);
+
+  -webkit-backdrop-filter:
+    blur(10px);
+
+  pointer-events: none;
+}
+
+
+/* =========================================================
+   DELIVERY STATUS BOX
+========================================================= */
+
+.checkout-card
+div[style*="Delivery available"],
+.checkout-card
+div[style*="Delivery unavailable"] {
+  border: 1px solid rgba(0, 0, 0, 0.05);
+
+  box-shadow:
+    0 5px 14px
+      rgba(0, 0, 0, 0.04);
 }
 
 
@@ -277,9 +681,38 @@ body {
 
   border-radius: 16px;
 
-  background: #fffaf5;
+  background:
+    linear-gradient(
+      145deg,
+      #fffaf5,
+      #fff
+    );
 
   text-align: center;
+}
+
+.upi-payment-box strong {
+  font-size: 16px;
+}
+
+.upi-payment-box p {
+  display: block !important;
+
+  margin: 7px 0 !important;
+
+  color: #666;
+
+  line-height: 1.5;
+
+  font-size: 13px;
+}
+
+.upi-payment-box small {
+  display: block;
+
+  color: #888;
+
+  line-height: 1.4;
 }
 
 .upi-title {
@@ -570,10 +1003,16 @@ body {
 
 
 /* =========================================================
-   =========================================================
+   DAILY SCRATCH & WIN
+========================================================= */
+
+.daily-scratch-card {
+  position: relative;
+}
+
+
+/* =========================================================
    SUGARCAFE 6 + 1 LOYALTY
-   SCRATCH CARD UNLOCK
-   =========================================================
 ========================================================= */
 
 .loyalty-unlock-card {
@@ -998,9 +1437,7 @@ body {
 
 
 /* =========================================================
-   IMPORTANT
-   GLOBAL CHECKOUT p IS FLEX.
-   LOYALTY p MUST NEVER BE FLEX.
+   GLOBAL CHECKOUT p FIX
 ========================================================= */
 
 .loyalty-unlock-card p {
@@ -1113,33 +1550,51 @@ body {
 
   .checkout-page {
     padding: 15px;
-
     max-width: 420px;
   }
 
-  .checkout-page h2 {
+  .checkout-page > h2 {
     font-size: 25px;
   }
 
   .checkout-card {
     padding: 16px;
-
     border-radius: 17px;
+  }
+
+  .checkout-card h3 {
+    font-size: 17px;
+  }
+
+  .checkout-map-wrapper {
+    height: 320px;
+    border-radius: 20px;
+  }
+
+  .checkout-card
+  > div[style*="height: 300px"] {
+    height: 320px !important;
+    border-radius: 20px !important;
+  }
+
+  .manual-address-box {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .manual-address-box textarea {
+    min-height: 105px;
   }
 
   .loyalty-unlock-card {
     padding: 16px !important;
-
     border-radius: 18px;
   }
 
   .loyalty-icon {
     width: 42px;
-
     height: 42px;
-
     border-radius: 13px;
-
     font-size: 22px;
   }
 
@@ -1153,21 +1608,15 @@ body {
 
   .loyalty-unlock-content {
     margin-top: 14px;
-
     padding: 17px 13px;
-
     border-radius: 15px;
   }
 
   .loyalty-ticket {
     width: 54px;
-
     height: 54px;
-
     margin-bottom: 10px;
-
     border-radius: 16px;
-
     font-size: 28px;
   }
 
@@ -1178,16 +1627,19 @@ body {
   .loyalty-unlock-card
   .loyalty-unlock-description {
     font-size: 13px !important;
-
     line-height: 1.65 !important;
-
     padding: 0 2px !important;
   }
 
   .loyalty-next-order-notice {
     font-size: 11px;
-
     padding: 11px 10px;
+  }
+
+  .checkout-map-badge {
+    top: 12px;
+    font-size: 11px;
+    padding: 8px 12px;
   }
 }
 
@@ -1206,6 +1658,15 @@ body {
     padding: 14px;
   }
 
+  .checkout-card h3 {
+    font-size: 16px;
+  }
+
+  .checkout-card
+  > div[style*="height: 300px"] {
+    height: 300px !important;
+  }
+
   .loyalty-unlock-card {
     padding: 14px !important;
   }
@@ -1221,7 +1682,6 @@ body {
   .loyalty-unlock-card
   .loyalty-unlock-description {
     font-size: 12.5px !important;
-
     line-height: 1.6 !important;
   }
 
@@ -1238,9 +1698,11 @@ body {
 @media (prefers-reduced-motion: reduce) {
 
   .loyalty-unlock-card *,
-  .loyalty-unlock-card::before {
+  .loyalty-unlock-card::before,
+  .checkout-map-wrapper *,
+  .manual-address-btn,
+  .place-order-btn {
     animation: none !important;
-
     transition: none !important;
   }
 }
