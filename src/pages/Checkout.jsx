@@ -434,7 +434,186 @@ function Checkout() {
       console.error("Customer checkout loading error:", error);
     }
   }, []);
+/* =======================================================
+   AUTO DETECT CURRENT LOCATION ON CHECKOUT LOAD
+======================================================= */
 
+useEffect(() => {
+  // Takeaway mein location ki zarurat nahi
+  if (isTakeaway) return;
+
+  // Browser/device GPS available nahi hai
+  if (!navigator.geolocation) return;
+
+  // Agar already saved location hai, usko use karein
+  // aur unnecessarily GPS popup dobara na dikhayein.
+  try {
+    const savedLocation =
+      localStorage.getItem("userLocation");
+
+    if (savedLocation) {
+      const loc = JSON.parse(savedLocation);
+
+      const lat = Number(loc.latitude);
+      const lng = Number(loc.longitude);
+
+      if (
+        Number.isFinite(lat) &&
+        Number.isFinite(lng)
+      ) {
+        return;
+      }
+    }
+  } catch (error) {
+    console.warn(
+      "Saved location check failed:",
+      error
+    );
+  }
+
+  let cancelled = false;
+
+  const detectLocation = () => {
+    if (cancelled) return;
+
+    setLoadingLocation(true);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        if (cancelled) return;
+
+        try {
+          const latitude =
+            position.coords.latitude;
+
+          const longitude =
+            position.coords.longitude;
+
+          const newLocation = {
+            lat: latitude,
+            lng: longitude,
+          };
+
+          setMarker(newLocation);
+          setMapCenter(newLocation);
+
+          // Map ko current location par move karo
+          if (mapRef.current) {
+            mapRef.current.setView(
+              [latitude, longitude],
+              17,
+              {
+                animate: true,
+              }
+            );
+          }
+
+          let detectedAddress = "";
+
+          try {
+            detectedAddress =
+              await reverseGeocode(
+                latitude,
+                longitude
+              );
+          } catch (addressError) {
+            console.warn(
+              "Auto reverse geocoding failed:",
+              addressError
+            );
+
+            detectedAddress =
+              formatAddressFallback(
+                latitude,
+                longitude
+              );
+          }
+
+          if (cancelled) return;
+
+          setAddress(
+            detectedAddress
+          );
+
+          setLocationConfirmed(false);
+
+          try {
+            localStorage.setItem(
+              "userLocation",
+              JSON.stringify({
+                latitude,
+                longitude,
+                address:
+                  detectedAddress,
+                fullAddress:
+                  detectedAddress,
+                savedAt:
+                  new Date().toISOString(),
+              })
+            );
+          } catch (storageError) {
+            console.warn(
+              "Location save failed:",
+              storageError
+            );
+          }
+        } catch (error) {
+          console.error(
+            "Auto location processing error:",
+            error
+          );
+        } finally {
+          if (!cancelled) {
+            setLoadingLocation(false);
+          }
+        }
+      },
+
+      (error) => {
+        if (cancelled) return;
+
+        console.warn(
+          "Automatic location permission/status:",
+          error
+        );
+
+        setLoadingLocation(false);
+
+        /*
+          IMPORTANT:
+          Auto detection fail hone par alert nahi dikhayenge.
+          User manually "Use My Current Location" press kar
+          sakta hai.
+
+          Isse checkout page unnecessarily block nahi hoga.
+        */
+      },
+
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 60000,
+      }
+    );
+  };
+
+  /*
+    Thoda delay rakha hai taaki checkout page pehle render ho
+    aur browser location permission popup properly dikha sake.
+  */
+  const timer = setTimeout(
+    detectLocation,
+    500
+  );
+
+  return () => {
+    cancelled = true;
+    clearTimeout(timer);
+  };
+}, [
+  isTakeaway,
+  reverseGeocode,
+]);
   /* =======================================================
      LOYALTY
   ======================================================= */
