@@ -1,509 +1,415 @@
+/* =========================================================
+   SUGARCAFE MENU PAGE
+   FINAL MENU.CSS
+========================================================= */
+
 .menu-section {
   width: 100%;
-  padding: 20px;
+  min-height: 100vh;
+
+  padding: 35px 14px 110px;
+
   box-sizing: border-box;
+
+  background:
+    radial-gradient(
+      circle at top right,
+      rgba(255, 82, 107, 0.12),
+      transparent 35%
+    ),
+    radial-gradient(
+      circle at bottom left,
+      rgba(249, 115, 22, 0.10),
+      transparent 35%
+    ),
+    #111216;
+
+  color: #fff;
 }
+
+
+/* =========================================================
+   TITLE
+========================================================= */
 
 .menu-title-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
 
-.menu-title-row h2 {
-  margin: 0;
-  font-size: 28px;
-  color: #222;
-}
-
-.view-all-btn {
-  border: 1px solid #e5e5e5;
-  background: white;
-  color: #333;
-  padding: 8px 14px;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-
-/* OVERLAY */
-
-.category-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  padding: 15px;
-
-  background: rgba(0, 0, 0, 0.58);
-
-  backdrop-filter: blur(7px);
-  -webkit-backdrop-filter: blur(7px);
-}
-
-
-/* MODAL */
-
-.category-modal {
-  position: relative;
-
-  width: min(650px, 94vw);
-  max-height: 90vh;
-
-  padding: 25px 20px 82px;
-
-  overflow: hidden;
-
-  border-radius: 25px;
-
-  background: rgba(20, 20, 24, 0.91);
-
-  border: 1px solid rgba(255, 255, 255, 0.18);
-
-  box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.55);
-
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-}
-
-
-/* LOGO */
-
-.sugar-logo {
-  position: absolute;
-
-  top: 22px;
-  right: 25px;
-
-  width: 105px;
-  height: 55px;
-
-  object-fit: contain;
-
-  z-index: 3;
-}
-
-
-/* WATERMARK */
-
-.sugar-watermark {
-  position: absolute;
-
-  width: 390px;
-
-  max-width: 75%;
-
-  left: 50%;
-  top: 55%;
-
-  transform: translate(-50%, -50%);
-
-  opacity: 0.055;
-
-  pointer-events: none;
-
-  z-index: 0;
-}
-
-
-/* HEADER */
-
-.category-header {
-  position: relative;
-  z-index: 2;
-
-  padding-right: 115px;
+  gap: 12px;
 
   margin-bottom: 18px;
 }
 
-.category-header h2 {
+.menu-title-row h2 {
   margin: 0;
 
-  color: #fff;
+  font-size: 28px;
+  line-height: 1.15;
 
-  font-size: 32px;
-  font-weight: 700;
+  color: #fff !important;
+
+  font-weight: 800;
 }
 
-.category-header h2 span {
-  color: #ff526b;
-}
-
-.category-header p {
+.menu-title-row p {
   margin: 5px 0 0;
 
-  color: rgba(255,255,255,0.65);
+  color: rgba(255, 255, 255, 0.65) !important;
 
-  font-size: 14px;
+  font-size: 13px;
 }
 
 
-/* SEARCH */
+/* =========================================================
+   VIEW ALL BUTTON
+========================================================= */
 
-.category-search {
-  position: relative;
-  z-index: 2;
+.view-all-btn {
+  flex-shrink: 0;
 
-  height: 50px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
 
-  display: flex;
-  align-items: center;
-
-  padding: 0 15px;
-
-  margin-bottom: 16px;
-
-  border-radius: 14px;
-
-  border: 1px solid rgba(255,255,255,0.18);
-
-  background: rgba(255,255,255,0.055);
-}
-
-.category-search span {
-  color: #aaa;
-
-  font-size: 28px;
-
-  margin-right: 10px;
-}
-
-.category-search input {
-  width: 100%;
-
-  border: none;
-  outline: none;
-
-  background: transparent;
+  background: rgba(255, 255, 255, 0.08);
 
   color: #fff;
 
-  font-size: 16px;
+  padding: 9px 14px;
+
+  border-radius: 10px;
+
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease;
 }
 
-.category-search input::placeholder {
-  color: #888;
+.view-all-btn:hover {
+  background: rgba(255, 82, 107, 0.18);
+}
+
+.view-all-btn:active {
+  transform: scale(0.96);
 }
 
 
-/* LIST */
+/* =========================================================
+   SEARCH BOX
+========================================================= */
+
+.menu-section > div {
+  box-sizing: border-box;
+}
+
+.menu-section input {
+  color: #fff !important;
+
+  caret-color: #ff526b;
+}
+
+.menu-section input::placeholder {
+  color: rgba(255, 255, 255, 0.50) !important;
+}
+
+
+/* =========================================================
+   CATEGORY LIST
+========================================================= */
 
 .category-list {
-  position: relative;
-  z-index: 2;
+  width: 100%;
 
-  max-height: 60vh;
-
-  overflow-y: auto;
-
-  padding-right: 5px;
-}
-
-.category-list::-webkit-scrollbar {
-  width: 4px;
-}
-
-.category-list::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.35);
-  border-radius: 10px;
+  box-sizing: border-box;
 }
 
 
-/* ROW */
+/* =========================================================
+   CATEGORY ROW
+========================================================= */
 
-.category-row {
+.menu-section .category-row {
   width: 100%;
 
   min-height: 64px;
 
   display: flex;
+
   align-items: center;
 
   gap: 12px;
 
-  margin-bottom: 8px;
+  margin-bottom: 9px;
 
-  padding: 7px 10px;
+  padding: 8px 10px;
 
-  border-radius: 15px;
+  box-sizing: border-box;
 
-  border: 1px solid rgba(255,255,255,0.11);
+  border-radius: 17px;
 
-  background: rgba(255,255,255,0.045);
+  border: 1px solid rgba(255, 255, 255, 0.13) !important;
 
-  color: white;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.075),
+      rgba(255, 255, 255, 0.035)
+    ) !important;
+
+  color: #fff !important;
 
   cursor: pointer;
 
   text-align: left;
 
-  transition: 0.2s;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.22);
+
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease;
 }
 
-.category-row:hover {
-  background: rgba(255,82,107,0.10);
+.menu-section .category-row:hover {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 82, 107, 0.17),
+      rgba(255, 255, 255, 0.05)
+    ) !important;
 
-  border-color: rgba(255,82,107,0.35);
+  border-color:
+    rgba(255, 82, 107, 0.45) !important;
+}
+
+.menu-section .category-row:active {
+  transform: scale(0.985);
 }
 
 
-/* IMAGE */
+/* =========================================================
+   CATEGORY IMAGE
+========================================================= */
 
-.category-image {
-  width: 46px;
-  height: 46px;
+.menu-section .category-image {
+  width: 48px;
+
+  height: 48px;
+
+  min-width: 48px;
 
   flex-shrink: 0;
 
   display: flex;
+
   align-items: center;
+
   justify-content: center;
+
+  overflow: hidden;
 
   border-radius: 50%;
 
-  background: rgba(255,255,255,0.08);
+  background:
+    rgba(255, 255, 255, 0.08);
 
-  overflow: hidden;
+  border:
+    1px solid rgba(255, 255, 255, 0.10);
 }
 
-.category-image img {
+.menu-section .category-image img {
   width: 100%;
+
   height: 100%;
 
   object-fit: cover;
+
+  display: block;
 }
 
-.category-image span {
+.menu-section .category-image span {
   font-size: 25px;
 }
 
 
-/* NUMBER */
+/* =========================================================
+   CATEGORY NUMBER
+========================================================= */
 
-.category-number {
-  width: 34px;
-  height: 34px;
+.menu-section .category-number {
+  width: 38px;
+
+  height: 38px;
+
+  min-width: 38px;
 
   flex-shrink: 0;
 
   display: flex;
+
   align-items: center;
+
   justify-content: center;
 
-  border-radius: 9px;
+  border-radius: 10px;
 
-  background: #e6425c;
+  background: #e6425c !important;
 
-  color: white;
+  color: #fff !important;
 
   font-size: 15px;
-  font-weight: 700;
+
+  font-weight: 800;
 }
 
 
-/* NAME */
+/* =========================================================
+   CATEGORY NAME
+========================================================= */
 
-.category-name {
+.menu-section .category-name {
   flex: 1;
 
-  color: #fff;
+  min-width: 0;
+
+  color: #fff !important;
 
   font-size: 17px;
-
-  font-weight: 500;
-}
-
-
-/* COUNT */
-
-.category-count {
-  color: #ff5b71;
-
-  font-size: 16px;
 
   font-weight: 600;
 
   white-space: nowrap;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
 }
 
-.category-count span {
-  font-size: 12px;
 
-  color: rgba(255,255,255,0.65);
+/* =========================================================
+   CATEGORY COUNT
+========================================================= */
+
+.menu-section .category-count {
+  display: flex;
+
+  align-items: center;
+
+  gap: 4px;
+
+  color: #ff526b !important;
+
+  font-size: 16px;
+
+  font-weight: 700;
+
+  white-space: nowrap;
+}
+
+.menu-section .category-count strong {
+  color: #ff526b !important;
+
+  font-size: 17px;
+}
+
+.menu-section .category-count span {
+  color:
+    rgba(255, 255, 255, 0.58) !important;
+
+  font-size: 11px;
 
   font-weight: 400;
 }
 
 
-/* ARROW */
+/* =========================================================
+   CATEGORY ARROW
+========================================================= */
 
-.category-arrow {
-  color: #ddd;
+.menu-section .category-arrow {
+  color: #fff !important;
 
-  font-size: 28px;
+  font-size: 29px;
 
   line-height: 1;
+
+  opacity: 0.85;
 }
 
 
-/* CLOSE */
+/* =========================================================
+   PRODUCT GRID
+========================================================= */
 
-.category-close {
-  position: absolute;
+.products-grid {
+  width: 100%;
 
-  bottom: 15px;
-  left: 50%;
+  display: grid;
 
-  transform: translateX(-50%);
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
 
-  z-index: 5;
+  gap: 12px;
 
-  display: flex;
-  align-items: center;
-  gap: 8px;
-
-  padding: 10px 25px;
-
-  border-radius: 25px;
-
-  border: 1px solid #ff526b;
-
-  background: rgba(20,20,24,0.95);
-
-  color: white;
-
-  font-size: 16px;
-  font-weight: 500;
-
-  cursor: pointer;
-}
-
-.category-close span {
-  font-size: 27px;
-  line-height: 1;
+  box-sizing: border-box;
 }
 
 
-/* MOBILE */
+/* =========================================================
+   EMPTY STATE
+========================================================= */
 
-@media (max-width: 600px) {
+.menu-section .empty-state {
+  width: 100%;
 
-  .category-overlay {
-    padding: 10px;
-  }
+  box-sizing: border-box;
 
-  .category-modal {
-    width: 96vw;
+  text-align: center;
 
-    max-height: 91vh;
+  color: #fff !important;
 
-    padding: 20px 12px 75px;
-
-    border-radius: 22px;
-  }
-
-  .sugar-logo {
-    width: 75px;
-    height: 45px;
-
-    right: 15px;
-    top: 18px;
-  }
-
-  .category-header {
-    padding-right: 85px;
-  }
-
-  .category-header h2 {
-    font-size: 24px;
-  }
-
-  .category-header p {
-    font-size: 11px;
-  }
-
-  .category-search {
-    height: 46px;
-  }
-
-  .category-list {
-    max-height: 63vh;
-  }
-
-  .category-row {
-    min-height: 58px;
-
-    gap: 7px;
-
-    padding: 6px;
-  }
-
-  .category-image {
-    width: 40px;
-    height: 40px;
-  }
-
-  .category-number {
-    width: 31px;
-    height: 31px;
-
-    border-radius: 8px;
-
-    font-size: 13px;
-  }
-
-  .category-name {
-    font-size: 15px;
-  }
-
-  .category-count {
-    font-size: 14px;
-  }
-
-  .category-count span {
-    display: none;
-  }
-
-  .category-arrow {
-    font-size: 24px;
-  }
-
-  .sugar-watermark {
-    width: 80%;
-  }
-
-  .category-close {
-    bottom: 12px;
-
-    padding: 8px 20px;
-
-    font-size: 14px;
-  }
+  padding: 50px 20px;
 }
-/* =========================================
+
+.menu-section .empty-state h3 {
+  margin: 0 0 8px;
+
+  color: #fff !important;
+}
+
+.menu-section .empty-state p {
+  margin: 0;
+
+  color:
+    rgba(255, 255, 255, 0.65) !important;
+}
+
+
+/* =========================================================
    FOOD ITEM ADD BUTTON
-========================================= */
+========================================================= */
 
 .food-add-btn {
   display: flex;
+
   align-items: center;
+
   justify-content: center;
 
   gap: 8px;
 
   min-width: 125px;
+
   height: 48px;
 
   padding: 0 18px;
 
   border: none;
+
   border-radius: 10px;
 
   background: #e91e3f;
@@ -511,6 +417,7 @@
   color: #fff;
 
   font-size: 17px;
+
   font-weight: 700;
 
   cursor: pointer;
@@ -542,9 +449,535 @@
 }
 
 
-/* MOBILE */
+/* =========================================================
+   CATEGORY MODAL
+========================================================= */
+
+.category-overlay {
+  position: fixed;
+
+  inset: 0;
+
+  z-index: 9999;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  padding: 15px;
+
+  background:
+    rgba(0, 0, 0, 0.58);
+
+  backdrop-filter: blur(7px);
+
+  -webkit-backdrop-filter: blur(7px);
+}
+
+
+/* =========================================================
+   CATEGORY MODAL BOX
+========================================================= */
+
+.category-modal {
+  position: relative;
+
+  width: min(650px, 94vw);
+
+  max-height: 90vh;
+
+  padding: 25px 20px 82px;
+
+  overflow: hidden;
+
+  border-radius: 25px;
+
+  background:
+    rgba(20, 20, 24, 0.91);
+
+  border:
+    1px solid rgba(255, 255, 255, 0.18);
+
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.55);
+
+  backdrop-filter: blur(18px);
+
+  -webkit-backdrop-filter: blur(18px);
+}
+
+
+/* =========================================================
+   MODAL LOGO
+========================================================= */
+
+.sugar-logo {
+  position: absolute;
+
+  top: 22px;
+
+  right: 25px;
+
+  width: 105px;
+
+  height: 55px;
+
+  object-fit: contain;
+
+  z-index: 3;
+}
+
+
+/* =========================================================
+   WATERMARK
+========================================================= */
+
+.sugar-watermark {
+  position: absolute;
+
+  width: 390px;
+
+  max-width: 75%;
+
+  left: 50%;
+
+  top: 55%;
+
+  transform:
+    translate(-50%, -50%);
+
+  opacity: 0.055;
+
+  pointer-events: none;
+
+  z-index: 0;
+}
+
+
+/* =========================================================
+   MODAL HEADER
+========================================================= */
+
+.category-header {
+  position: relative;
+
+  z-index: 2;
+
+  padding-right: 115px;
+
+  margin-bottom: 18px;
+}
+
+.category-header h2 {
+  margin: 0;
+
+  color: #fff;
+
+  font-size: 32px;
+
+  font-weight: 700;
+}
+
+.category-header h2 span {
+  color: #ff526b;
+}
+
+.category-header p {
+  margin: 5px 0 0;
+
+  color:
+    rgba(255, 255, 255, 0.65);
+
+  font-size: 14px;
+}
+
+
+/* =========================================================
+   MODAL SEARCH
+========================================================= */
+
+.category-search {
+  position: relative;
+
+  z-index: 2;
+
+  height: 50px;
+
+  display: flex;
+
+  align-items: center;
+
+  padding: 0 15px;
+
+  margin-bottom: 16px;
+
+  border-radius: 14px;
+
+  border:
+    1px solid rgba(255, 255, 255, 0.18);
+
+  background:
+    rgba(255, 255, 255, 0.055);
+}
+
+.category-search span {
+  color: #aaa;
+
+  font-size: 28px;
+
+  margin-right: 10px;
+}
+
+.category-search input {
+  width: 100%;
+
+  border: none;
+
+  outline: none;
+
+  background: transparent;
+
+  color: #fff;
+
+  font-size: 16px;
+}
+
+.category-search input::placeholder {
+  color: #888;
+}
+
+
+/* =========================================================
+   MODAL CATEGORY LIST
+========================================================= */
+
+.category-list {
+  position: relative;
+
+  z-index: 2;
+
+  max-height: 60vh;
+
+  overflow-y: auto;
+
+  padding-right: 5px;
+}
+
+.category-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.category-list::-webkit-scrollbar-thumb {
+  background:
+    rgba(255, 255, 255, 0.35);
+
+  border-radius: 10px;
+}
+
+
+/* =========================================================
+   MODAL CATEGORY ROW
+========================================================= */
+
+.category-modal .category-row {
+  width: 100%;
+
+  min-height: 64px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 12px;
+
+  margin-bottom: 8px;
+
+  padding: 7px 10px;
+
+  border-radius: 15px;
+
+  border:
+    1px solid rgba(255, 255, 255, 0.11);
+
+  background:
+    rgba(255, 255, 255, 0.045);
+
+  color: #fff;
+
+  cursor: pointer;
+
+  text-align: left;
+
+  transition: 0.2s;
+}
+
+.category-modal .category-row:hover {
+  background:
+    rgba(255, 82, 107, 0.10);
+
+  border-color:
+    rgba(255, 82, 107, 0.35);
+}
+
+
+/* =========================================================
+   MODAL CATEGORY IMAGE
+========================================================= */
+
+.category-modal .category-image {
+  width: 46px;
+
+  height: 46px;
+
+  flex-shrink: 0;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background:
+    rgba(255, 255, 255, 0.08);
+
+  overflow: hidden;
+}
+
+.category-modal .category-image img {
+  width: 100%;
+
+  height: 100%;
+
+  object-fit: cover;
+}
+
+
+/* =========================================================
+   MODAL CATEGORY NUMBER
+========================================================= */
+
+.category-modal .category-number {
+  width: 34px;
+
+  height: 34px;
+
+  flex-shrink: 0;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border-radius: 9px;
+
+  background: #e6425c;
+
+  color: #fff;
+
+  font-size: 15px;
+
+  font-weight: 700;
+}
+
+
+/* =========================================================
+   MODAL CATEGORY NAME
+========================================================= */
+
+.category-modal .category-name {
+  flex: 1;
+
+  color: #fff;
+
+  font-size: 17px;
+
+  font-weight: 500;
+}
+
+
+/* =========================================================
+   MODAL COUNT
+========================================================= */
+
+.category-modal .category-count {
+  color: #ff5b71;
+
+  font-size: 16px;
+
+  font-weight: 600;
+
+  white-space: nowrap;
+}
+
+.category-modal .category-count span {
+  font-size: 12px;
+
+  color:
+    rgba(255, 255, 255, 0.65);
+
+  font-weight: 400;
+}
+
+
+/* =========================================================
+   MODAL ARROW
+========================================================= */
+
+.category-modal .category-arrow {
+  color: #ddd;
+
+  font-size: 28px;
+
+  line-height: 1;
+}
+
+
+/* =========================================================
+   MODAL CLOSE
+========================================================= */
+
+.category-close {
+  position: absolute;
+
+  bottom: 15px;
+
+  left: 50%;
+
+  transform:
+    translateX(-50%);
+
+  z-index: 5;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  padding: 10px 25px;
+
+  border-radius: 25px;
+
+  border:
+    1px solid #ff526b;
+
+  background:
+    rgba(20, 20, 24, 0.95);
+
+  color: #fff;
+
+  font-size: 16px;
+
+  font-weight: 500;
+
+  cursor: pointer;
+}
+
+.category-close span {
+  font-size: 27px;
+
+  line-height: 1;
+}
+
+
+/* =========================================================
+   MOBILE
+========================================================= */
 
 @media (max-width: 600px) {
+
+  .menu-section {
+    padding:
+      30px 12px 105px;
+  }
+
+  .menu-title-row {
+    align-items: flex-start;
+
+    margin-bottom: 15px;
+  }
+
+  .menu-title-row h2 {
+    font-size: 27px;
+  }
+
+  .menu-title-row p {
+    font-size: 12px;
+  }
+
+  .view-all-btn {
+    padding: 8px 11px;
+
+    font-size: 12px;
+  }
+
+  /* Category */
+
+  .menu-section .category-row {
+    min-height: 60px;
+
+    gap: 8px;
+
+    padding: 7px;
+
+    border-radius: 15px;
+  }
+
+  .menu-section .category-image {
+    width: 42px;
+
+    height: 42px;
+
+    min-width: 42px;
+  }
+
+  .menu-section .category-number {
+    width: 33px;
+
+    height: 33px;
+
+    min-width: 33px;
+
+    border-radius: 9px;
+
+    font-size: 13px;
+  }
+
+  .menu-section .category-name {
+    font-size: 15px;
+  }
+
+  .menu-section .category-count {
+    font-size: 14px;
+  }
+
+  .menu-section .category-count strong {
+    font-size: 15px;
+  }
+
+  .menu-section .category-count span {
+    display: none;
+  }
+
+  .menu-section .category-arrow {
+    font-size: 25px;
+  }
+
+  /* Product grid */
+
+  .products-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+
+    gap: 10px;
+  }
+
+  /* Add button */
 
   .food-add-btn {
     min-width: 92px;
@@ -561,4 +994,113 @@
   .food-add-plus {
     font-size: 22px;
   }
+
+  /* Modal */
+
+  .category-overlay {
+    padding: 10px;
+  }
+
+  .category-modal {
+    width: 96vw;
+
+    max-height: 91vh;
+
+    padding:
+      20px 12px 75px;
+
+    border-radius: 22px;
+  }
+
+  .sugar-logo {
+    width: 75px;
+
+    height: 45px;
+
+    right: 15px;
+
+    top: 18px;
+  }
+
+  .category-header {
+    padding-right: 85px;
+  }
+
+  .category-header h2 {
+    font-size: 24px;
+  }
+
+  .category-header p {
+    font-size: 11px;
+  }
+
+  .category-search {
+    height: 46px;
+  }
+
+  .category-list {
+    max-height: 63vh;
+  }
+
+  .category-modal .category-row {
+    min-height: 58px;
+
+    gap: 7px;
+
+    padding: 6px;
+  }
+
+  .category-modal .category-image {
+    width: 40px;
+
+    height: 40px;
+  }
+
+  .category-modal .category-number {
+    width: 31px;
+
+    height: 31px;
+
+    border-radius: 8px;
+
+    font-size: 13px;
+  }
+
+  .category-modal .category-name {
+    font-size: 15px;
+  }
+
+  .category-modal .category-count {
+    font-size: 14px;
+  }
+
+  .category-modal .category-count span {
+    display: none;
+  }
+
+  .category-modal .category-arrow {
+    font-size: 24px;
+  }
+
+  .sugar-watermark {
+    width: 80%;
+  }
+
+  .category-close {
+    bottom: 12px;
+
+    padding: 8px 20px;
+
+    font-size: 14px;
+  }
+}
+
+
+/* =========================================================
+   ACCESSIBILITY / TAP
+========================================================= */
+
+.menu-section button,
+.menu-section input {
+  -webkit-tap-highlight-color: transparent;
 }
