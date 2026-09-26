@@ -1,16 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  collection,
-  onSnapshot,
-} from "firebase/firestore";
+import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
-import { useNavigate } from "react-router-dom";
 import ProductCard from "../components/ProductCard";
+import BottomNav from "../components/BottomNav";
 import "../css/menu.css";
 
 function Menu() {
-  const navigate = useNavigate();
-
   const [products, setProducts] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [search, setSearch] = useState("");
@@ -59,7 +54,7 @@ function Menu() {
   ];
 
   /* =====================================================
-     LOAD MENU FROM FIRESTORE
+     FIRESTORE MENU
   ===================================================== */
 
   useEffect(() => {
@@ -82,10 +77,14 @@ function Menu() {
   }, []);
 
   /* =====================================================
-     CATEGORY COUNTS
+     CATEGORY COUNT
   ===================================================== */
 
   const getCategoryCount = (categoryName) => {
+    const target = categoryName
+      .trim()
+      .toLowerCase();
+
     return products.filter((product) => {
       const productCategory = String(
         product.category || ""
@@ -93,10 +92,7 @@ function Menu() {
         .trim()
         .toLowerCase();
 
-      return (
-        productCategory ===
-        categoryName.trim().toLowerCase()
-      );
+      return productCategory === target;
     }).length;
   };
 
@@ -146,8 +142,7 @@ function Menu() {
     setSelectedCategory(categoryName);
     setSearch("");
 
-    // Smoothly move to flavour section
-    setTimeout(() => {
+    window.setTimeout(() => {
       document
         .getElementById("menu-flavours")
         ?.scrollIntoView({
@@ -158,7 +153,7 @@ function Menu() {
   };
 
   /* =====================================================
-     BACK TO ALL CATEGORIES
+     ALL CATEGORIES
   ===================================================== */
 
   const showAllCategories = () => {
@@ -178,12 +173,8 @@ function Menu() {
           HEADER
       ================================================= */}
 
-      <div
-        className="menu-title-row"
-        style={{
-          paddingTop: 20,
-        }}
-      >
+      <div className="menu-title-row">
+
         <div>
           <h2>
             {selectedCategory === "All"
@@ -191,13 +182,7 @@ function Menu() {
               : selectedCategory}
           </h2>
 
-          <p
-            style={{
-              marginTop: 5,
-              color: "#777",
-              fontSize: 13,
-            }}
-          >
+          <p>
             {selectedCategory === "All"
               ? "Explore your favourite flavours ❤️"
               : `Choose from our ${selectedCategory} flavours`}
@@ -213,29 +198,19 @@ function Menu() {
             All Categories
           </button>
         )}
+
       </div>
+
 
       {/* =================================================
           SEARCH
       ================================================= */}
 
-      <div
-        style={{
-          padding: "0 16px 16px",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            background: "#f7f7f7",
-            border: "1px solid #eee",
-            borderRadius: 14,
-            padding: "11px 14px",
-          }}
-        >
-          <span style={{ fontSize: 18 }}>
+      <div className="menu-search-wrapper">
+
+        <div className="menu-search-box">
+
+          <span className="menu-search-icon">
             🔍
           </span>
 
@@ -250,45 +225,34 @@ function Menu() {
             onChange={(e) =>
               setSearch(e.target.value)
             }
-            style={{
-              width: "100%",
-              border: 0,
-              outline: "none",
-              background: "transparent",
-              fontSize: 14,
-            }}
           />
 
           {search && (
             <button
               type="button"
+              className="menu-search-clear"
               onClick={() => setSearch("")}
-              style={{
-                border: 0,
-                background: "transparent",
-                fontSize: 20,
-                cursor: "pointer",
-              }}
             >
               ×
             </button>
           )}
+
         </div>
+
       </div>
+
 
       {/* =================================================
           ALL CATEGORIES
       ================================================= */}
 
       {selectedCategory === "All" && (
-        <div
-          className="category-list"
-          style={{
-            padding: "0 14px 20px",
-          }}
-        >
+
+        <div className="category-list">
+
           {categories.map(
             (category, index) => {
+
               const count =
                 getCategoryCount(
                   category.name
@@ -304,25 +268,25 @@ function Menu() {
                       category.name
                     )
                   }
-                  style={{
-                    width: "100%",
-                    cursor:
-                      count > 0
-                        ? "pointer"
-                        : "default",
-                  }}
                 >
 
-                  {/* Image */}
+                  {/* IMAGE */}
 
                   <div className="category-image">
+
                     <img
                       src={category.image}
                       alt={category.name}
+                      onError={(e) => {
+                        e.currentTarget.style.display =
+                          "none";
+                      }}
                     />
+
                   </div>
 
-                  {/* Number */}
+
+                  {/* NUMBER */}
 
                   <div className="category-number">
                     {String(index + 1).padStart(
@@ -331,13 +295,15 @@ function Menu() {
                     )}
                   </div>
 
-                  {/* Name */}
+
+                  {/* NAME */}
 
                   <div className="category-name">
                     {category.name}
                   </div>
 
-                  {/* Count */}
+
+                  {/* COUNT */}
 
                   <div className="category-count">
                     <strong>
@@ -349,7 +315,8 @@ function Menu() {
                     </span>
                   </div>
 
-                  {/* Arrow */}
+
+                  {/* ARROW */}
 
                   <div className="category-arrow">
                     ›
@@ -359,47 +326,32 @@ function Menu() {
               );
             }
           )}
+
         </div>
       )}
+
 
       {/* =================================================
           FLAVOURS / PRODUCTS
       ================================================= */}
 
       {selectedCategory !== "All" && (
+
         <section
           id="menu-flavours"
-          style={{
-            padding: "0 14px 100px",
-          }}
+          className="menu-flavours"
         >
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 14,
-            }}
-          >
+          {/* HEADER */}
+
+          <div className="flavours-header">
+
             <div>
-              <h2
-                style={{
-                  margin: 0,
-                  fontSize: 21,
-                  fontWeight: 900,
-                }}
-              >
+              <h2>
                 {selectedCategory}
               </h2>
 
-              <p
-                style={{
-                  margin: "4px 0 0",
-                  color: "#777",
-                  fontSize: 12,
-                }}
-              >
+              <p>
                 {filteredProducts.length}{" "}
                 flavours available
               </p>
@@ -407,22 +359,21 @@ function Menu() {
 
             <button
               type="button"
+              className="back-category-btn"
               onClick={showAllCategories}
-              style={{
-                border: "1px solid #eee",
-                background: "#fff",
-                borderRadius: 10,
-                padding: "8px 11px",
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
             >
               ← Categories
             </button>
+
           </div>
 
+
+          {/* PRODUCTS */}
+
           {filteredProducts.length > 0 ? (
+
             <div className="products-grid">
+
               {filteredProducts.map(
                 (product) => (
                   <ProductCard
@@ -431,21 +382,14 @@ function Menu() {
                   />
                 )
               )}
+
             </div>
+
           ) : (
-            <div
-              className="empty-state"
-              style={{
-                textAlign: "center",
-                padding: "50px 20px",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 45,
-                  marginBottom: 10,
-                }}
-              >
+
+            <div className="empty-state">
+
+              <div className="empty-icon">
                 🍽️
               </div>
 
@@ -460,25 +404,26 @@ function Menu() {
 
               <button
                 type="button"
+                className="browse-category-btn"
                 onClick={showAllCategories}
-                style={{
-                  marginTop: 12,
-                  border: 0,
-                  borderRadius: 12,
-                  padding: "11px 18px",
-                  background: "#f97316",
-                  color: "#fff",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                }}
               >
                 Browse Categories
               </button>
+
             </div>
+
           )}
 
         </section>
+
       )}
+
+
+      {/* =================================================
+          BOTTOM NAVIGATION
+      ================================================= */}
+
+      <BottomNav />
 
     </section>
   );
