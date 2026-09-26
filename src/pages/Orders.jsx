@@ -14,6 +14,10 @@ import {
 
 import { db } from "../firebase";
 import SugarCafeRewardCard from "../components/SugarCafeRewardCard";
+import {
+  enableOrderNotifications,
+  getPushStatus,
+} from "../pushNotifications";
 import "./Orders.css";
 
 
@@ -32,17 +36,13 @@ const toMillis = (value) => {
     return value.toDate().getTime();
   }
 
-  if (
-    typeof value?.seconds === "number"
-  ) {
+  if (typeof value?.seconds === "number") {
     return value.seconds * 1000;
   }
 
   const parsed = new Date(value).getTime();
 
-  return Number.isNaN(parsed)
-    ? 0
-    : parsed;
+  return Number.isNaN(parsed) ? 0 : parsed;
 };
 
 
@@ -53,8 +53,7 @@ const getItemQuantity = (item) => {
     1
   );
 
-  return Number.isFinite(quantity) &&
-    quantity > 0
+  return Number.isFinite(quantity) && quantity > 0
     ? quantity
     : 1;
 };
@@ -68,19 +67,12 @@ const getItemPrice = (item) => {
     0
   );
 
-  return Number.isFinite(price)
-    ? price
-    : 0;
+  return Number.isFinite(price) ? price : 0;
 };
 
 
 /* =========================================================
-   CUSTOMER ID HELPER
-
-   Supports:
-   1. sugarCafeCustomerId
-   2. customerId
-   3. sugarCafeUser.customerId
+   CUSTOMER ID
 ========================================================= */
 
 const getStoredCustomerId = () => {
@@ -113,9 +105,7 @@ const getStoredCustomerId = () => {
         JSON.parse(savedUser);
 
       if (user?.customerId) {
-        return String(
-          user.customerId
-        );
+        return String(user.customerId);
       }
     }
   } catch (error) {
@@ -131,9 +121,6 @@ const getStoredCustomerId = () => {
 
 /* =========================================================
    SAFE REWARD CARD
-
-   If SugarCafeRewardCard has a runtime rendering error,
-   the complete Orders page will NOT become white.
 ========================================================= */
 
 class RewardCardErrorBoundary extends Component {
@@ -171,8 +158,7 @@ class RewardCardErrorBoundary extends Component {
           style={{
             marginBottom: "18px",
             background: "#fffaf0",
-            border:
-              "1px solid #f3dfad",
+            border: "1px solid #f3dfad",
             borderRadius: "18px",
             padding: "16px",
           }}
@@ -220,11 +206,456 @@ class RewardCardErrorBoundary extends Component {
 
 
 /* =========================================================
+   NOTIFICATION CARD
+========================================================= */
+
+function OrderNotificationCard({
+  customerId,
+}) {
+  const [
+    pushSupported,
+    setPushSupported,
+  ] = useState(true);
+
+  const [
+    pushEnabled,
+    setPushEnabled,
+  ] = useState(false);
+
+  const [
+    pushPermission,
+    setPushPermission,
+  ] = useState("default");
+
+  const [
+    pushLoading,
+    setPushLoading,
+  ] = useState(false);
+
+  const [
+    pushMessage,
+    setPushMessage,
+  ] = useState("");
+
+  const [
+    pushError,
+    setPushError,
+  ] = useState("");
+
+
+  /* =======================================================
+     CHECK CURRENT PUSH STATUS
+  ======================================================= */
+
+  useEffect(() => {
+    let active = true;
+
+    const checkPushStatus = async () => {
+      try {
+        const status =
+          await getPushStatus();
+
+        if (!active) return;
+
+        setPushSupported(
+          Boolean(status.supported)
+        );
+
+        setPushEnabled(
+          Boolean(status.subscribed)
+        );
+
+        setPushPermission(
+          status.permission || "default"
+        );
+      } catch (error) {
+        console.error(
+          "Push status error:",
+          error
+        );
+      }
+    };
+
+    checkPushStatus();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+
+  /* =======================================================
+     ENABLE
+  ======================================================= */
+
+  const handleEnableNotifications =
+    async () => {
+      if (pushLoading) return;
+
+      setPushLoading(true);
+      setPushMessage("");
+      setPushError("");
+
+      try {
+        const result =
+          await enableOrderNotifications(
+            customerId
+          );
+
+        if (result?.success) {
+          setPushEnabled(true);
+          setPushPermission("granted");
+
+          setPushMessage(
+            "Order notifications are ON. You will receive updates for your orders."
+          );
+
+          return;
+        }
+
+        if (
+          result?.reason ===
+          "permission-denied"
+        ) {
+          setPushPermission("denied");
+
+          setPushError(
+            "Notifications are blocked. Please allow notifications in your phone/browser settings."
+          );
+
+          return;
+        }
+
+        if (
+          result?.reason ===
+          "customer-id-missing"
+        ) {
+          setPushError(
+            "Customer account was not found. Please login again."
+          );
+
+          return;
+        }
+
+        if (
+          result?.reason ===
+          "unsupported"
+        ) {
+          setPushSupported(false);
+
+          setPushError(
+            "Push notifications are not supported by this browser."
+          );
+
+          return;
+        }
+
+        setPushError(
+          result?.error ||
+          "Unable to enable notifications. Please try again."
+        );
+      } catch (error) {
+        console.error(
+          "Enable notifications error:",
+          error
+        );
+
+        setPushError(
+          error?.message ||
+          "Unable to enable notifications."
+        );
+      } finally {
+        setPushLoading(false);
+      }
+    };
+
+
+  /* =======================================================
+     UNSUPPORTED
+  ======================================================= */
+
+  if (!pushSupported) {
+    return null;
+  }
+
+
+  /* =======================================================
+     ENABLED
+  ======================================================= */
+
+  if (
+    pushEnabled &&
+    pushPermission === "granted"
+  ) {
+    return (
+      <div
+        style={{
+          marginBottom: "18px",
+          borderRadius: "20px",
+          padding: "16px",
+          background:
+            "linear-gradient(135deg, #f0fff7, #ffffff)",
+          border:
+            "1px solid rgba(22, 163, 74, 0.18)",
+          boxShadow:
+            "0 8px 24px rgba(0,0,0,0.05)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+          }}
+        >
+          <div
+            style={{
+              width: "44px",
+              height: "44px",
+              borderRadius: "14px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "#dcfce7",
+              fontSize: "22px",
+              flexShrink: 0,
+            }}
+          >
+            🔔
+          </div>
+
+          <div>
+            <strong
+              style={{
+                display: "block",
+                fontSize: "15px",
+                color: "#166534",
+              }}
+            >
+              Order Notifications ON
+            </strong>
+
+            <span
+              style={{
+                display: "block",
+                marginTop: "3px",
+                fontSize: "12px",
+                color: "#64748b",
+                lineHeight: "1.4",
+              }}
+            >
+              We'll notify you when your order is
+              received, preparing, ready, dispatched
+              and delivered.
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
+  /* =======================================================
+     BLOCKED
+  ======================================================= */
+
+  if (
+    pushPermission === "denied"
+  ) {
+    return (
+      <div
+        style={{
+          marginBottom: "18px",
+          borderRadius: "20px",
+          padding: "16px",
+          background: "#fff7ed",
+          border:
+            "1px solid #fed7aa",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            gap: "12px",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "24px",
+            }}
+          >
+            🔕
+          </div>
+
+          <div>
+            <strong
+              style={{
+                display: "block",
+                color: "#9a3412",
+                fontSize: "15px",
+              }}
+            >
+              Notifications are blocked
+            </strong>
+
+            <p
+              style={{
+                margin:
+                  "5px 0 0",
+                color: "#78716c",
+                fontSize: "12px",
+                lineHeight: "1.5",
+              }}
+            >
+              Allow notifications from your
+              browser/phone settings to receive
+              SugarCafe order updates.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
+  /* =======================================================
+     DEFAULT
+  ======================================================= */
+
+  return (
+    <div
+      style={{
+        marginBottom: "18px",
+        borderRadius: "20px",
+        padding: "16px",
+        background:
+          "linear-gradient(135deg, #fff8ed, #ffffff)",
+        border:
+          "1px solid rgba(245, 158, 11, 0.2)",
+        boxShadow:
+          "0 8px 24px rgba(0,0,0,0.05)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+        }}
+      >
+        <div
+          style={{
+            width: "46px",
+            height: "46px",
+            borderRadius: "15px",
+            background:
+              "linear-gradient(135deg, #f97316, #fb923c)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "23px",
+            flexShrink: 0,
+          }}
+        >
+          🔔
+        </div>
+
+        <div
+          style={{
+            flex: 1,
+          }}
+        >
+          <strong
+            style={{
+              display: "block",
+              fontSize: "15px",
+              color: "#241b17",
+            }}
+          >
+            Get Order Updates
+          </strong>
+
+          <p
+            style={{
+              margin:
+                "4px 0 0",
+              fontSize: "12px",
+              color: "#78716c",
+              lineHeight: "1.45",
+            }}
+          >
+            Get a notification when your SugarCafe
+            order is received, preparing, ready or
+            delivered.
+          </p>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={
+          handleEnableNotifications
+        }
+        disabled={pushLoading}
+        style={{
+          width: "100%",
+          marginTop: "13px",
+          border: "none",
+          borderRadius: "13px",
+          padding: "12px 14px",
+          background:
+            pushLoading
+              ? "#cbd5e1"
+              : "#241b17",
+          color: "#ffffff",
+          fontWeight: 700,
+          fontSize: "13px",
+          cursor:
+            pushLoading
+              ? "default"
+              : "pointer",
+        }}
+      >
+        {pushLoading
+          ? "Enabling notifications..."
+          : "🔔 Enable Order Notifications"}
+      </button>
+
+      {pushMessage && (
+        <div
+          style={{
+            marginTop: "10px",
+            fontSize: "12px",
+            color: "#166534",
+            lineHeight: "1.4",
+          }}
+        >
+          ✅ {pushMessage}
+        </div>
+      )}
+
+      {pushError && (
+        <div
+          style={{
+            marginTop: "10px",
+            fontSize: "12px",
+            color: "#b91c1c",
+            lineHeight: "1.4",
+          }}
+        >
+          ⚠️ {pushError}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+/* =========================================================
    ORDERS PAGE
 ========================================================= */
 
 export default function Orders() {
-
   const [
     orderList,
     setOrderList,
@@ -246,9 +677,7 @@ export default function Orders() {
   ======================================================= */
 
   useEffect(() => {
-
     const loadCustomerId = () => {
-
       const id =
         getStoredCustomerId();
 
@@ -261,7 +690,6 @@ export default function Orders() {
     };
 
     loadCustomerId();
-
   }, []);
 
 
@@ -270,12 +698,9 @@ export default function Orders() {
   ======================================================= */
 
   useEffect(() => {
-
     if (!customerId) {
-
       setOrderList([]);
       setLoading(false);
-
       return;
     }
 
@@ -299,7 +724,6 @@ export default function Orders() {
         ordersQuery,
 
         (snapshot) => {
-
           const orders =
             snapshot.docs.map(
               (docSnap) => ({
@@ -330,7 +754,6 @@ export default function Orders() {
         },
 
         (error) => {
-
           console.error(
             "Orders listener error:",
             error
@@ -343,7 +766,6 @@ export default function Orders() {
 
     return () =>
       unsubscribe();
-
   }, [customerId]);
 
 
@@ -354,7 +776,6 @@ export default function Orders() {
   const getStatusKey = (
     order
   ) => {
-
     const status =
       String(
         order?.status ||
@@ -404,10 +825,8 @@ export default function Orders() {
 
   const qualifyingLoyaltyOrders =
     useMemo(() => {
-
       return orderList.filter(
         (order) => {
-
           const status =
             String(
               order?.status ||
@@ -433,7 +852,6 @@ export default function Orders() {
           );
         }
       );
-
     }, [orderList]);
 
 
@@ -443,11 +861,9 @@ export default function Orders() {
 
   const loyaltyCycleData =
     useMemo(() => {
-
       const rewardOrders =
         orderList.filter(
           (order) => {
-
             const cycle =
               Number(
                 order
@@ -464,7 +880,6 @@ export default function Orders() {
           }
         );
 
-
       const maxCompletedCycle =
         rewardOrders.length > 0
           ? Math.max(
@@ -479,20 +894,16 @@ export default function Orders() {
             )
           : 0;
 
-
       const nextCycle =
         maxCompletedCycle + 1;
-
 
       const requiredQualifyingOrders =
         maxCompletedCycle * 6 +
         6;
 
-
       let progress =
         qualifyingLoyaltyOrders.length -
         maxCompletedCycle * 6;
-
 
       progress =
         Math.max(
@@ -503,14 +914,12 @@ export default function Orders() {
           )
         );
 
-
       return {
         maxCompletedCycle,
         nextCycle,
         requiredQualifyingOrders,
         progress,
       };
-
     }, [
       orderList,
       qualifyingLoyaltyOrders,
@@ -520,7 +929,6 @@ export default function Orders() {
   const loyaltyCycle =
     loyaltyCycleData
       .maxCompletedCycle;
-
 
   const loyaltyProgress =
     loyaltyCycleData
@@ -533,7 +941,6 @@ export default function Orders() {
 
   const activeLoyaltyReward =
     useMemo(() => {
-
       const alreadyUsedSourceIds =
         new Set(
           orderList
@@ -546,12 +953,10 @@ export default function Orders() {
             .filter(Boolean)
         );
 
-
       const sourceOrders =
         orderList
           .filter(
             (order) => {
-
               const reward =
                 order
                   ?.loyaltyReward;
@@ -584,7 +989,6 @@ export default function Orders() {
               )
           );
 
-
       const active =
         sourceOrders.find(
           (order) =>
@@ -593,12 +997,7 @@ export default function Orders() {
             )
         );
 
-
-      return (
-        active ||
-        null
-      );
-
+      return active || null;
     }, [orderList]);
 
 
@@ -615,7 +1014,6 @@ export default function Orders() {
   const totalOrders =
     orderList.length;
 
-
   const deliveredOrders =
     orderList.filter(
       (order) =>
@@ -624,11 +1022,9 @@ export default function Orders() {
         ) === "delivered"
     ).length;
 
-
   const activeOrders =
     orderList.filter(
       (order) => {
-
         const key =
           getStatusKey(
             order
@@ -643,26 +1039,15 @@ export default function Orders() {
     ).length;
 
 
-  const rejectedOrders =
-    orderList.filter(
-      (order) =>
-        getStatusKey(
-          order
-        ) === "cancelled"
-    ).length;
-
-
   /* =======================================================
      TOTAL SPENT
   ======================================================= */
 
   const totalSpent =
     useMemo(() => {
-
       return orderList
         .filter(
           (order) => {
-
             const status =
               String(
                 order?.status ||
@@ -684,7 +1069,6 @@ export default function Orders() {
             sum,
             order
           ) => {
-
             const total =
               Number(
                 order?.total ??
@@ -704,7 +1088,6 @@ export default function Orders() {
           },
           0
         );
-
     }, [orderList]);
 
 
@@ -715,7 +1098,6 @@ export default function Orders() {
   const formatDate = (
     value
   ) => {
-
     const millis =
       toMillis(value);
 
@@ -745,14 +1127,12 @@ export default function Orders() {
   const getStatusLabel = (
     order
   ) => {
-
     const key =
       getStatusKey(
         order
       );
 
     switch (key) {
-
       case "new":
         return "New";
 
@@ -784,7 +1164,6 @@ export default function Orders() {
   const getStatusClass = (
     order
   ) => {
-
     return `order-status ${getStatusKey(
       order
     )}`;
@@ -799,12 +1178,9 @@ export default function Orders() {
     !customerId &&
     !loading
   ) {
-
     return (
       <div className="orders-page">
-
         <div className="orders-empty">
-
           <div className="orders-empty-icon">
             🧾
           </div>
@@ -817,9 +1193,7 @@ export default function Orders() {
             Please login to view your
             SugarCafe orders.
           </p>
-
         </div>
-
       </div>
     );
   }
@@ -830,20 +1204,15 @@ export default function Orders() {
   ======================================================= */
 
   if (loading) {
-
     return (
       <div className="orders-page">
-
         <div className="orders-loading">
-
           <div className="orders-loader" />
 
           <p>
             Loading your orders...
           </p>
-
         </div>
-
       </div>
     );
   }
@@ -856,7 +1225,6 @@ export default function Orders() {
   const runningOrders =
     orderList.filter(
       (order) => {
-
         const key =
           getStatusKey(
             order
@@ -898,15 +1266,12 @@ export default function Orders() {
 
       <div className="orders-container">
 
-
         {/* =================================================
             HEADER
         ================================================= */}
 
         <div className="orders-header">
-
           <div>
-
             <h1>
               My Orders
             </h1>
@@ -914,10 +1279,19 @@ export default function Orders() {
             <p>
               Track your SugarCafe orders
             </p>
-
           </div>
-
         </div>
+
+
+        {/* =================================================
+            ORDER NOTIFICATIONS
+        ================================================= */}
+
+        <OrderNotificationCard
+          customerId={
+            customerId
+          }
+        />
 
 
         {/* =================================================
@@ -925,7 +1299,6 @@ export default function Orders() {
         ================================================= */}
 
         <RewardCardErrorBoundary>
-
           <SugarCafeRewardCard
             orders={
               orderList
@@ -963,7 +1336,6 @@ export default function Orders() {
               activeLoyaltyReward
             }
           />
-
         </RewardCardErrorBoundary>
 
 
@@ -974,13 +1346,11 @@ export default function Orders() {
         <div className="orders-summary">
 
           <div className="summary-card">
-
             <span className="summary-icon">
               🧾
             </span>
 
             <div>
-
               <strong>
                 {totalOrders}
               </strong>
@@ -988,20 +1358,16 @@ export default function Orders() {
               <span>
                 Total Orders
               </span>
-
             </div>
-
           </div>
 
 
           <div className="summary-card">
-
             <span className="summary-icon">
               🔥
             </span>
 
             <div>
-
               <strong>
                 {activeOrders}
               </strong>
@@ -1009,20 +1375,16 @@ export default function Orders() {
               <span>
                 Running
               </span>
-
             </div>
-
           </div>
 
 
           <div className="summary-card">
-
             <span className="summary-icon">
               ✅
             </span>
 
             <div>
-
               <strong>
                 {deliveredOrders}
               </strong>
@@ -1030,20 +1392,16 @@ export default function Orders() {
               <span>
                 Delivered
               </span>
-
             </div>
-
           </div>
 
 
           <div className="summary-card">
-
             <span className="summary-icon">
               💰
             </span>
 
             <div>
-
               <strong>
                 ₹
                 {totalSpent.toLocaleString(
@@ -1054,9 +1412,7 @@ export default function Orders() {
               <span>
                 Total Spent
               </span>
-
             </div>
-
           </div>
 
         </div>
@@ -1115,7 +1471,6 @@ export default function Orders() {
 
             <div
               className="loyalty-progress-fill"
-
               style={{
                 width: `${
                   (
@@ -1151,7 +1506,6 @@ export default function Orders() {
         ================================================= */}
 
         {orderList.length === 0 && (
-
           <div className="orders-empty">
 
             <div className="orders-empty-icon">
@@ -1168,7 +1522,6 @@ export default function Orders() {
             </p>
 
           </div>
-
         )}
 
 
@@ -1177,7 +1530,6 @@ export default function Orders() {
         ================================================= */}
 
         {runningOrders.length > 0 && (
-
           <section className="orders-section">
 
             <div className="section-heading">
@@ -1205,7 +1557,6 @@ export default function Orders() {
 
               {runningOrders.map(
                 (order) => (
-
                   <OrderCard
                     key={
                       order.id
@@ -1227,14 +1578,12 @@ export default function Orders() {
                       getStatusClass
                     }
                   />
-
                 )
               )}
 
             </div>
 
           </section>
-
         )}
 
 
@@ -1243,7 +1592,6 @@ export default function Orders() {
         ================================================= */}
 
         {deliveredOrderList.length > 0 && (
-
           <section className="orders-section">
 
             <div className="section-heading">
@@ -1273,7 +1621,6 @@ export default function Orders() {
 
               {deliveredOrderList.map(
                 (order) => (
-
                   <OrderCard
                     key={
                       order.id
@@ -1295,23 +1642,20 @@ export default function Orders() {
                       getStatusClass
                     }
                   />
-
                 )
               )}
 
             </div>
 
           </section>
-
         )}
 
 
         {/* =================================================
-            CANCELLED / REJECTED ORDERS
+            CANCELLED ORDERS
         ================================================= */}
 
         {cancelledOrderList.length > 0 && (
-
           <section className="orders-section">
 
             <div className="section-heading">
@@ -1341,7 +1685,6 @@ export default function Orders() {
 
               {cancelledOrderList.map(
                 (order) => (
-
                   <OrderCard
                     key={
                       order.id
@@ -1363,14 +1706,12 @@ export default function Orders() {
                       getStatusClass
                     }
                   />
-
                 )
               )}
 
             </div>
 
           </section>
-
         )}
 
       </div>
@@ -1390,7 +1731,6 @@ function OrderCard({
   getStatusLabel,
   getStatusClass,
 }) {
-
   const items =
     Array.isArray(
       order?.items
@@ -1398,16 +1738,13 @@ function OrderCard({
       ? order.items
       : [];
 
-
   const reward =
     order?.loyaltyReward ||
     null;
 
-
   const rewardStatus =
     reward?.status ||
     "";
-
 
   const showRewardBadge =
     Boolean(
@@ -1416,16 +1753,13 @@ function OrderCard({
         "scratch_pending"
     );
 
-
   const isScratchPending =
     rewardStatus ===
     "scratch_pending";
 
-
   const isRewardAvailable =
     rewardStatus ===
     "available";
-
 
   const isRewardApplied =
     rewardStatus ===
@@ -1434,7 +1768,6 @@ function OrderCard({
 
   return (
     <article className="order-card">
-
 
       {/* =================================================
           ORDER HEADER
@@ -1484,7 +1817,6 @@ function OrderCard({
       ================================================= */}
 
       {showRewardBadge && (
-
         <div className="order-reward-badge">
 
           <span>
@@ -1529,7 +1861,6 @@ function OrderCard({
           </div>
 
         </div>
-
       )}
 
 
@@ -1538,7 +1869,6 @@ function OrderCard({
       ================================================= */}
 
       {isScratchPending && (
-
         <div className="order-scratch-pending">
 
           <span>
@@ -1560,7 +1890,6 @@ function OrderCard({
           </div>
 
         </div>
-
       )}
 
 
@@ -1569,7 +1898,6 @@ function OrderCard({
       ================================================= */}
 
       {order?.specialNote && (
-
         <div className="order-special-note">
 
           <strong>
@@ -1583,7 +1911,6 @@ function OrderCard({
           </p>
 
         </div>
-
       )}
 
 
@@ -1604,25 +1931,21 @@ function OrderCard({
                 item
               );
 
-
             const price =
               getItemPrice(
                 item
               );
-
 
             const itemName =
               item?.name ||
               item?.title ||
               "Item";
 
-
             const image =
               item?.image ||
               item?.imageUrl ||
               item?.photoURL ||
               "";
-
 
             return (
               <div
@@ -1635,7 +1958,6 @@ function OrderCard({
               >
 
                 {image ? (
-
                   <img
                     src={
                       image
@@ -1654,13 +1976,10 @@ function OrderCard({
                         "none";
                     }}
                   />
-
                 ) : (
-
                   <div className="order-item-placeholder">
                     🍽️
                   </div>
-
                 )}
 
 
@@ -1728,15 +2047,11 @@ function OrderCard({
 
 
         {order?.paymentMethod && (
-
           <span className="payment-method">
-
             {String(
               order.paymentMethod
             ).toUpperCase()}
-
           </span>
-
         )}
 
       </div>
