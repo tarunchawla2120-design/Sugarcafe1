@@ -102,6 +102,59 @@ function addressFor(order) {
 }
 
 /* =========================================================
+   DAILY SCRATCH HELPERS
+========================================================= */
+
+function isDailyScratchItem(item) {
+  return (
+    item?.isFreeReward === true &&
+    item?.dailyScratchReward === true
+  );
+}
+
+function getDailyScratchReward(order) {
+  return order?.dailyScratchReward || null;
+}
+
+function getDailyScratchRewardText(order) {
+  const reward = getDailyScratchReward(order);
+
+  if (!reward?.enabled) {
+    return "";
+  }
+
+  if (
+    reward.type === "discount" ||
+    Number(reward.discountPercent) === 5
+  ) {
+    const amount =
+      Number(reward.appliedDiscount || 0);
+
+    return amount > 0
+      ? `5% OFF · ${money(amount)} discount`
+      : "5% OFF";
+  }
+
+  if (
+    reward.type === "free_menu_item" ||
+    reward.type === "free_item"
+  ) {
+    return (
+      `FREE ${
+        reward.itemName ||
+        reward.title ||
+        "Reward Item"
+      }`
+    );
+  }
+
+  return (
+    reward.title ||
+    "Scratch & Win Reward"
+  );
+}
+
+/* =========================================================
    ELECTRON PRINT BRIDGE
 ========================================================= */
 
@@ -130,6 +183,87 @@ function getElectronPrinter() {
 }
 
 /* =========================================================
+   DAILY SCRATCH BADGE
+========================================================= */
+
+function DailyScratchBadge({ order }) {
+  const reward = getDailyScratchReward(order);
+
+  if (!reward?.enabled) {
+    return null;
+  }
+
+  const isDiscount =
+    reward.type === "discount" ||
+    Number(reward.discountPercent) === 5;
+
+  return (
+    <div
+      style={{
+        marginTop: 10,
+        padding: "10px 12px",
+        borderRadius: 12,
+        background:
+          "linear-gradient(135deg,#fff7ed,#ffedd5)",
+        border: "1px solid #fed7aa",
+        display: "flex",
+        alignItems: "center",
+        gap: 9,
+        color: "#9a3412",
+        fontSize: 13,
+        fontWeight: 700
+      }}
+    >
+      <span
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: 9,
+          display: "grid",
+          placeItems: "center",
+          background: "#fff",
+          fontSize: 16,
+          flexShrink: 0
+        }}
+      >
+        🎁
+      </span>
+
+      <span>
+        <strong
+          style={{
+            display: "block",
+            fontSize: 11,
+            letterSpacing: ".05em",
+            marginBottom: 2
+          }}
+        >
+          DAILY SCRATCH & WIN
+        </strong>
+
+        <span>
+          {getDailyScratchRewardText(order)}
+        </span>
+
+        {isDiscount &&
+          Number(reward.appliedDiscount || 0) > 0 && (
+            <small
+              style={{
+                display: "block",
+                marginTop: 2,
+                fontWeight: 600,
+                opacity: 0.8
+              }}
+            >
+              Applied on this order
+            </small>
+          )}
+      </span>
+    </div>
+  );
+}
+
+/* =========================================================
    KOT MODAL
 ========================================================= */
 
@@ -137,6 +271,8 @@ function KOTModal({ order, onClose, onPrint }) {
   if (!order) return null;
 
   const items = itemsFor(order);
+  const scratchReward =
+    getDailyScratchReward(order);
 
   const created = toMillis(order.createdAt);
   const date = created ? new Date(created) : new Date();
@@ -155,7 +291,6 @@ function KOTModal({ order, onClose, onPrint }) {
         {/* HEADER */}
 
         <div className="sc-kot-head">
-
           <div>
             <b>☕ SUGAR CAFE</b>
             <span>KITCHEN ORDER TICKET</span>
@@ -164,13 +299,11 @@ function KOTModal({ order, onClose, onPrint }) {
           <button onClick={onClose}>
             ×
           </button>
-
         </div>
 
         {/* ORDER META */}
 
         <div className="sc-kot-meta">
-
           <b>
             #{label(order)}
           </b>
@@ -186,13 +319,11 @@ function KOTModal({ order, onClose, onPrint }) {
           <em>
             {order.orderType || "Delivery"}
           </em>
-
         </div>
 
         {/* CUSTOMER */}
 
         <section>
-
           <small>
             CUSTOMER
           </small>
@@ -212,60 +343,132 @@ function KOTModal({ order, onClose, onPrint }) {
           <div>
             {addressFor(order)}
           </div>
-
         </section>
+
+        {/* DAILY SCRATCH REWARD */}
+
+        {scratchReward?.enabled && (
+          <section
+            style={{
+              marginTop: 12,
+              padding: 12,
+              borderRadius: 10,
+              background: "#fff7ed",
+              border: "1px solid #fed7aa"
+            }}
+          >
+            <small
+              style={{
+                color: "#9a3412",
+                fontWeight: 800
+              }}
+            >
+              🎁 DAILY SCRATCH & WIN
+            </small>
+
+            <strong
+              style={{
+                display: "block",
+                marginTop: 4,
+                color: "#7c2d12"
+              }}
+            >
+              {getDailyScratchRewardText(order)}
+            </strong>
+
+            {(
+              scratchReward.type ===
+                "discount" ||
+              Number(
+                scratchReward.discountPercent
+              ) === 5
+            ) &&
+              Number(
+                scratchReward.appliedDiscount || 0
+              ) > 0 && (
+                <div
+                  style={{
+                    marginTop: 3,
+                    fontSize: 12,
+                    color: "#9a3412"
+                  }}
+                >
+                  Discount applied:{" "}
+                  {money(
+                    scratchReward.appliedDiscount
+                  )}
+                </div>
+              )}
+          </section>
+        )}
 
         {/* ITEMS */}
 
         <section>
-
           <small>
             ORDER ITEMS
           </small>
 
           {items.length ? (
-
             items.map((item, i) => {
-
               const qty = Number(
                 item.qty ||
-                item.quantity ||
-                1
+                  item.quantity ||
+                  1
               );
+
+              const dailyScratchFree =
+                isDailyScratchItem(item);
+
+              const itemTotal =
+                Number(item.price || 0) *
+                qty;
 
               return (
                 <div
                   className="kot-item"
                   key={item.id || i}
                 >
-
                   <span>
-                    {item.name ||
-                      item.productName ||
-                      "Food Item"}{" "}
-                    ×{qty}
+                    {dailyScratchFree && (
+                      <span
+                        style={{
+                          marginRight: 5,
+                          fontWeight: 800
+                        }}
+                      >
+                        🎁
+                      </span>
+                    )}
+
+                    {dailyScratchFree
+                      ? `FREE ${
+                          item.name ||
+                          item.productName ||
+                          "Food Item"
+                        }`
+                      : (
+                          item.name ||
+                          item.productName ||
+                          "Food Item"
+                        )}
+
+                    {" "}×{qty}
                   </span>
 
                   <b>
-                    {money(
-                      Number(item.price || 0) *
-                        qty
-                    )}
+                    {dailyScratchFree
+                      ? "FREE"
+                      : money(itemTotal)}
                   </b>
-
                 </div>
               );
-
             })
-
           ) : (
-
             <div>
               No items found.
             </div>
-
           )}
-
         </section>
 
         {/* SPECIAL NOTE */}
@@ -273,25 +476,19 @@ function KOTModal({ order, onClose, onPrint }) {
         {(order.instructions ||
           order.specialNote ||
           order.note) && (
-
           <div className="kot-note">
-
             <b>
               ★ SPECIAL NOTE:
             </b>{" "}
-
             {order.instructions ||
               order.specialNote ||
               order.note}
-
           </div>
-
         )}
 
         {/* TOTAL */}
 
         <div className="kot-total">
-
           <span>
             Total
           </span>
@@ -299,13 +496,11 @@ function KOTModal({ order, onClose, onPrint }) {
           <b>
             {money(order.total)}
           </b>
-
         </div>
 
         {/* MODAL ACTIONS */}
 
         <div className="kot-actions">
-
           <button
             onClick={() =>
               onPrint(order)
@@ -320,7 +515,6 @@ function KOTModal({ order, onClose, onPrint }) {
           >
             Close
           </button>
-
         </div>
 
       </div>
@@ -333,7 +527,6 @@ function KOTModal({ order, onClose, onPrint }) {
 ========================================================= */
 
 function AdminOrders() {
-
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState("All");
   const [query, setQuery] = useState("");
@@ -364,13 +557,11 @@ function AdminOrders() {
   ======================================================= */
 
   const playBell = () => {
-
     if (store.buzzerEnabled === false) {
       return;
     }
 
     try {
-
       if (!alarmRef.current) {
         alarmRef.current =
           new Audio("/alarm_bell.mp3");
@@ -385,7 +576,6 @@ function AdminOrders() {
       if (promise?.catch) {
         promise.catch(() => {});
       }
-
     } catch (error) {
       console.error(
         "Bell error:",
@@ -399,12 +589,10 @@ function AdminOrders() {
   ======================================================= */
 
   useEffect(() => {
-
     const unsub = onSnapshot(
       collection(db, "orders"),
 
       (snapshot) => {
-
         const data =
           snapshot.docs
             .map((d) => ({
@@ -422,7 +610,6 @@ function AdminOrders() {
 
         snapshot.docChanges().forEach(
           (change) => {
-
             if (
               change.type === "added" &&
               !firstSnapshot.current &&
@@ -430,7 +617,6 @@ function AdminOrders() {
                 change.doc.id
               )
             ) {
-
               const incoming = {
                 id: change.doc.id,
                 ...change.doc.data()
@@ -440,9 +626,7 @@ function AdminOrders() {
                 (incoming.status || "New") ===
                 "New"
               ) {
-
                 setNewOrder(incoming);
-
                 playBell();
               }
             }
@@ -457,7 +641,6 @@ function AdminOrders() {
       },
 
       (err) => {
-
         console.error(
           "Orders listener error:",
           err
@@ -472,7 +655,6 @@ function AdminOrders() {
     );
 
     return () => unsub();
-
   }, []);
 
   /* =======================================================
@@ -480,7 +662,6 @@ function AdminOrders() {
   ======================================================= */
 
   useEffect(() => {
-
     const id = setInterval(
       () => setNow(Date.now()),
       1000
@@ -488,7 +669,6 @@ function AdminOrders() {
 
     return () =>
       clearInterval(id);
-
   }, []);
 
   /* =======================================================
@@ -496,13 +676,11 @@ function AdminOrders() {
   ======================================================= */
 
   useEffect(() => {
-
     if (store.buzzerEnabled === false) {
       return;
     }
 
     orders.forEach((order) => {
-
       if (
         (order.status || "New") !==
         "Preparing"
@@ -530,9 +708,7 @@ function AdminOrders() {
       );
 
       playBell();
-
     });
-
   }, [
     now,
     orders,
@@ -544,18 +720,12 @@ function AdminOrders() {
   ======================================================= */
 
   useEffect(() => {
-
     return () => {
-
       if (alarmRef.current) {
-
         alarmRef.current.pause();
         alarmRef.current = null;
-
       }
-
     };
-
   }, []);
 
   /* =======================================================
@@ -566,9 +736,7 @@ function AdminOrders() {
     order,
     updates
   ) => {
-
     try {
-
       await updateDoc(
         doc(db, "orders", order.id),
         updates
@@ -581,9 +749,7 @@ function AdminOrders() {
       }
 
       return true;
-
     } catch (e) {
-
       console.error(
         "Order update error:",
         e
@@ -602,18 +768,11 @@ function AdminOrders() {
   ======================================================= */
 
   const printKOT = async (order) => {
-
     try {
-
       const electron =
         getElectronPrinter();
 
-      /* ---------------------------------------------------
-         BROWSER CHECK
-      --------------------------------------------------- */
-
       if (!electron) {
-
         console.warn(
           "Electron print bridge unavailable."
         );
@@ -631,10 +790,6 @@ function AdminOrders() {
         order
       );
 
-      /* ---------------------------------------------------
-         SEND TO MAIN.JS
-      --------------------------------------------------- */
-
       const result =
         await electron.printKOT(order);
 
@@ -643,12 +798,7 @@ function AdminOrders() {
         result
       );
 
-      /* ---------------------------------------------------
-         PRINT FAILED
-      --------------------------------------------------- */
-
       if (!result?.success) {
-
         const reason =
           result?.error ||
           result?.failureReason ||
@@ -675,9 +825,7 @@ function AdminOrders() {
       );
 
       return true;
-
     } catch (error) {
-
       console.error(
         "KOT print exception:",
         error
@@ -698,7 +846,6 @@ function AdminOrders() {
   ======================================================= */
 
   const accept = async (order) => {
-
     const minutes =
       Number(
         order.preparationMinutes ??
@@ -711,10 +858,6 @@ function AdminOrders() {
     const end =
       started +
       minutes * 60000;
-
-    /* ---------------------------------------------------
-       UPDATE FIREBASE FIRST
-    --------------------------------------------------- */
 
     const accepted =
       await updateOrder(
@@ -748,10 +891,6 @@ function AdminOrders() {
       return;
     }
 
-    /* ---------------------------------------------------
-       PREPARE PRINT PAYLOAD
-    --------------------------------------------------- */
-
     const printPayload = {
       ...order,
 
@@ -782,10 +921,6 @@ function AdminOrders() {
         minutes
     };
 
-    /* ---------------------------------------------------
-       AUTOMATIC PRINT - 3 ATTEMPTS
-    --------------------------------------------------- */
-
     let printed = false;
 
     for (
@@ -793,7 +928,6 @@ function AdminOrders() {
       attempt <= 3 && !printed;
       attempt++
     ) {
-
       console.log(
         `KOT print attempt ${attempt}/3`
       );
@@ -807,7 +941,6 @@ function AdminOrders() {
         !printed &&
         attempt < 3
       ) {
-
         await new Promise(
           (resolve) =>
             setTimeout(
@@ -818,12 +951,7 @@ function AdminOrders() {
       }
     }
 
-    /* ---------------------------------------------------
-       FINAL PRINT FAILURE
-    --------------------------------------------------- */
-
     if (!printed) {
-
       alert(
         "Order accepted successfully.\n\n" +
         "Lekin KOT + Counter Slip print nahi hui.\n\n" +
@@ -837,7 +965,6 @@ function AdminOrders() {
   ======================================================= */
 
   const reject = (order) => {
-
     const reason =
       window.prompt(
         "Reject reason (optional):",
@@ -864,7 +991,6 @@ function AdminOrders() {
   ======================================================= */
 
   const extra = (order) => {
-
     const mins =
       Number(
         order.extraPreparationMinutes ??
@@ -955,7 +1081,6 @@ function AdminOrders() {
     () =>
       STATUS.reduce(
         (a, s) => {
-
           a[s] =
             s === "All"
               ? orders.length
@@ -966,7 +1091,6 @@ function AdminOrders() {
                 ).length;
 
           return a;
-
         },
         {}
       ),
@@ -980,7 +1104,6 @@ function AdminOrders() {
   const filtered = useMemo(
     () =>
       orders.filter((o) => {
-
         const q =
           query
             .trim()
@@ -1021,7 +1144,6 @@ function AdminOrders() {
   ======================================================= */
 
   const remaining = (order) => {
-
     const end =
       toMillis(
         order.preparationEndAt
@@ -1051,7 +1173,6 @@ function AdminOrders() {
   ======================================================= */
 
   const acceptRemaining = (order) => {
-
     const end =
       (toMillis(
         order.createdAt
@@ -1091,9 +1212,7 @@ function AdminOrders() {
         {/* HEADER */}
 
         <header className="orders-top">
-
           <div>
-
             <div className="brand-kicker">
               SUGAR CAFE · LIVE CONTROL
             </div>
@@ -1106,13 +1225,11 @@ function AdminOrders() {
               Every order, status and
               kitchen action in one place.
             </p>
-
           </div>
 
           <div className="top-actions">
 
             <div className="store-status">
-
               <i
                 className={
                   (
@@ -1136,7 +1253,6 @@ function AdminOrders() {
               <small>
                 {store.orderTimingLabel}
               </small>
-
             </div>
 
             <button
@@ -1150,7 +1266,6 @@ function AdminOrders() {
             </button>
 
           </div>
-
         </header>
 
         {/* SEARCH */}
@@ -1184,7 +1299,6 @@ function AdminOrders() {
         <section className="status-tabs">
 
           {STATUS.map((s) => (
-
             <button
               key={s}
               className={
@@ -1201,7 +1315,6 @@ function AdminOrders() {
                 setFilter(s)
               }
             >
-
               {s === "All"
                 ? "All Orders"
                 : s}
@@ -1209,9 +1322,7 @@ function AdminOrders() {
               <b>
                 {counts[s] || 0}
               </b>
-
             </button>
-
           ))}
 
         </section>
@@ -1227,13 +1338,10 @@ function AdminOrders() {
         {/* ORDERS */}
 
         {loading ? (
-
           <div className="empty-card">
             Loading live orders…
           </div>
-
         ) : filtered.length === 0 ? (
-
           <div className="empty-card">
 
             <div>
@@ -1250,9 +1358,7 @@ function AdminOrders() {
             </p>
 
           </div>
-
         ) : (
-
           <div className="orders-grid">
 
             {filtered.map((order) => {
@@ -1278,7 +1384,6 @@ function AdminOrders() {
                 preparationEnd <= now;
 
               return (
-
                 <article
                   className={`order-card ${status
                     .toLowerCase()
@@ -1315,7 +1420,6 @@ function AdminOrders() {
                       </div>
 
                       <span className="order-time">
-
                         {created
                           ? new Date(
                               created
@@ -1329,7 +1433,6 @@ function AdminOrders() {
                               }
                             )
                           : "—"}
-
                       </span>
 
                     </div>
@@ -1357,6 +1460,12 @@ function AdminOrders() {
                         {addressFor(order)}
                       </span>
 
+                      {/* DAILY SCRATCH */}
+
+                      <DailyScratchBadge
+                        order={order}
+                      />
+
                     </div>
 
                   </div>
@@ -1377,8 +1486,12 @@ function AdminOrders() {
                                 1
                             );
 
-                          return (
+                          const freeScratch =
+                            isDailyScratchItem(
+                              item
+                            );
 
+                          return (
                             <div
                               className="item-row"
                               key={
@@ -1389,9 +1502,27 @@ function AdminOrders() {
 
                               <span>
 
-                                {item.name ||
-                                  item.productName ||
-                                  "Food Item"}
+                                {freeScratch && (
+                                  <span
+                                    style={{
+                                      marginRight: 4
+                                    }}
+                                  >
+                                    🎁
+                                  </span>
+                                )}
+
+                                {freeScratch
+                                  ? `FREE ${
+                                      item.name ||
+                                      item.productName ||
+                                      "Food Item"
+                                    }`
+                                  : (
+                                      item.name ||
+                                      item.productName ||
+                                      "Food Item"
+                                    )}
 
                                 <small>
                                   ×{qty}
@@ -1400,17 +1531,18 @@ function AdminOrders() {
                               </span>
 
                               <strong>
-                                {money(
-                                  Number(
-                                    item.price ||
-                                      0
-                                  ) *
-                                    qty
-                                )}
+                                {freeScratch
+                                  ? "FREE"
+                                  : money(
+                                      Number(
+                                        item.price ||
+                                          0
+                                      ) *
+                                        qty
+                                    )}
                               </strong>
 
                             </div>
-
                           );
                         }
                       )}
@@ -1419,6 +1551,32 @@ function AdminOrders() {
                       <span className="more">
                         +{items.length - 5} more items
                       </span>
+                    )}
+
+                    {/* DAILY SCRATCH SUMMARY */}
+
+                    {getDailyScratchReward(
+                      order
+                    )?.enabled && (
+                      <div
+                        style={{
+                          marginTop: 8,
+                          padding: "8px 10px",
+                          borderRadius: 9,
+                          background:
+                            "#fff7ed",
+                          border:
+                            "1px solid #fed7aa",
+                          color: "#9a3412",
+                          fontSize: 12,
+                          fontWeight: 700
+                        }}
+                      >
+                        🎁 Scratch Reward:{" "}
+                        {getDailyScratchRewardText(
+                          order
+                        )}
+                      </div>
                     )}
 
                     <div className="total-row">
@@ -1458,9 +1616,7 @@ function AdminOrders() {
 
                   </div>
 
-                  {/* =================================================
-                      ACTIONS
-                  ================================================= */}
+                  {/* ACTIONS */}
 
                   <div className="action-block">
 
@@ -1468,7 +1624,6 @@ function AdminOrders() {
 
                     {status === "New" && (
                       <>
-
                         <div className="timer acceptance">
 
                           <span>
@@ -1500,7 +1655,6 @@ function AdminOrders() {
                         >
                           ✕ Reject
                         </button>
-
                       </>
                     )}
 
@@ -1508,7 +1662,6 @@ function AdminOrders() {
 
                     {status === "Preparing" && (
                       <>
-
                         <div
                           className={`timer preparation ${
                             expired
@@ -1552,14 +1705,12 @@ function AdminOrders() {
                           </button>
 
                         </div>
-
                       </>
                     )}
 
                     {/* FOOD READY */}
 
                     {status === "Food Ready" && (
-
                       <button
                         className="action dispatch"
                         onClick={() =>
@@ -1568,13 +1719,11 @@ function AdminOrders() {
                       >
                         🛵 Dispatch
                       </button>
-
                     )}
 
                     {/* DISPATCHED */}
 
                     {status === "Dispatched" && (
-
                       <button
                         className="action ready"
                         onClick={() =>
@@ -1583,25 +1732,19 @@ function AdminOrders() {
                       >
                         ✓ Mark Delivered
                       </button>
-
                     )}
 
                     {/* REJECTED */}
 
                     {status === "Rejected" && (
-
                       <div className="rejected">
                         Rejected ·{" "}
                         {order.rejectionReason ||
                           "Staff rejected"}
                       </div>
-
                     )}
 
-                    {/* =================================================
-                        UNIVERSAL VIEW KOT
-                        Available for EVERY order status
-                    ================================================= */}
+                    {/* UNIVERSAL VIEW KOT */}
 
                     <button
                       className="action outline view-kot-btn"
@@ -1619,7 +1762,6 @@ function AdminOrders() {
                       order.paymentStatus !==
                         "Paid" &&
                       status !== "Rejected" && (
-
                         <button
                           className="action payment-btn"
                           onClick={() =>
@@ -1628,7 +1770,6 @@ function AdminOrders() {
                         >
                           💳 Mark UPI Paid
                         </button>
-
                       )}
 
                   </div>
@@ -1647,7 +1788,6 @@ function AdminOrders() {
       =================================================== */}
 
       {newOrder && (
-
         <div className="new-order-overlay">
 
           <div className="new-order-alert">
@@ -1684,6 +1824,34 @@ function AdminOrders() {
                   newOrder.total
                 )}
               </p>
+
+              {/* DAILY SCRATCH IN ALERT */}
+
+              {getDailyScratchReward(
+                newOrder
+              )?.enabled && (
+                <div
+                  style={{
+                    marginTop: 8,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 9px",
+                    borderRadius: 8,
+                    background: "#fff7ed",
+                    border:
+                      "1px solid #fed7aa",
+                    color: "#9a3412",
+                    fontSize: 12,
+                    fontWeight: 800
+                  }}
+                >
+                  🎁{" "}
+                  {getDailyScratchRewardText(
+                    newOrder
+                  )}
+                </div>
+              )}
 
             </div>
 
@@ -1723,7 +1891,6 @@ function AdminOrders() {
             </div>
 
           </div>
-
         </div>
       )}
 
