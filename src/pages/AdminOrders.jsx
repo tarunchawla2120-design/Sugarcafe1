@@ -12,6 +12,82 @@ import { useStoreSettings } from "../context/StoreContext";
 import Sidebar from "../components/admin/Sidebar";
 import "./AdminOrders.css";
 
+/* =========================================================
+   PUSH NOTIFICATION
+========================================================= */
+
+const PAYMENT_API_URL =
+  import.meta.env.VITE_PAYMENT_API_URL || "";
+
+async function sendOrderStatusNotification(order, status) {
+  if (!order?.customerId || !status) {
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      `${PAYMENT_API_URL}/api/notifications/order-status`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          customerId: String(
+            order.customerId
+          ),
+
+          orderId: String(
+            order.id || ""
+          ),
+
+          orderNumber: String(
+            order.orderNumber ||
+            order.orderNo ||
+            order.orderId ||
+            order.id ||
+            ""
+          ),
+
+          status: String(status),
+
+          orderType: String(
+            order.orderType ||
+            "Delivery"
+          )
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.warn(
+        "Order push notification failed:",
+        data?.error || "Unknown error"
+      );
+
+      return;
+    }
+
+    console.log(
+      `Push notification sent for ${status}:`,
+      data
+    );
+  } catch (error) {
+    /*
+      Notification failure should NEVER stop
+      the actual order status update.
+    */
+
+    console.error(
+      "Order push notification error:",
+      error
+    );
+  }
+}
+
+
 const STATUS = [
   "All",
   "New",
@@ -75,7 +151,10 @@ function addressFor(order) {
     return order.address;
   }
 
-  if (order.address && typeof order.address === "object") {
+  if (
+    order.address &&
+    typeof order.address === "object"
+  ) {
     return (
       order.address.fullAddress ||
       order.address.address ||
@@ -117,7 +196,8 @@ function getDailyScratchReward(order) {
 }
 
 function getDailyScratchRewardText(order) {
-  const reward = getDailyScratchReward(order);
+  const reward =
+    getDailyScratchReward(order);
 
   if (!reward?.enabled) {
     return "";
@@ -128,10 +208,14 @@ function getDailyScratchRewardText(order) {
     Number(reward.discountPercent) === 5
   ) {
     const amount =
-      Number(reward.appliedDiscount || 0);
+      Number(
+        reward.appliedDiscount || 0
+      );
 
     return amount > 0
-      ? `5% OFF · ${money(amount)} discount`
+      ? `5% OFF · ${money(
+          amount
+        )} discount`
       : "5% OFF";
   }
 
@@ -139,13 +223,11 @@ function getDailyScratchRewardText(order) {
     reward.type === "free_menu_item" ||
     reward.type === "free_item"
   ) {
-    return (
-      `FREE ${
-        reward.itemName ||
-        reward.title ||
-        "Reward Item"
-      }`
-    );
+    return `FREE ${
+      reward.itemName ||
+      reward.title ||
+      "Reward Item"
+    }`;
   }
 
   return (
@@ -163,7 +245,8 @@ function getElectronPrinter() {
     if (
       typeof window !== "undefined" &&
       window.electronAPI &&
-      typeof window.electronAPI.printKOT === "function"
+      typeof window.electronAPI.printKOT ===
+        "function"
     ) {
       return window.electronAPI;
     }
@@ -171,12 +254,16 @@ function getElectronPrinter() {
     if (
       typeof window !== "undefined" &&
       window.sugarCafeDesktop &&
-      typeof window.sugarCafeDesktop.printKOT === "function"
+      typeof window.sugarCafeDesktop.printKOT ===
+        "function"
     ) {
       return window.sugarCafeDesktop;
     }
   } catch (error) {
-    console.error("Electron bridge error:", error);
+    console.error(
+      "Electron bridge error:",
+      error
+    );
   }
 
   return null;
@@ -187,7 +274,8 @@ function getElectronPrinter() {
 ========================================================= */
 
 function DailyScratchBadge({ order }) {
-  const reward = getDailyScratchReward(order);
+  const reward =
+    getDailyScratchReward(order);
 
   if (!reward?.enabled) {
     return null;
@@ -242,11 +330,15 @@ function DailyScratchBadge({ order }) {
         </strong>
 
         <span>
-          {getDailyScratchRewardText(order)}
+          {getDailyScratchRewardText(
+            order
+          )}
         </span>
 
         {isDiscount &&
-          Number(reward.appliedDiscount || 0) > 0 && (
+          Number(
+            reward.appliedDiscount || 0
+          ) > 0 && (
             <small
               style={{
                 display: "block",
@@ -267,15 +359,24 @@ function DailyScratchBadge({ order }) {
    KOT MODAL
 ========================================================= */
 
-function KOTModal({ order, onClose, onPrint }) {
+function KOTModal({
+  order,
+  onClose,
+  onPrint
+}) {
   if (!order) return null;
 
   const items = itemsFor(order);
+
   const scratchReward =
     getDailyScratchReward(order);
 
-  const created = toMillis(order.createdAt);
-  const date = created ? new Date(created) : new Date();
+  const created =
+    toMillis(order.createdAt);
+
+  const date = created
+    ? new Date(created)
+    : new Date();
 
   return (
     <div
@@ -288,12 +389,12 @@ function KOTModal({ order, onClose, onPrint }) {
     >
       <div className="sc-kot-modal">
 
-        {/* HEADER */}
-
         <div className="sc-kot-head">
           <div>
             <b>☕ SUGAR CAFE</b>
-            <span>KITCHEN ORDER TICKET</span>
+            <span>
+              KITCHEN ORDER TICKET
+            </span>
           </div>
 
           <button onClick={onClose}>
@@ -301,27 +402,30 @@ function KOTModal({ order, onClose, onPrint }) {
           </button>
         </div>
 
-        {/* ORDER META */}
-
         <div className="sc-kot-meta">
           <b>
             #{label(order)}
           </b>
 
           <span>
-            {date.toLocaleDateString("en-IN")} ·{" "}
-            {date.toLocaleTimeString("en-IN", {
-              hour: "2-digit",
-              minute: "2-digit"
-            })}
+            {date.toLocaleDateString(
+              "en-IN"
+            )}{" "}
+            ·{" "}
+            {date.toLocaleTimeString(
+              "en-IN",
+              {
+                hour: "2-digit",
+                minute: "2-digit"
+              }
+            )}
           </span>
 
           <em>
-            {order.orderType || "Delivery"}
+            {order.orderType ||
+              "Delivery"}
           </em>
         </div>
-
-        {/* CUSTOMER */}
 
         <section>
           <small>
@@ -345,8 +449,6 @@ function KOTModal({ order, onClose, onPrint }) {
           </div>
         </section>
 
-        {/* DAILY SCRATCH REWARD */}
-
         {scratchReward?.enabled && (
           <section
             style={{
@@ -354,7 +456,8 @@ function KOTModal({ order, onClose, onPrint }) {
               padding: 12,
               borderRadius: 10,
               background: "#fff7ed",
-              border: "1px solid #fed7aa"
+              border:
+                "1px solid #fed7aa"
             }}
           >
             <small
@@ -373,7 +476,9 @@ function KOTModal({ order, onClose, onPrint }) {
                 color: "#7c2d12"
               }}
             >
-              {getDailyScratchRewardText(order)}
+              {getDailyScratchRewardText(
+                order
+              )}
             </strong>
 
             {(
@@ -384,7 +489,8 @@ function KOTModal({ order, onClose, onPrint }) {
               ) === 5
             ) &&
               Number(
-                scratchReward.appliedDiscount || 0
+                scratchReward.appliedDiscount ||
+                  0
               ) > 0 && (
                 <div
                   style={{
@@ -401,8 +507,6 @@ function KOTModal({ order, onClose, onPrint }) {
               )}
           </section>
         )}
-
-        {/* ITEMS */}
 
         <section>
           <small>
@@ -421,13 +525,16 @@ function KOTModal({ order, onClose, onPrint }) {
                 isDailyScratchItem(item);
 
               const itemTotal =
-                Number(item.price || 0) *
-                qty;
+                Number(
+                  item.price || 0
+                ) * qty;
 
               return (
                 <div
                   className="kot-item"
-                  key={item.id || i}
+                  key={
+                    item.id || i
+                  }
                 >
                   <span>
                     {dailyScratchFree && (
@@ -471,8 +578,6 @@ function KOTModal({ order, onClose, onPrint }) {
           )}
         </section>
 
-        {/* SPECIAL NOTE */}
-
         {(order.instructions ||
           order.specialNote ||
           order.note) && (
@@ -486,8 +591,6 @@ function KOTModal({ order, onClose, onPrint }) {
           </div>
         )}
 
-        {/* TOTAL */}
-
         <div className="kot-total">
           <span>
             Total
@@ -497,8 +600,6 @@ function KOTModal({ order, onClose, onPrint }) {
             {money(order.total)}
           </b>
         </div>
-
-        {/* MODAL ACTIONS */}
 
         <div className="kot-actions">
           <button
@@ -527,18 +628,32 @@ function KOTModal({ order, onClose, onPrint }) {
 ========================================================= */
 
 function AdminOrders() {
-  const [orders, setOrders] = useState([]);
-  const [filter, setFilter] = useState("All");
-  const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [orders, setOrders] =
+    useState([]);
 
-  const [newOrder, setNewOrder] = useState(null);
-  const [kotOrder, setKotOrder] = useState(null);
+  const [filter, setFilter] =
+    useState("All");
 
-  const [now, setNow] = useState(Date.now());
+  const [query, setQuery] =
+    useState("");
 
-  const store = useStoreSettings();
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
+
+  const [newOrder, setNewOrder] =
+    useState(null);
+
+  const [kotOrder, setKotOrder] =
+    useState(null);
+
+  const [now, setNow] =
+    useState(Date.now());
+
+  const store =
+    useStoreSettings();
 
   const buzzedPreparation =
     useRef(new Set());
@@ -557,14 +672,18 @@ function AdminOrders() {
   ======================================================= */
 
   const playBell = () => {
-    if (store.buzzerEnabled === false) {
+    if (
+      store.buzzerEnabled === false
+    ) {
       return;
     }
 
     try {
       if (!alarmRef.current) {
         alarmRef.current =
-          new Audio("/alarm_bell.mp3");
+          new Audio(
+            "/alarm_bell.mp3"
+          );
       }
 
       alarmRef.current.currentTime = 0;
@@ -589,70 +708,82 @@ function AdminOrders() {
   ======================================================= */
 
   useEffect(() => {
-    const unsub = onSnapshot(
-      collection(db, "orders"),
+    const unsub =
+      onSnapshot(
+        collection(db, "orders"),
 
-      (snapshot) => {
-        const data =
-          snapshot.docs
-            .map((d) => ({
-              id: d.id,
-              ...d.data()
-            }))
-            .sort(
-              (a, b) =>
-                (toMillis(b.createdAt) || 0) -
-                (toMillis(a.createdAt) || 0)
-            );
+        (snapshot) => {
+          const data =
+            snapshot.docs
+              .map((d) => ({
+                id: d.id,
+                ...d.data()
+              }))
+              .sort(
+                (a, b) =>
+                  (toMillis(
+                    b.createdAt
+                  ) || 0) -
+                  (toMillis(
+                    a.createdAt
+                  ) || 0)
+              );
 
-        setOrders(data);
-        setLoading(false);
+          setOrders(data);
+          setLoading(false);
 
-        snapshot.docChanges().forEach(
-          (change) => {
-            if (
-              change.type === "added" &&
-              !firstSnapshot.current &&
-              !knownIds.current.has(
-                change.doc.id
-              )
-            ) {
-              const incoming = {
-                id: change.doc.id,
-                ...change.doc.data()
-              };
-
+          snapshot.docChanges().forEach(
+            (change) => {
               if (
-                (incoming.status || "New") ===
-                "New"
+                change.type ===
+                  "added" &&
+                !firstSnapshot.current &&
+                !knownIds.current.has(
+                  change.doc.id
+                )
               ) {
-                setNewOrder(incoming);
-                playBell();
+                const incoming = {
+                  id: change.doc.id,
+                  ...change.doc.data()
+                };
+
+                if (
+                  (
+                    incoming.status ||
+                    "New"
+                  ) === "New"
+                ) {
+                  setNewOrder(
+                    incoming
+                  );
+
+                  playBell();
+                }
               }
+
+              knownIds.current.add(
+                change.doc.id
+              );
             }
+          );
 
-            knownIds.current.add(
-              change.doc.id
-            );
-          }
-        );
+          firstSnapshot.current =
+            false;
+        },
 
-        firstSnapshot.current = false;
-      },
+        (err) => {
+          console.error(
+            "Orders listener error:",
+            err
+          );
 
-      (err) => {
-        console.error(
-          "Orders listener error:",
-          err
-        );
+          setError(
+            "Orders load nahi ho paaye. Firebase connection/rules check karein."
+          );
 
-        setError(
-          "Orders load nahi ho paaye. Firebase connection/rules check karein."
-        );
-
-        setLoading(false);
-      }
-    );
+          setLoading(false);
+        }
+      );
 
     return () => unsub();
   }, []);
@@ -662,10 +793,14 @@ function AdminOrders() {
   ======================================================= */
 
   useEffect(() => {
-    const id = setInterval(
-      () => setNow(Date.now()),
-      1000
-    );
+    const id =
+      setInterval(
+        () =>
+          setNow(
+            Date.now()
+          ),
+        1000
+      );
 
     return () =>
       clearInterval(id);
@@ -676,39 +811,45 @@ function AdminOrders() {
   ======================================================= */
 
   useEffect(() => {
-    if (store.buzzerEnabled === false) {
+    if (
+      store.buzzerEnabled === false
+    ) {
       return;
     }
 
-    orders.forEach((order) => {
-      if (
-        (order.status || "New") !==
-        "Preparing"
-      ) {
-        return;
-      }
+    orders.forEach(
+      (order) => {
+        if (
+          (
+            order.status ||
+            "New"
+          ) !== "Preparing"
+        ) {
+          return;
+        }
 
-      const end =
-        toMillis(
-          order.preparationEndAt
+        const end =
+          toMillis(
+            order.preparationEndAt
+          );
+
+        if (
+          !end ||
+          end > now ||
+          buzzedPreparation.current.has(
+            order.id
+          )
+        ) {
+          return;
+        }
+
+        buzzedPreparation.current.add(
+          order.id
         );
 
-      if (
-        !end ||
-        end > now ||
-        buzzedPreparation.current.has(
-          order.id
-        )
-      ) {
-        return;
+        playBell();
       }
-
-      buzzedPreparation.current.add(
-        order.id
-      );
-
-      playBell();
-    });
+    );
   }, [
     now,
     orders,
@@ -729,7 +870,7 @@ function AdminOrders() {
   }, []);
 
   /* =======================================================
-     UPDATE ORDER
+     UPDATE ORDER + PUSH NOTIFICATION
   ======================================================= */
 
   const updateOrder = async (
@@ -738,7 +879,11 @@ function AdminOrders() {
   ) => {
     try {
       await updateDoc(
-        doc(db, "orders", order.id),
+        doc(
+          db,
+          "orders",
+          order.id
+        ),
         updates
       );
 
@@ -746,6 +891,40 @@ function AdminOrders() {
         newOrder?.id === order.id
       ) {
         setNewOrder(null);
+      }
+
+      /*
+       * IMPORTANT:
+       * Push notification is only sent when
+       * the order STATUS changes.
+       *
+       * So +10 Min / UPI Paid / other updates
+       * won't send unwanted notifications.
+       */
+
+      if (
+        updates?.status &&
+        String(
+          updates.status
+        ).trim()
+      ) {
+        /*
+         * Don't await this.
+         *
+         * If notification server has a temporary
+         * problem, the order update is already
+         * successfully saved in Firestore.
+         */
+
+        sendOrderStatusNotification(
+          order,
+          updates.status
+        ).catch((notificationError) => {
+          console.error(
+            "Background order notification error:",
+            notificationError
+          );
+        });
       }
 
       return true;
@@ -767,7 +946,9 @@ function AdminOrders() {
      PRINT KOT
   ======================================================= */
 
-  const printKOT = async (order) => {
+  const printKOT = async (
+    order
+  ) => {
     try {
       const electron =
         getElectronPrinter();
@@ -791,7 +972,9 @@ function AdminOrders() {
       );
 
       const result =
-        await electron.printKOT(order);
+        await electron.printKOT(
+          order
+        );
 
       console.log(
         "Electron print result:",
@@ -833,8 +1016,10 @@ function AdminOrders() {
 
       alert(
         "KOT printing mein error aaya.\n\n" +
-        (error?.message ||
-          "Unknown error")
+        (
+          error?.message ||
+          "Unknown error"
+        )
       );
 
       return false;
@@ -845,7 +1030,9 @@ function AdminOrders() {
      ACCEPT ORDER
   ======================================================= */
 
-  const accept = async (order) => {
+  const accept = async (
+    order
+  ) => {
     const minutes =
       Number(
         order.preparationMinutes ??
@@ -863,7 +1050,8 @@ function AdminOrders() {
       await updateOrder(
         order,
         {
-          status: "Preparing",
+          status:
+            "Preparing",
 
           acceptedAt:
             Timestamp.fromMillis(
@@ -883,7 +1071,8 @@ function AdminOrders() {
           preparationMinutes:
             minutes,
 
-          rejectedAt: null
+          rejectedAt:
+            null
         }
       );
 
@@ -894,7 +1083,8 @@ function AdminOrders() {
     const printPayload = {
       ...order,
 
-      status: "Preparing",
+      status:
+        "Preparing",
 
       acceptedAt: {
         seconds:
@@ -925,7 +1115,8 @@ function AdminOrders() {
 
     for (
       let attempt = 1;
-      attempt <= 3 && !printed;
+      attempt <= 3 &&
+      !printed;
       attempt++
     ) {
       console.log(
@@ -964,7 +1155,9 @@ function AdminOrders() {
      REJECT
   ======================================================= */
 
-  const reject = (order) => {
+  const reject = (
+    order
+  ) => {
     const reason =
       window.prompt(
         "Reject reason (optional):",
@@ -974,7 +1167,8 @@ function AdminOrders() {
     return updateOrder(
       order,
       {
-        status: "Rejected",
+        status:
+          "Rejected",
 
         rejectionReason:
           reason ||
@@ -990,7 +1184,9 @@ function AdminOrders() {
      EXTRA TIME
   ======================================================= */
 
-  const extra = (order) => {
+  const extra = (
+    order
+  ) => {
     const mins =
       Number(
         order.extraPreparationMinutes ??
@@ -1021,11 +1217,15 @@ function AdminOrders() {
      READY
   ======================================================= */
 
-  const ready = (order) =>
+  const ready = (
+    order
+  ) =>
     updateOrder(
       order,
       {
-        status: "Food Ready",
+        status:
+          "Food Ready",
+
         foodReadyAt:
           Timestamp.now()
       }
@@ -1035,11 +1235,15 @@ function AdminOrders() {
      DISPATCH
   ======================================================= */
 
-  const dispatch = (order) =>
+  const dispatch = (
+    order
+  ) =>
     updateOrder(
       order,
       {
-        status: "Dispatched",
+        status:
+          "Dispatched",
+
         dispatchedAt:
           Timestamp.now()
       }
@@ -1049,11 +1253,15 @@ function AdminOrders() {
      DELIVERED
   ======================================================= */
 
-  const delivered = (order) =>
+  const delivered = (
+    order
+  ) =>
     updateOrder(
       order,
       {
-        status: "Delivered",
+        status:
+          "Delivered",
+
         deliveredAt:
           Timestamp.now()
       }
@@ -1063,11 +1271,15 @@ function AdminOrders() {
      UPI
   ======================================================= */
 
-  const verifyUpi = (order) =>
+  const verifyUpi = (
+    order
+  ) =>
     updateOrder(
       order,
       {
-        paymentStatus: "Paid",
+        paymentStatus:
+          "Paid",
+
         paymentVerifiedAt:
           Timestamp.now()
       }
@@ -1077,73 +1289,86 @@ function AdminOrders() {
      COUNTS
   ======================================================= */
 
-  const counts = useMemo(
-    () =>
-      STATUS.reduce(
-        (a, s) => {
-          a[s] =
-            s === "All"
-              ? orders.length
-              : orders.filter(
-                  (o) =>
-                    (o.status ||
-                      "New") === s
-                ).length;
+  const counts =
+    useMemo(
+      () =>
+        STATUS.reduce(
+          (a, s) => {
+            a[s] =
+              s === "All"
+                ? orders.length
+                : orders.filter(
+                    (o) =>
+                      (
+                        o.status ||
+                        "New"
+                      ) === s
+                  ).length;
 
-          return a;
-        },
-        {}
-      ),
-    [orders]
-  );
+            return a;
+          },
+          {}
+        ),
+      [orders]
+    );
 
   /* =======================================================
      FILTER
   ======================================================= */
 
-  const filtered = useMemo(
-    () =>
-      orders.filter((o) => {
-        const q =
-          query
-            .trim()
-            .toLowerCase();
+  const filtered =
+    useMemo(
+      () =>
+        orders.filter(
+          (o) => {
+            const q =
+              query
+                .trim()
+                .toLowerCase();
 
-        const status =
-          o.status || "New";
+            const status =
+              o.status ||
+              "New";
 
-        const searchable = [
-          label(o),
-          o.customerName,
-          o.name,
-          o.phone,
-          o.mobile,
-          addressFor(o),
-          o.orderType
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
+            const searchable = [
+              label(o),
+              o.customerName,
+              o.name,
+              o.phone,
+              o.mobile,
+              addressFor(o),
+              o.orderType
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase();
 
-        return (
-          (filter === "All" ||
-            status === filter) &&
-          (!q ||
-            searchable.includes(q))
-        );
-      }),
-    [
-      orders,
-      filter,
-      query
-    ]
-  );
+            return (
+              (
+                filter === "All" ||
+                status === filter
+              ) &&
+              (
+                !q ||
+                searchable.includes(q)
+              )
+            );
+          }
+        ),
+      [
+        orders,
+        filter,
+        query
+      ]
+    );
 
   /* =======================================================
      PREPARATION TIMER
   ======================================================= */
 
-  const remaining = (order) => {
+  const remaining = (
+    order
+  ) => {
     const end =
       toMillis(
         order.preparationEndAt
@@ -1172,11 +1397,15 @@ function AdminOrders() {
      ACCEPT TIMER
   ======================================================= */
 
-  const acceptRemaining = (order) => {
+  const acceptRemaining = (
+    order
+  ) => {
     const end =
-      (toMillis(
-        order.createdAt
-      ) || now) +
+      (
+        toMillis(
+          order.createdAt
+        ) || now
+      ) +
       Number(
         order.acceptanceSeconds ||
         60
@@ -1209,9 +1438,8 @@ function AdminOrders() {
 
       <main className="sc-orders-main">
 
-        {/* HEADER */}
-
         <header className="orders-top">
+
           <div>
             <div className="brand-kicker">
               SUGAR CAFE · LIVE CONTROL
@@ -1230,6 +1458,7 @@ function AdminOrders() {
           <div className="top-actions">
 
             <div className="store-status">
+
               <i
                 className={
                   (
@@ -1251,8 +1480,11 @@ function AdminOrders() {
                 : "Delivery Closed"}
 
               <small>
-                {store.orderTimingLabel}
+                {
+                  store.orderTimingLabel
+                }
               </small>
+
             </div>
 
             <button
@@ -1260,15 +1492,15 @@ function AdminOrders() {
               onClick={playBell}
             >
               🔔
+
               <b>
                 {counts.New || 0}
               </b>
             </button>
 
           </div>
-        </header>
 
-        {/* SEARCH */}
+        </header>
 
         <section className="order-toolbar">
 
@@ -1281,7 +1513,9 @@ function AdminOrders() {
             <input
               value={query}
               onChange={(e) =>
-                setQuery(e.target.value)
+                setQuery(
+                  e.target.value
+                )
               }
               placeholder="Search order, customer, phone or address"
             />
@@ -1293,8 +1527,6 @@ function AdminOrders() {
           </button>
 
         </section>
-
-        {/* STATUS */}
 
         <section className="status-tabs">
 
@@ -1327,15 +1559,11 @@ function AdminOrders() {
 
         </section>
 
-        {/* ERROR */}
-
         {error && (
           <div className="error-banner">
             ⚠️ {error}
           </div>
         )}
-
-        {/* ORDERS */}
 
         {loading ? (
           <div className="empty-card">
@@ -1361,431 +1589,428 @@ function AdminOrders() {
         ) : (
           <div className="orders-grid">
 
-            {filtered.map((order) => {
+            {filtered.map(
+              (order) => {
 
-              const status =
-                order.status || "New";
+                const status =
+                  order.status ||
+                  "New";
 
-              const items =
-                itemsFor(order);
+                const items =
+                  itemsFor(order);
 
-              const created =
-                toMillis(
-                  order.createdAt
-                );
+                const created =
+                  toMillis(
+                    order.createdAt
+                  );
 
-              const preparationEnd =
-                toMillis(
-                  order.preparationEndAt
-                );
+                const preparationEnd =
+                  toMillis(
+                    order.preparationEndAt
+                  );
 
-              const expired =
-                preparationEnd !== null &&
-                preparationEnd <= now;
+                const expired =
+                  preparationEnd !== null &&
+                  preparationEnd <= now;
 
-              return (
-                <article
-                  className={`order-card ${status
-                    .toLowerCase()
-                    .replace(
-                      /\s+/g,
-                      "-"
-                    )}`}
-                  key={order.id}
-                >
+                return (
+                  <article
+                    className={`order-card ${status
+                      .toLowerCase()
+                      .replace(
+                        /\s+/g,
+                        "-"
+                      )}`}
+                    key={order.id}
+                  >
 
-                  {/* ORDER MAIN */}
+                    <div className="order-main">
 
-                  <div className="order-main">
+                      <div className="order-head">
 
-                    <div className="order-head">
+                        <div>
 
-                      <div>
+                          <span className="order-no">
+                            #{label(order)}
+                          </span>
 
-                        <span className="order-no">
-                          #{label(order)}
-                        </span>
+                          <span
+                            className={`status-badge ${status
+                              .toLowerCase()
+                              .replace(
+                                /\s+/g,
+                                "-"
+                              )}`}
+                          >
+                            {status}
+                          </span>
 
-                        <span
-                          className={`status-badge ${status
-                            .toLowerCase()
-                            .replace(
-                              /\s+/g,
-                              "-"
-                            )}`}
-                        >
-                          {status}
+                        </div>
+
+                        <span className="order-time">
+
+                          {created
+                            ? new Date(
+                                created
+                              ).toLocaleTimeString(
+                                "en-IN",
+                                {
+                                  hour:
+                                    "2-digit",
+                                  minute:
+                                    "2-digit"
+                                }
+                              )
+                            : "—"}
+
                         </span>
 
                       </div>
 
-                      <span className="order-time">
-                        {created
-                          ? new Date(
-                              created
-                            ).toLocaleTimeString(
-                              "en-IN",
-                              {
-                                hour:
-                                  "2-digit",
-                                minute:
-                                  "2-digit"
-                              }
-                            )
-                          : "—"}
-                      </span>
+                      <div className="customer-block">
+
+                        <strong>
+                          {order.customerName ||
+                            order.name ||
+                            "Customer"}
+                        </strong>
+
+                        <span>
+                          ☎{" "}
+                          {order.phone ||
+                            order.mobile ||
+                            "—"}
+                        </span>
+
+                        <span>
+                          📍{" "}
+                          {order.orderType ||
+                            "Delivery"}{" "}
+                          ·{" "}
+                          {addressFor(
+                            order
+                          )}
+                        </span>
+
+                        <DailyScratchBadge
+                          order={order}
+                        />
+
+                      </div>
 
                     </div>
 
-                    <div className="customer-block">
+                    <div className="items-block">
 
-                      <strong>
-                        {order.customerName ||
-                          order.name ||
-                          "Customer"}
-                      </strong>
+                      {items
+                        .slice(0, 5)
+                        .map(
+                          (
+                            item,
+                            i
+                          ) => {
 
-                      <span>
-                        ☎{" "}
-                        {order.phone ||
-                          order.mobile ||
-                          "—"}
-                      </span>
+                            const qty =
+                              Number(
+                                item.qty ||
+                                  item.quantity ||
+                                  1
+                              );
 
-                      <span>
-                        📍{" "}
-                        {order.orderType ||
-                          "Delivery"}{" "}
-                        ·{" "}
-                        {addressFor(order)}
-                      </span>
+                            const freeScratch =
+                              isDailyScratchItem(
+                                item
+                              );
 
-                      {/* DAILY SCRATCH */}
+                            return (
+                              <div
+                                className="item-row"
+                                key={
+                                  item.id ||
+                                  i
+                                }
+                              >
 
-                      <DailyScratchBadge
-                        order={order}
-                      />
+                                <span>
+
+                                  {freeScratch && (
+                                    <span
+                                      style={{
+                                        marginRight: 4
+                                      }}
+                                    >
+                                      🎁
+                                    </span>
+                                  )}
+
+                                  {freeScratch
+                                    ? `FREE ${
+                                        item.name ||
+                                        item.productName ||
+                                        "Food Item"
+                                      }`
+                                    : (
+                                        item.name ||
+                                        item.productName ||
+                                        "Food Item"
+                                      )}
+
+                                  <small>
+                                    ×{qty}
+                                  </small>
+
+                                </span>
+
+                                <strong>
+                                  {freeScratch
+                                    ? "FREE"
+                                    : money(
+                                        Number(
+                                          item.price ||
+                                            0
+                                        ) *
+                                          qty
+                                      )}
+                                </strong>
+
+                              </div>
+                            );
+                          }
+                        )}
+
+                      {items.length > 5 && (
+                        <span className="more">
+                          +{items.length - 5} more items
+                        </span>
+                      )}
+
+                      {getDailyScratchReward(
+                        order
+                      )?.enabled && (
+                        <div
+                          style={{
+                            marginTop: 8,
+                            padding:
+                              "8px 10px",
+                            borderRadius: 9,
+                            background:
+                              "#fff7ed",
+                            border:
+                              "1px solid #fed7aa",
+                            color:
+                              "#9a3412",
+                            fontSize: 12,
+                            fontWeight: 700
+                          }}
+                        >
+                          🎁 Scratch Reward:{" "}
+                          {getDailyScratchRewardText(
+                            order
+                          )}
+                        </div>
+                      )}
+
+                      <div className="total-row">
+
+                        <span>
+                          Total
+                        </span>
+
+                        <strong>
+                          {money(
+                            order.total
+                          )}
+                        </strong>
+
+                      </div>
+
+                      <div className="payment">
+
+                        {order.paymentMethod ||
+                          "Cash on Delivery"}
+
+                        {" · "}
+
+                        <b
+                          className={
+                            order.paymentStatus ===
+                            "Paid"
+                              ? "paid"
+                              : "pending"
+                          }
+                        >
+                          {order.paymentStatus ||
+                            "Pending"}
+                        </b>
+
+                      </div>
 
                     </div>
 
-                  </div>
+                    <div className="action-block">
 
-                  {/* ITEMS */}
+                      {status === "New" && (
+                        <>
+                          <div className="timer acceptance">
 
-                  <div className="items-block">
+                            <span>
+                              Accept within
+                            </span>
 
-                    {items
-                      .slice(0, 5)
-                      .map(
-                        (item, i) => {
+                            <strong>
+                              {acceptRemaining(
+                                order
+                              )}
+                            </strong>
 
-                          const qty =
-                            Number(
-                              item.qty ||
-                                item.quantity ||
-                                1
-                            );
+                          </div>
 
-                          const freeScratch =
-                            isDailyScratchItem(
-                              item
-                            );
+                          <button
+                            className="action accept"
+                            onClick={() =>
+                              accept(order)
+                            }
+                          >
+                            ✓ Accept Order
+                          </button>
 
-                          return (
-                            <div
-                              className="item-row"
-                              key={
-                                item.id ||
-                                i
+                          <button
+                            className="action reject"
+                            onClick={() =>
+                              reject(order)
+                            }
+                          >
+                            ✕ Reject
+                          </button>
+                        </>
+                      )}
+
+                      {status ===
+                        "Preparing" && (
+                        <>
+                          <div
+                            className={`timer preparation ${
+                              expired
+                                ? "expired"
+                                : ""
+                            }`}
+                          >
+
+                            <span>
+                              {expired
+                                ? "Time completed"
+                                : "Kitchen Timer"}
+                            </span>
+
+                            <strong>
+                              {remaining(
+                                order
+                              )}
+                            </strong>
+
+                          </div>
+
+                          <div className="action-row">
+
+                            <button
+                              className="action extra"
+                              onClick={() =>
+                                extra(order)
                               }
                             >
+                              +10 Min
+                            </button>
 
-                              <span>
+                            <button
+                              className="action ready"
+                              onClick={() =>
+                                ready(order)
+                              }
+                            >
+                              Mark Ready
+                            </button>
 
-                                {freeScratch && (
-                                  <span
-                                    style={{
-                                      marginRight: 4
-                                    }}
-                                  >
-                                    🎁
-                                  </span>
-                                )}
-
-                                {freeScratch
-                                  ? `FREE ${
-                                      item.name ||
-                                      item.productName ||
-                                      "Food Item"
-                                    }`
-                                  : (
-                                      item.name ||
-                                      item.productName ||
-                                      "Food Item"
-                                    )}
-
-                                <small>
-                                  ×{qty}
-                                </small>
-
-                              </span>
-
-                              <strong>
-                                {freeScratch
-                                  ? "FREE"
-                                  : money(
-                                      Number(
-                                        item.price ||
-                                          0
-                                      ) *
-                                        qty
-                                    )}
-                              </strong>
-
-                            </div>
-                          );
-                        }
+                          </div>
+                        </>
                       )}
 
-                    {items.length > 5 && (
-                      <span className="more">
-                        +{items.length - 5} more items
-                      </span>
-                    )}
-
-                    {/* DAILY SCRATCH SUMMARY */}
-
-                    {getDailyScratchReward(
-                      order
-                    )?.enabled && (
-                      <div
-                        style={{
-                          marginTop: 8,
-                          padding: "8px 10px",
-                          borderRadius: 9,
-                          background:
-                            "#fff7ed",
-                          border:
-                            "1px solid #fed7aa",
-                          color: "#9a3412",
-                          fontSize: 12,
-                          fontWeight: 700
-                        }}
-                      >
-                        🎁 Scratch Reward:{" "}
-                        {getDailyScratchRewardText(
-                          order
-                        )}
-                      </div>
-                    )}
-
-                    <div className="total-row">
-
-                      <span>
-                        Total
-                      </span>
-
-                      <strong>
-                        {money(
-                          order.total
-                        )}
-                      </strong>
-
-                    </div>
-
-                    <div className="payment">
-
-                      {order.paymentMethod ||
-                        "Cash on Delivery"}
-
-                      {" · "}
-
-                      <b
-                        className={
-                          order.paymentStatus ===
-                          "Paid"
-                            ? "paid"
-                            : "pending"
-                        }
-                      >
-                        {order.paymentStatus ||
-                          "Pending"}
-                      </b>
-
-                    </div>
-
-                  </div>
-
-                  {/* ACTIONS */}
-
-                  <div className="action-block">
-
-                    {/* NEW */}
-
-                    {status === "New" && (
-                      <>
-                        <div className="timer acceptance">
-
-                          <span>
-                            Accept within
-                          </span>
-
-                          <strong>
-                            {acceptRemaining(
+                      {status ===
+                        "Food Ready" && (
+                        <button
+                          className="action dispatch"
+                          onClick={() =>
+                            dispatch(
                               order
-                            )}
-                          </strong>
-
-                        </div>
-
-                        <button
-                          className="action accept"
-                          onClick={() =>
-                            accept(order)
+                            )
                           }
                         >
-                          ✓ Accept Order
-                        </button>
-
-                        <button
-                          className="action reject"
-                          onClick={() =>
-                            reject(order)
-                          }
-                        >
-                          ✕ Reject
-                        </button>
-                      </>
-                    )}
-
-                    {/* PREPARING */}
-
-                    {status === "Preparing" && (
-                      <>
-                        <div
-                          className={`timer preparation ${
-                            expired
-                              ? "expired"
-                              : ""
-                          }`}
-                        >
-
-                          <span>
-                            {expired
-                              ? "Time completed"
-                              : "Kitchen Timer"}
-                          </span>
-
-                          <strong>
-                            {remaining(
-                              order
-                            )}
-                          </strong>
-
-                        </div>
-
-                        <div className="action-row">
-
-                          <button
-                            className="action extra"
-                            onClick={() =>
-                              extra(order)
-                            }
-                          >
-                            +10 Min
-                          </button>
-
-                          <button
-                            className="action ready"
-                            onClick={() =>
-                              ready(order)
-                            }
-                          >
-                            Mark Ready
-                          </button>
-
-                        </div>
-                      </>
-                    )}
-
-                    {/* FOOD READY */}
-
-                    {status === "Food Ready" && (
-                      <button
-                        className="action dispatch"
-                        onClick={() =>
-                          dispatch(order)
-                        }
-                      >
-                        🛵 Dispatch
-                      </button>
-                    )}
-
-                    {/* DISPATCHED */}
-
-                    {status === "Dispatched" && (
-                      <button
-                        className="action ready"
-                        onClick={() =>
-                          delivered(order)
-                        }
-                      >
-                        ✓ Mark Delivered
-                      </button>
-                    )}
-
-                    {/* REJECTED */}
-
-                    {status === "Rejected" && (
-                      <div className="rejected">
-                        Rejected ·{" "}
-                        {order.rejectionReason ||
-                          "Staff rejected"}
-                      </div>
-                    )}
-
-                    {/* UNIVERSAL VIEW KOT */}
-
-                    <button
-                      className="action outline view-kot-btn"
-                      onClick={() =>
-                        setKotOrder(order)
-                      }
-                    >
-                      🧾 View KOT
-                    </button>
-
-                    {/* UPI */}
-
-                    {order.paymentMethod ===
-                      "UPI Payment" &&
-                      order.paymentStatus !==
-                        "Paid" &&
-                      status !== "Rejected" && (
-                        <button
-                          className="action payment-btn"
-                          onClick={() =>
-                            verifyUpi(order)
-                          }
-                        >
-                          💳 Mark UPI Paid
+                          🛵 Dispatch
                         </button>
                       )}
 
-                  </div>
+                      {status ===
+                        "Dispatched" && (
+                        <button
+                          className="action ready"
+                          onClick={() =>
+                            delivered(
+                              order
+                            )
+                          }
+                        >
+                          ✓ Mark Delivered
+                        </button>
+                      )}
 
-                </article>
-              );
-            })}
+                      {status ===
+                        "Rejected" && (
+                        <div className="rejected">
+                          Rejected ·{" "}
+                          {order.rejectionReason ||
+                            "Staff rejected"}
+                        </div>
+                      )}
+
+                      <button
+                        className="action outline view-kot-btn"
+                        onClick={() =>
+                          setKotOrder(
+                            order
+                          )
+                        }
+                      >
+                        🧾 View KOT
+                      </button>
+
+                      {order.paymentMethod ===
+                        "UPI Payment" &&
+                        order.paymentStatus !==
+                          "Paid" &&
+                        status !==
+                          "Rejected" && (
+                          <button
+                            className="action payment-btn"
+                            onClick={() =>
+                              verifyUpi(
+                                order
+                              )
+                            }
+                          >
+                            💳 Mark UPI Paid
+                          </button>
+                        )}
+
+                    </div>
+
+                  </article>
+                );
+              }
+            )}
 
           </div>
         )}
 
       </main>
-
-      {/* ===================================================
-          NEW ORDER ALERT
-      =================================================== */}
 
       {newOrder && (
         <div className="new-order-overlay">
@@ -1825,23 +2050,26 @@ function AdminOrders() {
                 )}
               </p>
 
-              {/* DAILY SCRATCH IN ALERT */}
-
               {getDailyScratchReward(
                 newOrder
               )?.enabled && (
                 <div
                   style={{
                     marginTop: 8,
-                    display: "inline-flex",
-                    alignItems: "center",
+                    display:
+                      "inline-flex",
+                    alignItems:
+                      "center",
                     gap: 6,
-                    padding: "6px 9px",
+                    padding:
+                      "6px 9px",
                     borderRadius: 8,
-                    background: "#fff7ed",
+                    background:
+                      "#fff7ed",
                     border:
                       "1px solid #fed7aa",
-                    color: "#9a3412",
+                    color:
+                      "#9a3412",
                     fontSize: 12,
                     fontWeight: 800
                   }}
@@ -1860,7 +2088,9 @@ function AdminOrders() {
               <button
                 className="action accept big"
                 onClick={() =>
-                  accept(newOrder)
+                  accept(
+                    newOrder
+                  )
                 }
               >
                 ✓ ACCEPT ORDER
@@ -1869,7 +2099,9 @@ function AdminOrders() {
               <button
                 className="action reject big"
                 onClick={() =>
-                  reject(newOrder)
+                  reject(
+                    newOrder
+                  )
                 }
               >
                 ✕ REJECT
@@ -1882,7 +2114,9 @@ function AdminOrders() {
                     newOrder
                   );
 
-                  setNewOrder(null);
+                  setNewOrder(
+                    null
+                  );
                 }}
               >
                 🧾 VIEW KOT
@@ -1891,12 +2125,9 @@ function AdminOrders() {
             </div>
 
           </div>
+
         </div>
       )}
-
-      {/* ===================================================
-          KOT MODAL
-      =================================================== */}
 
       <KOTModal
         order={kotOrder}
