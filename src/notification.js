@@ -1,13 +1,17 @@
 import {
   getToken,
   onMessage,
-  deleteToken,
 } from "firebase/messaging";
 
 import { messaging } from "./firebase";
 
+/*
+  VAPID public key comes from Vercel / .env
+  Example:
+  VITE_VAPID_PUBLIC_KEY=xxxxx
+*/
 const VAPID_PUBLIC_KEY =
-  "BMS1WZkLAOImpVgfGqAuY7jemuPiux9Z7qi6zu-ITLmQlKli5HkoobcyuSBrUNlfHQ98faCpMxJ-trLv8mSWI0";
+  import.meta.env.VITE_VAPID_PUBLIC_KEY;
 
 /**
  * Ask notification permission and register the device
@@ -16,7 +20,11 @@ const VAPID_PUBLIC_KEY =
 export async function registerForNotifications() {
   try {
     if (!messaging) {
-      console.log("FCM is not supported on this browser.");
+      console.log("FCM is not available.");
+      return null;
+    }
+
+    if (typeof window === "undefined") {
       return null;
     }
 
@@ -25,14 +33,23 @@ export async function registerForNotifications() {
       return null;
     }
 
-    const permission = await Notification.requestPermission();
+    if (!VAPID_PUBLIC_KEY) {
+      console.error(
+        "VITE_VAPID_PUBLIC_KEY is missing."
+      );
+      return null;
+    }
+
+    const permission =
+      await Notification.requestPermission();
 
     if (permission !== "granted") {
       console.log("Notification permission denied.");
       return null;
     }
 
-    const registration = await navigator.serviceWorker.ready;
+    const registration =
+      await navigator.serviceWorker.ready;
 
     const token = await getToken(messaging, {
       vapidKey: VAPID_PUBLIC_KEY,
@@ -40,7 +57,9 @@ export async function registerForNotifications() {
     });
 
     if (!token) {
-      console.log("FCM token could not be generated.");
+      console.log(
+        "FCM token could not be generated."
+      );
       return null;
     }
 
@@ -48,19 +67,31 @@ export async function registerForNotifications() {
 
     return token;
   } catch (error) {
-    console.error("FCM registration error:", error);
+    console.error(
+      "FCM registration error:",
+      error
+    );
+
     return null;
   }
 }
 
 /**
- * Receive notifications while the SugarCafe website is open.
+ * Receive notifications while the
+ * SugarCafe website is open.
  */
-export function listenForForegroundMessages(callback) {
-  if (!messaging) return () => {};
+export function listenForForegroundMessages(
+  callback
+) {
+  if (!messaging) {
+    return () => {};
+  }
 
   return onMessage(messaging, (payload) => {
-    console.log("FCM foreground message:", payload);
+    console.log(
+      "FCM foreground message:",
+      payload
+    );
 
     if (typeof callback === "function") {
       callback(payload);
