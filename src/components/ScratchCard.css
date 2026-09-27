@@ -1,1 +1,153 @@
+.scratch-card-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px 0;
+}
 
+.scratch-card {
+  position: relative;
+  width: 320px;
+  height: 190px;
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow:
+    0 15px 40px rgba(0, 0, 0, 0.18);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.scratch-reward {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 20px;
+  background:
+    linear-gradient(
+      135deg,
+      #fff7ed,
+      #ffedd5
+    );
+}
+
+.scratch-gift {
+  font-size: 34px;
+  margin-bottom: 4px;
+}
+
+.scratch-win-title {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  color: #9a3412;
+}
+
+.scratch-reward-value {
+  margin-top: 7px;
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 1000;
+  color: #ea580c;
+}
+
+.scratch-reward-message {
+  margin-top: 8px;
+  max-width: 250px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #7c2d12;
+}
+
+.scratch-canvas {
+  position: absolute;
+  inset: 0;
+  width: 320px;
+  height: 190px;
+  max-width: 100%;
+  cursor: grab;
+  touch-action: none;
+  z-index: 2;
+}
+
+.scratch-canvas:active {
+  cursor: grabbing;
+}
+
+.scratch-completed {
+  animation:
+    scratchPop
+    0.35s
+    ease;
+}
+
+.scratch-success {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background:
+    linear-gradient(
+      135deg,
+      #fff7ed,
+      #fed7aa
+    );
+}
+
+.scratch-success span {
+  font-size: 38px;
+  margin-bottom: 5px;
+}
+
+.scratch-success strong {
+  font-size: 28px;
+  font-weight: 1000;
+  color: #ea580c;
+}
+
+.scratch-success small {
+  margin-top: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #9a3412;
+}
+
+@keyframes scratchPop {
+  0% {
+    transform: scale(0.96);
+  }
+
+  60% {
+    transform: scale(1.02);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (max-width: 380px) {
+  .scratch-card {
+    width: 300px;
+    height: 180px;
+  }
+
+  .scratch-canvas {
+    width: 300px;
+    height: 180px;
+  }
+
+  .scratch-reward-value {
+    font-size: 27px;
+  }
+}
