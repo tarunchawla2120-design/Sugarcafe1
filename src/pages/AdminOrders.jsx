@@ -1886,41 +1886,17 @@ const reject = async (order) => {
 
                     <div className="action-block">
 
-                      {status === "New" && (
-                        <>
-                          <div className="timer acceptance">
-
-                            <span>
-                              Accept within
-                            </span>
-
-                            <strong>
-                              {acceptRemaining(
-                                order
-                              )}
-                            </strong>
-
-                          </div>
-
-                          <button
-                            className="action accept"
-                            onClick={() =>
-                              accept(order)
-                            }
-                          >
-                            ✓ Accept Order
-                          </button>
-
-                          <button
-                            className="action reject"
-                            onClick={() =>
-                              reject(order)
-                            }
-                          >
-                            ✕ Reject
-                          </button>
-                        </>
-                      )}
+                     <button
+  type="button"
+  className="action reject"
+  onClick={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    reject(order);
+  }}
+>
+  ✕ Reject
+</button> 
 
                       {status ===
                         "Preparing" && (
