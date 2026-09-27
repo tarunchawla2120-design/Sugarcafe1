@@ -11,6 +11,7 @@ import OfferBanner from "../components/OfferBanner";
 import ApprovedReviews from "../components/ApprovedReviews";
 import BottomNav from "../components/BottomNav";
 import AppLayout from "../components/AppLayout";
+import ScratchCard from "../components/ScratchCard";
 
 function Home() {
   const navigate = useNavigate();
@@ -20,8 +21,7 @@ function Home() {
     useState("All");
 
   useEffect(() => {
-    const user =
-      localStorage.getItem("sugarCafeUser");
+    const user = localStorage.getItem("sugarCafeUser");
 
     if (!user) {
       navigate("/login", {
@@ -37,62 +37,44 @@ function Home() {
     <AppLayout>
 
       {/* NAVBAR */}
-
       <Navbar
         onSearch={setSearch}
       />
 
-
       {/* HERO */}
-
       <Hero />
 
-
       {/* SEARCH */}
-
       <SearchBar
         search={search}
         setSearch={setSearch}
       />
 
-
       {/* CATEGORIES */}
-
       <Categories
         selectedCategory={selectedCategory}
-        setSelectedCategory={
-          setSelectedCategory
-        }
+        setSelectedCategory={setSelectedCategory}
       />
 
+      {/* DAILY SCRATCH & WIN */}
+      <ScratchCard />
 
       {/* POPULAR ITEMS */}
-
       <PopularItems
         search={search}
-        selectedCategory={
-          selectedCategory
-        }
+        selectedCategory={selectedCategory}
       />
 
-
       {/* OFFER */}
-
       <OfferBanner />
 
-
       {/* REVIEWS */}
-
       <ApprovedReviews />
 
-
       {/* BOTTOM NAV */}
-
       <BottomNav />
 
-
       {/* ADMIN */}
-
       <AdminButton />
 
     </AppLayout>
