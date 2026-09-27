@@ -2,6 +2,7 @@ import { getStorage } from "firebase/storage";
 import { initializeApp } from "firebase/app";
 import { initializeFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
+import { getMessaging } from "firebase/messaging";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBaWoS-bvWh454kn_Dq1nkTEjHBNVQKohs",
@@ -20,5 +21,8 @@ export const db = initializeFirestore(app, {
 
 export const auth = getAuth(app);
 export const storage = getStorage(app);
+
+/* Firebase Cloud Messaging */
+export const messaging = getMessaging(app);
 
 export default app;
