@@ -54,7 +54,7 @@ const LOYALTY_REWARDS = [
 
 const DAILY_SCRATCH_REWARDS = [
   { type: "discount", discountPercent: 5, title: "5% OFF" },
-  { type: "free_menu_item", itemName: "Aloo Cheese Puff", title: "FREE Cheese Aloo Puff" },
+  { type: "free_menu_item", itemName: "Cheese Aloo Puff", title: "FREE Cheese Aloo Puff" },
   { type: "free_menu_item", itemName: "Veg Aloo Tikka Burger", title: "FREE Veg Aloo Tikka Burger" },
   { type: "free_menu_item", itemName: "French Fries", title: "FREE French Fries" },
 ];
