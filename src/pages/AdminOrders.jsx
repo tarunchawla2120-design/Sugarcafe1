@@ -1150,35 +1150,72 @@ function AdminOrders() {
       );
     }
   };
-
+  
   /* =======================================================
-     REJECT
-  ======================================================= */
+   REJECT ORDER - FIXED
+======================================================= */
 
-  const reject = (
-    order
-  ) => {
-    const reason =
-      window.prompt(
-        "Reject reason (optional):",
-        "Unable to accept this order"
-      );
+const reject = async (order) => {
+  if (!order?.id) {
+    console.error(
+      "Reject failed: Order ID missing",
+      order
+    );
 
-    return updateOrder(
+    alert("Order ID nahi mila.");
+    return false;
+  }
+
+  try {
+    console.log(
+      "Rejecting order:",
+      order.id
+    );
+
+    const success = await updateOrder(
       order,
       {
-        status:
-          "Rejected",
+        status: "Rejected",
 
         rejectionReason:
-          reason ||
           "Order rejected by staff",
 
         rejectedAt:
           Timestamp.now()
       }
     );
-  };
+
+    if (success) {
+      console.log(
+        "Order rejected successfully:",
+        order.id
+      );
+
+      // New order popup close
+      if (
+        newOrder?.id === order.id
+      ) {
+        setNewOrder(null);
+      }
+
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.error(
+      "Reject order error:",
+      error
+    );
+
+    alert(
+      "Order reject nahi ho paya.\n\n" +
+      (error?.message || "Unknown error")
+    );
+
+    return false;
+  }
+};
 
   /* =======================================================
      EXTRA TIME
