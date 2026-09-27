@@ -11,14 +11,12 @@ import OfferBanner from "../components/OfferBanner";
 import ApprovedReviews from "../components/ApprovedReviews";
 import BottomNav from "../components/BottomNav";
 import AppLayout from "../components/AppLayout";
-import ScratchCard from "../components/ScratchCard";
 
 function Home() {
   const navigate = useNavigate();
 
   const [search, setSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] =
-    useState("All");
+  const [selectedCategory, setSelectedCategory] = useState("All");
 
   useEffect(() => {
     const user = localStorage.getItem("sugarCafeUser");
@@ -55,9 +53,6 @@ function Home() {
         selectedCategory={selectedCategory}
         setSelectedCategory={setSelectedCategory}
       />
-
-      {/* DAILY SCRATCH & WIN */}
-      <ScratchCard />
 
       {/* POPULAR ITEMS */}
       <PopularItems
