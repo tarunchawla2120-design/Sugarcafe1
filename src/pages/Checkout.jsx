@@ -1,13 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  useMapEvents,
-} from "react-leaflet";
+import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import {
@@ -23,20 +17,6 @@ import {
 import { db } from "../firebase";
 import { useStoreSettings } from "../context/StoreContext";
 import "./Checkout.css";
-
-/* =========================================================
-   SUGAR CAFE - CHECKOUT
-   FINAL LOCATION PICKER + EXISTING REWARDS/PAYMENT FLOW
-
-   - Leaflet + OpenStreetMap: NO GOOGLE API KEY REQUIRED
-   - Fixed center pin / moving map interaction
-   - Current GPS location
-   - Automatic reverse geocoding via Nominatim
-   - Delivery radius/charges from StoreContext
-   - COD / Razorpay online payment
-   - 6+1 loyalty
-   - Daily Scratch & Win
-========================================================= */
 
 const LOYALTY_MIN_BILL = 500;
 const DAILY_SCRATCH_MIN_BILL = 499;
@@ -71,10 +51,6 @@ const SHOP_LOCATION = {
   lng: 82.665984,
 };
 
-/* =========================================================
-   HELPERS
-========================================================= */
-
 function loyaltyTime(value) {
   if (!value) return 0;
   if (typeof value.toMillis === "function") return value.toMillis();
@@ -95,23 +71,17 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
-
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) *
       Math.cos((lat2 * Math.PI) / 180) *
       Math.sin(dLon / 2) ** 2;
-
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 function formatAddressFallback(lat, lng) {
   return `${Number(lat).toFixed(6)}, ${Number(lng).toFixed(6)}`;
 }
-
-/* =========================================================
-   LOCATION PIN
-========================================================= */
 
 const locationIcon = L.divIcon({
   className: "sugar-fixed-pin-marker",
@@ -124,28 +94,15 @@ const locationIcon = L.divIcon({
   iconAnchor: [23, 58],
 });
 
-/* =========================================================
-   MAP EVENTS
-   Map moves; center becomes the selected location.
-========================================================= */
-
 function LocationMapEvents({ onMoveEnd }) {
   useMapEvents({
     moveend: (event) => {
       const center = event.target.getCenter();
-      onMoveEnd({
-        lat: center.lat,
-        lng: center.lng,
-      });
+      onMoveEnd({ lat: center.lat, lng: center.lng });
     },
   });
-
   return null;
 }
-
-/* =========================================================
-   DAILY SCRATCH CARD
-========================================================= */
 
 function DailyScratchCard({ disabled = false, onReveal }) {
   const canvasRef = useRef(null);
@@ -207,7 +164,6 @@ function DailyScratchCard({ disabled = false, onReveal }) {
   const getPoint = (event) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
-
     const rect = canvas.getBoundingClientRect();
     return {
       x: (event.clientX - rect.left) * (canvas.width / rect.width),
@@ -246,9 +202,7 @@ function DailyScratchCard({ disabled = false, onReveal }) {
         }
       }
 
-      if (total > 0 && (transparent / total) * 100 >= 45) {
-        revealCard();
-      }
+      if (total > 0 && (transparent / total) * 100 >= 45) revealCard();
     } catch (error) {
       console.error("Scratch percentage error:", error);
     }
@@ -260,14 +214,12 @@ function DailyScratchCard({ disabled = false, onReveal }) {
     const canvas = canvasRef.current;
     const point = getPoint(event);
     const ctx = canvas?.getContext("2d");
-
     if (!canvas || !point || !ctx) return;
 
     ctx.globalCompositeOperation = "destination-out";
     ctx.beginPath();
     ctx.arc(point.x, point.y, 34, 0, Math.PI * 2);
     ctx.fill();
-
     checkScratchPercentage();
   };
 
@@ -299,7 +251,6 @@ function DailyScratchCard({ disabled = false, onReveal }) {
         <strong>Your Daily Reward</strong>
         <span>Scratch the card to reveal</span>
       </div>
-
       <canvas
         ref={canvasRef}
         onPointerDown={handlePointerDown}
@@ -312,24 +263,13 @@ function DailyScratchCard({ disabled = false, onReveal }) {
   );
 }
 
-/* =========================================================
-   CHECKOUT
-========================================================= */
-
 function Checkout() {
   const navigate = useNavigate();
   const rawStore = useStoreSettings();
   const store = rawStore || {};
+  const { cart, totalPrice, clearCart } = useCart();
 
-  const {
-    cart,
-    totalPrice,
-    clearCart,
-  } = useCart();
-
-  const maxDeliveryDistanceKm = Number(
-    store.maxDeliveryDistanceKm ?? 10
-  );
+  const maxDeliveryDistanceKm = Number(store.maxDeliveryDistanceKm ?? 10);
   const deliveryPerKm = Number(store.deliveryPerKm ?? 20);
   const minDeliveryCharge = Number(store.minDeliveryCharge ?? 20);
   const maxDeliveryCharge = Number(store.maxDeliveryCharge ?? 300);
@@ -378,15 +318,10 @@ function Checkout() {
   });
 
   const [dailyScratchRevealing, setDailyScratchRevealing] = useState(false);
-
   const [mapCenter, setMapCenter] = useState(SHOP_LOCATION);
   const [marker, setMarker] = useState(SHOP_LOCATION);
   const mapRef = useRef(null);
   const mapMoveAddressRequestRef = useRef(0);
-
-  /* =======================================================
-     CUSTOMER + SAVED LOCATION
-  ======================================================= */
 
   useEffect(() => {
     try {
@@ -408,7 +343,6 @@ function Checkout() {
           guest: false,
           loggedIn: true,
         };
-
         setCustomerProfile(profile);
         setSavedAddresses(profile.addresses || []);
       }
@@ -435,230 +369,108 @@ function Checkout() {
     }
   }, []);
 
-  /* =======================================================
-     REVERSE GEOCODING
-  ======================================================= */
+  const reverseGeocode = useCallback(async (latitude, longitude) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&accept-language=en`,
+        { headers: { Accept: "application/json" } }
+      );
 
-  const reverseGeocode = useCallback(
-    async (latitude, longitude) => {
-      try {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&accept-language=en`,
-          {
-            headers: {
-              Accept: "application/json",
-            },
-          }
-        );
+      if (!response.ok) throw new Error("Address lookup failed");
 
-        if (!response.ok) {
-          throw new Error("Address lookup failed");
-        }
-
-        const data = await response.json();
-
-        return (
-          data.display_name ||
-          formatAddressFallback(latitude, longitude)
-        );
-      } catch (error) {
-        console.error(
-          "Reverse geocoding error:",
-          error
-        );
-
-        return formatAddressFallback(
-          latitude,
-          longitude
-        );
-      }
-    },
-    []
-  );
-
-/* =======================================================
-   AUTO DETECT CURRENT LOCATION ON CHECKOUT LOAD
-======================================================= */
-
-useEffect(() => {
-  // Takeaway mein location ki zarurat nahi
-  if (isTakeaway) return;
-
-  // Browser/device GPS available nahi hai
-  if (!navigator.geolocation) return;
-
-  // Agar already saved location hai, usko use karein
-  // aur unnecessarily GPS popup dobara na dikhayein.
-  try {
-    const savedLocation =
-      localStorage.getItem("userLocation");
-
-    if (savedLocation) {
-      const loc = JSON.parse(savedLocation);
-
-      const lat = Number(loc.latitude);
-      const lng = Number(loc.longitude);
-
-      if (
-        Number.isFinite(lat) &&
-        Number.isFinite(lng)
-      ) {
-        return;
-      }
+      const data = await response.json();
+      return data.display_name || formatAddressFallback(latitude, longitude);
+    } catch (error) {
+      console.error("Reverse geocoding error:", error);
+      return formatAddressFallback(latitude, longitude);
     }
-  } catch (error) {
-    console.warn(
-      "Saved location check failed:",
-      error
-    );
-  }
+  }, []);
 
-  let cancelled = false;
+  useEffect(() => {
+    if (isTakeaway || !navigator.geolocation) return;
 
-  const detectLocation = () => {
-    if (cancelled) return;
+    try {
+      const savedLocation = localStorage.getItem("userLocation");
+      if (savedLocation) {
+        const loc = JSON.parse(savedLocation);
+        const lat = Number(loc.latitude);
+        const lng = Number(loc.longitude);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) return;
+      }
+    } catch (error) {
+      console.warn("Saved location check failed:", error);
+    }
 
-    setLoadingLocation(true);
+    let cancelled = false;
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        if (cancelled) return;
+    const detectLocation = () => {
+      if (cancelled) return;
 
-        try {
-          const latitude =
-            position.coords.latitude;
+      setLoadingLocation(true);
 
-          const longitude =
-            position.coords.longitude;
-
-          const newLocation = {
-            lat: latitude,
-            lng: longitude,
-          };
-
-          setMarker(newLocation);
-          setMapCenter(newLocation);
-
-          // Map ko current location par move karo
-          if (mapRef.current) {
-            mapRef.current.setView(
-              [latitude, longitude],
-              17,
-              {
-                animate: true,
-              }
-            );
-          }
-
-          let detectedAddress = "";
-
-          try {
-            detectedAddress =
-              await reverseGeocode(
-                latitude,
-                longitude
-              );
-          } catch (addressError) {
-            console.warn(
-              "Auto reverse geocoding failed:",
-              addressError
-            );
-
-            detectedAddress =
-              formatAddressFallback(
-                latitude,
-                longitude
-              );
-          }
-
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
           if (cancelled) return;
 
-          setAddress(
-            detectedAddress
-          );
-
-          setLocationConfirmed(false);
-
           try {
-            localStorage.setItem(
-              "userLocation",
-              JSON.stringify({
-                latitude,
-                longitude,
-                address:
-                  detectedAddress,
-                fullAddress:
-                  detectedAddress,
-                savedAt:
-                  new Date().toISOString(),
-              })
-            );
-          } catch (storageError) {
-            console.warn(
-              "Location save failed:",
-              storageError
-            );
+            const latitude = position.coords.latitude;
+            const longitude = position.coords.longitude;
+            const newLocation = { lat: latitude, lng: longitude };
+
+            setMarker(newLocation);
+            setMapCenter(newLocation);
+
+            if (mapRef.current) {
+              mapRef.current.setView([latitude, longitude], 17, {
+                animate: true,
+              });
+            }
+
+            const detectedAddress = await reverseGeocode(latitude, longitude);
+            if (cancelled) return;
+
+            setAddress(detectedAddress);
+            setLocationConfirmed(false);
+
+            try {
+              localStorage.setItem(
+                "userLocation",
+                JSON.stringify({
+                  latitude,
+                  longitude,
+                  address: detectedAddress,
+                  fullAddress: detectedAddress,
+                  savedAt: new Date().toISOString(),
+                })
+              );
+            } catch (storageError) {
+              console.warn("Location save failed:", storageError);
+            }
+          } catch (error) {
+            console.error("Auto location processing error:", error);
+          } finally {
+            if (!cancelled) setLoadingLocation(false);
           }
-        } catch (error) {
-          console.error(
-            "Auto location processing error:",
-            error
-          );
-        } finally {
-          if (!cancelled) {
-            setLoadingLocation(false);
-          }
+        },
+        (error) => {
+          if (cancelled) return;
+          console.warn("Automatic location permission/status:", error);
+          setLoadingLocation(false);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 60000,
         }
-      },
+      );
+    };
 
-      (error) => {
-        if (cancelled) return;
-
-        console.warn(
-          "Automatic location permission/status:",
-          error
-        );
-
-        setLoadingLocation(false);
-
-        /*
-          IMPORTANT:
-          Auto detection fail hone par alert nahi dikhayenge.
-          User manually "Use My Current Location" press kar
-          sakta hai.
-
-          Isse checkout page unnecessarily block nahi hoga.
-        */
-      },
-
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 60000,
-      }
-    );
-  };
-
-  /*
-    Thoda delay rakha hai taaki checkout page pehle render ho
-    aur browser location permission popup properly dikha sake.
-  */
-  const timer = setTimeout(
-    detectLocation,
-    500
-  );
-
-  return () => {
-    cancelled = true;
-    clearTimeout(timer);
-  };
-}, [
-  isTakeaway,
-  reverseGeocode,
-]);
-  /* =======================================================
-     LOYALTY
-  ======================================================= */
+    const timer = setTimeout(detectLocation, 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [isTakeaway, reverseGeocode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -690,10 +502,7 @@ useEffect(() => {
 
         const customerOrders = snapshot.docs
           .map((orderDoc) => ({ id: orderDoc.id, ...orderDoc.data() }))
-          .sort(
-            (a, b) =>
-              loyaltyTime(a.createdAt) - loyaltyTime(b.createdAt)
-          );
+          .sort((a, b) => loyaltyTime(a.createdAt) - loyaltyTime(b.createdAt));
 
         const qualifyingOrders = customerOrders.filter((order) => {
           const status = String(order.status || "").toLowerCase();
@@ -753,8 +562,7 @@ useEffect(() => {
           qualifyingOrders.length >= requiredOrders &&
           !pendingRewardOrder
         ) {
-          const rewardIndex =
-            (nextCycle - 1) % LOYALTY_REWARDS.length;
+          const rewardIndex = (nextCycle - 1) % LOYALTY_REWARDS.length;
           const reward = LOYALTY_REWARDS[rewardIndex];
 
           currentReward = {
@@ -802,10 +610,6 @@ useEffect(() => {
     };
   }, [customerProfile?.customerId]);
 
-  /* =======================================================
-     DAILY SCRATCH
-  ======================================================= */
-
   useEffect(() => {
     let cancelled = false;
 
@@ -839,9 +643,8 @@ useEffect(() => {
 
         const scratchOrders = snapshot.docs
           .map((orderDoc) => ({ id: orderDoc.id, ...orderDoc.data() }))
-                  .filter(
-            (order) =>
-              order.dailyScratchReward?.enabled === true
+          .filter(
+            (order) => order.dailyScratchReward?.enabled === true
           )
           .sort(
             (a, b) =>
@@ -911,8 +714,7 @@ useEffect(() => {
   }, [customerProfile?.customerId, totalPrice]);
 
   useEffect(() => {
-    const eligible =
-      Number(totalPrice) >= DAILY_SCRATCH_MIN_BILL;
+    const eligible = Number(totalPrice) >= DAILY_SCRATCH_MIN_BILL;
 
     setDailyScratch((prev) => {
       if (prev.eligible === eligible) return prev;
@@ -1004,17 +806,9 @@ useEffect(() => {
       );
     } catch {}
 
-    setDailyScratch((prev) => ({
-      ...prev,
-      revealed: true,
-    }));
-
+    setDailyScratch((prev) => ({ ...prev, revealed: true }));
     setDailyScratchRevealing(false);
   };
-
-  /* =======================================================
-     DISTANCE / DELIVERY
-  ======================================================= */
 
   const distance = calculateDistance(
     SHOP_LOCATION.lat,
@@ -1033,8 +827,7 @@ useEffect(() => {
     Number(totalPrice) > 0 &&
     deliveryAvailable
   ) {
-    deliveryCharge =
-      Math.ceil(distance) * deliveryPerKm;
+    deliveryCharge = Math.ceil(distance) * deliveryPerKm;
 
     if (deliveryCharge < minDeliveryCharge) {
       deliveryCharge = minDeliveryCharge;
@@ -1045,12 +838,9 @@ useEffect(() => {
     }
   }
 
-  /* =======================================================
-     REWARDS
-  ======================================================= */
-
   const currentReward = loyaltyData.currentReward || null;
-  const pendingReward = loyaltyData.pendingReward?.loyaltyReward || null;
+  const pendingReward =
+    loyaltyData.pendingReward?.loyaltyReward || null;
   const pendingRewardStatus = pendingReward?.status || "";
 
   const rewardAvailable =
@@ -1081,14 +871,10 @@ useEffect(() => {
   const gst = 0;
 
   const grandTotal =
-  Number(totalPrice) +
-  Number(deliveryCharge) -
-  Number(discount) +
-  Number(gst);
-
-/* =======================================================
-   MAP MOVE -> ADDRESS
-======================================================= */
+    Number(totalPrice) +
+    Number(deliveryCharge) -
+    Number(discount) +
+    Number(gst);
 
   const handleMapMoveEnd = useCallback(
     async (location) => {
@@ -1104,11 +890,7 @@ useEffect(() => {
           location.lng
         );
 
-        if (
-          requestId !== mapMoveAddressRequestRef.current
-        ) {
-          return;
-        }
+        if (requestId !== mapMoveAddressRequestRef.current) return;
 
         setAddress(detectedAddress);
 
@@ -1127,9 +909,7 @@ useEffect(() => {
       } catch (error) {
         console.error("Map reverse geocoding error:", error);
 
-        if (
-          requestId === mapMoveAddressRequestRef.current
-        ) {
+        if (requestId === mapMoveAddressRequestRef.current) {
           setAddress(
             formatAddressFallback(
               location.lat,
@@ -1141,10 +921,6 @@ useEffect(() => {
     },
     [reverseGeocode]
   );
-
-  /* =======================================================
-     CURRENT LOCATION
-  ======================================================= */
 
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -1158,22 +934,16 @@ useEffect(() => {
       async (position) => {
         try {
           const { latitude, longitude } = position.coords;
-
-          const newLocation = {
-            lat: latitude,
-            lng: longitude,
-          };
+          const newLocation = { lat: latitude, lng: longitude };
 
           setMarker(newLocation);
           setMapCenter(newLocation);
           setLocationConfirmed(false);
 
           if (mapRef.current) {
-            mapRef.current.setView(
-              [latitude, longitude],
-              17,
-              { animate: true }
-            );
+            mapRef.current.setView([latitude, longitude], 17, {
+              animate: true,
+            });
           }
 
           const detectedAddress = await reverseGeocode(
@@ -1212,9 +982,7 @@ useEffect(() => {
           alert(
             "Location permission denied. Browser settings mein location permission Allow karein."
           );
-        } else if (
-          error.code === error.POSITION_UNAVAILABLE
-        ) {
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
           alert(
             "Your location is currently unavailable. Please try again."
           );
@@ -1234,17 +1002,9 @@ useEffect(() => {
     );
   };
 
-  /* =======================================================
-     MAP CREATED
-  ======================================================= */
-
   const onMapCreated = (map) => {
     mapRef.current = map;
   };
-
-  /* =======================================================
-     CONFIRM LOCATION
-  ======================================================= */
 
   const confirmDeliveryLocation = () => {
     if (!address.trim()) {
@@ -1277,22 +1037,14 @@ useEffect(() => {
     }
   };
 
-  /* =======================================================
-     SELECT SAVED ADDRESS
-  ======================================================= */
-
   const selectSavedAddress = (saved) => {
     const lat = Number(saved.latitude);
     const lng = Number(saved.longitude);
 
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      return;
-    }
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
     const savedAddressText =
-      saved.fullAddress ||
-      saved.address ||
-      "";
+      saved.fullAddress || saved.address || "";
 
     const selected = { lat, lng };
 
@@ -1302,11 +1054,7 @@ useEffect(() => {
     setLocationConfirmed(true);
 
     if (mapRef.current) {
-      mapRef.current.setView(
-        [lat, lng],
-        17,
-        { animate: true }
-      );
+      mapRef.current.setView([lat, lng], 17, { animate: true });
     }
 
     try {
@@ -1316,10 +1064,6 @@ useEffect(() => {
       );
     } catch {}
   };
-
-  /* =======================================================
-     CUSTOMER DATA
-  ======================================================= */
 
   const getCustomerData = () => {
     if (!customerProfile) return null;
@@ -1337,10 +1081,6 @@ useEffect(() => {
     };
   };
 
-  /* =======================================================
-     MENU LOOKUP
-  ======================================================= */
-
   const findLoyaltyMenuItem = async (rewardName) => {
     if (!rewardName) return null;
 
@@ -1356,11 +1096,7 @@ useEffect(() => {
 
       return (
         menuItems.find((item) => {
-          const menuName =
-            item.name ||
-            item.title ||
-            "";
-
+          const menuName = item.name || item.title || "";
           return normalizeMenuName(menuName) === wanted;
         }) || null
       );
@@ -1369,10 +1105,6 @@ useEffect(() => {
       return null;
     }
   };
-
-  /* =======================================================
-     RAZORPAY
-  ======================================================= */
 
   const loadRazorpay = () =>
     new Promise((resolve) => {
@@ -1388,10 +1120,6 @@ useEffect(() => {
       script.onerror = () => resolve(false);
       document.body.appendChild(script);
     });
-
-  /* =======================================================
-     SAVE CUSTOMER ADDRESS
-  ======================================================= */
 
   const saveCustomerAddress = async () => {
     const selectedAddress = {
@@ -1418,7 +1146,8 @@ useEffect(() => {
         const existingAddresses = Array.isArray(profile.addresses)
           ? profile.addresses
           : [];
-                const alreadyExists = existingAddresses.some(
+
+        const alreadyExists = existingAddresses.some(
           (item) =>
             String(item.address || "").trim() ===
               selectedAddress.address &&
@@ -1458,8 +1187,7 @@ useEffect(() => {
               where("customerId", "==", customerId)
             );
 
-            const customerSnapshot =
-              await getDocs(customerQuery);
+            const customerSnapshot = await getDocs(customerQuery);
 
             if (!customerSnapshot.empty) {
               await updateDoc(
@@ -1484,18 +1212,11 @@ useEffect(() => {
         }
       }
     } catch (error) {
-      console.error(
-        "Customer address save error:",
-        error
-      );
+      console.error("Customer address save error:", error);
     }
 
     return selectedAddress;
   };
-
-  /* =======================================================
-     SAVE ORDER
-  ======================================================= */
 
   const saveCompletedOrder = async (
     orderData,
@@ -1539,10 +1260,7 @@ useEffect(() => {
       );
     } catch {}
 
-    localStorage.setItem(
-      "lastOrderId",
-      orderRef.id
-    );
+    localStorage.setItem("lastOrderId", orderRef.id);
     localStorage.setItem(
       "lastOrderNumber",
       orderData.orderNumber
@@ -1552,8 +1270,7 @@ useEffect(() => {
       orderData.paymentStatus
     );
 
-    const savedUser =
-      localStorage.getItem("sugarCafeUser");
+    const savedUser = localStorage.getItem("sugarCafeUser");
 
     if (savedUser) {
       try {
@@ -1565,21 +1282,17 @@ useEffect(() => {
           localStorage.getItem("sugarCafeCustomerId") ||
           "";
 
-        const existingAddresses =
-          Array.isArray(profile.addresses)
-            ? profile.addresses
-            : [];
+        const existingAddresses = Array.isArray(profile.addresses)
+          ? profile.addresses
+          : [];
 
-        const alreadyExists =
-          existingAddresses.some(
-            (item) =>
-              String(item.address || "").trim() ===
-                String(selectedAddress.address || "").trim() &&
-              Number(item.latitude) ===
-                Number(selectedAddress.latitude) &&
-              Number(item.longitude) ===
-                Number(selectedAddress.longitude)
-          );
+        const alreadyExists = existingAddresses.some(
+          (item) =>
+            String(item.address || "").trim() ===
+              String(selectedAddress.address || "").trim() &&
+            Number(item.latitude) === Number(selectedAddress.latitude) &&
+            Number(item.longitude) === Number(selectedAddress.longitude)
+        );
 
         const updatedAddresses = alreadyExists
           ? existingAddresses
@@ -1617,10 +1330,6 @@ useEffect(() => {
     return orderRef;
   };
 
-  /* =======================================================
-     API RESPONSE
-  ======================================================= */
-
   const readApiResponse = async (response) => {
     const raw = await response.text();
 
@@ -1633,19 +1342,12 @@ useEffect(() => {
     try {
       return JSON.parse(raw);
     } catch {
-      const preview = raw
-        .replace(/\s+/g, " ")
-        .slice(0, 180);
-
+      const preview = raw.replace(/\s+/g, " ").slice(0, 180);
       throw new Error(
         `Payment service returned an invalid response (HTTP ${response.status}). ${preview}`
       );
     }
   };
-
-  /* =======================================================
-     ONLINE PAYMENT
-  ======================================================= */
 
   const startOnlinePayment = async ({
     customer,
@@ -1655,6 +1357,12 @@ useEffect(() => {
     const paymentBaseUrl = (
       import.meta.env.VITE_PAYMENT_API_URL || ""
     ).replace(/\/$/, "");
+
+    if (!paymentBaseUrl) {
+      throw new Error(
+        "Online payment service URL is not configured. Please check VITE_PAYMENT_API_URL."
+      );
+    }
 
     const gatewayResponse = await fetch(
       `${paymentBaseUrl}/api/payment/create-order`,
@@ -1670,13 +1378,12 @@ useEffect(() => {
       }
     );
 
-    const gatewayData =
-      await readApiResponse(gatewayResponse);
+    const gatewayData = await readApiResponse(gatewayResponse);
 
     if (!gatewayResponse.ok) {
       throw new Error(
         gatewayData.error ||
-        "Unable to start online payment."
+          "Unable to start online payment."
       );
     }
 
@@ -1708,16 +1415,13 @@ useEffect(() => {
         amount: gatewayData.amount,
         currency: gatewayData.currency,
         name: cafeName,
-        description:
-          `Sugar Cafe Order ${orderData.orderNumber}`,
+        description: `Sugar Cafe Order ${orderData.orderNumber}`,
         order_id: gatewayData.orderId,
-
         prefill: {
           name: customer.customerName || "",
           email: customer.customerEmail || "",
           contact: customer.customerPhone || "",
         },
-
         handler: async (response) => {
           try {
             const verifyResponse = await fetch(
@@ -1725,8 +1429,7 @@ useEffect(() => {
               {
                 method: "POST",
                 headers: {
-                  "Content-Type":
-                    "application/json",
+                  "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
                   razorpayOrderId:
@@ -1740,9 +1443,7 @@ useEffect(() => {
             );
 
             const verifyData =
-              await readApiResponse(
-                verifyResponse
-              );
+              await readApiResponse(verifyResponse);
 
             if (
               !verifyResponse.ok ||
@@ -1782,37 +1483,25 @@ useEffect(() => {
             fail(error);
           }
         },
-
         modal: {
           ondismiss: () => {
-            fail(
-              new Error(
-                "Payment cancelled."
-              )
-            );
+            fail(new Error("Payment cancelled."));
           },
         },
       });
 
-      razorpay.on(
-        "payment.failed",
-        (response) => {
-          fail(
-            new Error(
-              response?.error?.description ||
+      razorpay.on("payment.failed", (response) => {
+        fail(
+          new Error(
+            response?.error?.description ||
               "Payment failed. Please try again."
-            )
-          );
-        }
-      );
+          )
+        );
+      });
 
       razorpay.open();
     });
   };
-
-  /* =======================================================
-     PLACE ORDER
-  ======================================================= */
 
   const placeOrder = async () => {
     if (loyaltyData.loading) {
@@ -1822,13 +1511,10 @@ useEffect(() => {
       return;
     }
 
-    if (
-      !isTakeaway &&
-      !deliveryAvailableSetting
-    ) {
+    if (!isTakeaway && !deliveryAvailableSetting) {
       alert(
         announcement ||
-        `Delivery orders are available only ${orderTimingLabel}.`
+          `Delivery orders are available only ${orderTimingLabel}.`
       );
       return;
     }
@@ -1875,9 +1561,7 @@ useEffect(() => {
     const customer = getCustomerData();
 
     if (!customer?.customerPhone) {
-      alert(
-        "Mobile number is required to place the order."
-      );
+      alert("Mobile number is required to place the order.");
       return;
     }
 
@@ -1900,9 +1584,7 @@ useEffect(() => {
       }
 
       if (!address.trim()) {
-        alert(
-          "Please select your delivery address."
-        );
+        alert("Please select your delivery address.");
         return;
       }
 
@@ -1914,13 +1596,10 @@ useEffect(() => {
       }
     }
 
-    if (
-      Number(totalPrice) >=
-      DAILY_SCRATCH_MIN_BILL
-    ) {
+    if (Number(totalPrice) >= DAILY_SCRATCH_MIN_BILL) {
       if (!dailyScratch.unlocked) {
         alert(
-          "🎁 Your bill is eligible for Daily Scratch & Win. Please select a payment method and scratch your card before placing the order."
+          "🎁 Your bill is eligible for Daily Scratch & Win. Please unlock and scratch your card before placing the order."
         );
         return;
       }
@@ -1940,11 +1619,7 @@ useEffect(() => {
         id: item.id || "",
         name: item.name || "",
         price: Number(item.price || 0),
-        qty: Number(
-          item.qty ||
-          item.quantity ||
-          1
-        ),
+        qty: Number(item.qty || item.quantity || 1),
         image: item.image || "",
         category: item.category || "",
       }));
@@ -1953,15 +1628,13 @@ useEffect(() => {
       let orderLoyaltyReward = null;
       let orderDailyScratchReward = null;
 
-      /* Existing loyalty reward */
       if (
         pendingReward &&
         pendingReward.status === "available"
       ) {
         const reward = pendingReward;
         const sourceOrderId =
-          loyaltyData.pendingReward?.id ||
-          null;
+          loyaltyData.pendingReward?.id || null;
 
         if (!sourceOrderId) {
           throw new Error(
@@ -1987,28 +1660,21 @@ useEffect(() => {
         if (reward.type === "free_menu_item") {
           let menuItem = null;
 
-          if (
-            reward.itemId &&
-            reward.itemName
-          ) {
+          if (reward.itemId && reward.itemName) {
             menuItem = {
               id: reward.itemId,
               name: reward.itemName,
-              price: Number(
-                reward.itemPrice || 0
-              ),
+              price: Number(reward.itemPrice || 0),
               image: reward.itemImage || "",
               category:
-                reward.itemCategory ||
-                "Loyalty Reward",
+                reward.itemCategory || "Loyalty Reward",
             };
           }
 
           if (!menuItem?.id) {
-            menuItem =
-              await findLoyaltyMenuItem(
-                reward.itemName
-              );
+            menuItem = await findLoyaltyMenuItem(
+              reward.itemName
+            );
           }
 
           if (!menuItem) {
@@ -2029,12 +1695,9 @@ useEffect(() => {
             reward.itemImage ||
             "";
 
-          const rewardItemPrice =
-            Number(
-              menuItem.price ||
-              reward.itemPrice ||
-              0
-            );
+          const rewardItemPrice = Number(
+            menuItem.price || reward.itemPrice || 0
+          );
 
           finalOrderItems.push({
             id: menuItem.id,
@@ -2051,14 +1714,10 @@ useEffect(() => {
             originalPrice: rewardItemPrice,
           });
 
-          orderLoyaltyReward.itemId =
-            menuItem.id;
-          orderLoyaltyReward.itemName =
-            rewardItemName;
-          orderLoyaltyReward.itemImage =
-            rewardItemImage;
-          orderLoyaltyReward.itemPrice =
-            rewardItemPrice;
+          orderLoyaltyReward.itemId = menuItem.id;
+          orderLoyaltyReward.itemName = rewardItemName;
+          orderLoyaltyReward.itemImage = rewardItemImage;
+          orderLoyaltyReward.itemPrice = rewardItemPrice;
           orderLoyaltyReward.itemCategory =
             menuItem.category ||
             reward.itemCategory ||
@@ -2066,7 +1725,6 @@ useEffect(() => {
         }
       }
 
-      /* New 6+1 scratch reward */
       if (
         !orderLoyaltyReward &&
         currentReward?.scratchCardReady
@@ -2078,8 +1736,9 @@ useEffect(() => {
           rewardIndex: Number(reward.rewardIndex),
           type: reward.type,
           itemName: reward.itemName || null,
-          discountPercent:
-            Number(reward.discountPercent || 0),
+          discountPercent: Number(
+            reward.discountPercent || 0
+          ),
           status: "scratch_pending",
           scratchPending: true,
           scratchRevealed: false,
@@ -2087,13 +1746,10 @@ useEffect(() => {
           createdAt: Timestamp.now(),
         };
 
-        if (
-          reward.type === "free_menu_item"
-        ) {
-          const menuItem =
-            await findLoyaltyMenuItem(
-              reward.itemName
-            );
+        if (reward.type === "free_menu_item") {
+          const menuItem = await findLoyaltyMenuItem(
+            reward.itemName
+          );
 
           if (!menuItem) {
             throw new Error(
@@ -2101,8 +1757,7 @@ useEffect(() => {
             );
           }
 
-          orderLoyaltyReward.itemId =
-            menuItem.id;
+          orderLoyaltyReward.itemId = menuItem.id;
           orderLoyaltyReward.itemName =
             menuItem.name ||
             menuItem.title ||
@@ -2112,15 +1767,14 @@ useEffect(() => {
             menuItem.imageUrl ||
             menuItem.photoURL ||
             "";
-          orderLoyaltyReward.itemPrice =
-            Number(menuItem.price || 0);
+          orderLoyaltyReward.itemPrice = Number(
+            menuItem.price || 0
+          );
           orderLoyaltyReward.itemCategory =
-            menuItem.category ||
-            "Loyalty Reward";
+            menuItem.category || "Loyalty Reward";
         }
       }
 
-      /* Daily scratch */
       if (
         dailyScratch.eligible &&
         dailyScratch.unlocked &&
@@ -2128,23 +1782,22 @@ useEffect(() => {
         dailyScratch.reward
       ) {
         const reward = dailyScratch.reward;
-        const rewardIndex =
-          Number(dailyScratch.rewardIndex);
+        const rewardIndex = Number(
+          dailyScratch.rewardIndex
+        );
 
         orderDailyScratchReward = {
           enabled: true,
-          rewardIndex:
-            Number.isFinite(rewardIndex)
-              ? rewardIndex
-              : 0,
+          rewardIndex: Number.isFinite(rewardIndex)
+            ? rewardIndex
+            : 0,
           type: reward.type,
           title: reward.title || "",
           status: "applied",
           scratchRevealed: true,
-          discountPercent:
-            Number(
-              reward.discountPercent || 0
-            ),
+          discountPercent: Number(
+            reward.discountPercent || 0
+          ),
           createdAt: Timestamp.now(),
         };
 
@@ -2154,19 +1807,14 @@ useEffect(() => {
         ) {
           orderDailyScratchReward.appliedDiscount =
             Math.round(
-              Number(totalPrice) *
-                0.05 *
-                100
+              Number(totalPrice) * 0.05 * 100
             ) / 100;
         }
 
-        if (
-          reward.type === "free_menu_item"
-        ) {
-          const menuItem =
-            await findLoyaltyMenuItem(
-              reward.itemName
-            );
+        if (reward.type === "free_menu_item") {
+          const menuItem = await findLoyaltyMenuItem(
+            reward.itemName
+          );
 
           if (!menuItem) {
             throw new Error(
@@ -2185,8 +1833,9 @@ useEffect(() => {
             menuItem.photoURL ||
             "";
 
-          const rewardItemPrice =
-            Number(menuItem.price || 0);
+          const rewardItemPrice = Number(
+            menuItem.price || 0
+          );
 
           finalOrderItems.push({
             id: menuItem.id,
@@ -2199,8 +1848,7 @@ useEffect(() => {
               "Daily Scratch Reward",
             isFreeReward: true,
             dailyScratchReward: true,
-            originalPrice:
-              rewardItemPrice,
+            originalPrice: rewardItemPrice,
           });
 
           orderDailyScratchReward.itemId =
@@ -2216,7 +1864,8 @@ useEffect(() => {
             "Daily Scratch Reward";
         }
       }
-            const orderData = {
+
+      const orderData = {
         orderNumber: `SC-${Date.now()}`,
         userId: customer.userId || "",
         customerId: customer.customerId,
@@ -2237,8 +1886,7 @@ useEffect(() => {
           ? TAKEAWAY_STORE.address
           : "",
 
-        specialNote:
-          specialNote.trim(),
+        specialNote: specialNote.trim(),
 
         latitude: isTakeaway
           ? TAKEAWAY_STORE.lat
@@ -2252,75 +1900,53 @@ useEffect(() => {
           ? 0
           : Number(distance.toFixed(2)),
 
-        orderType: isTakeaway
-          ? "Takeaway"
-          : "Delivery",
-
+        orderType: isTakeaway ? "Takeaway" : "Delivery",
         paymentMethod,
 
         paymentStatus:
-          paymentMethod ===
-          "Online Payment"
+          paymentMethod === "Online Payment"
             ? "Paid"
             : "Pending",
 
         paymentNote:
-          paymentMethod ===
-          "Online Payment"
+          paymentMethod === "Online Payment"
             ? "Paid and verified by Razorpay."
             : "",
 
         items: finalOrderItems,
 
         subtotal: Number(totalPrice),
-        deliveryCharge:
-          Number(deliveryCharge),
+        deliveryCharge: Number(deliveryCharge),
         discount: Number(discount),
         gst: Number(gst),
         total: Number(grandTotal),
 
-        loyaltyReward:
-          orderLoyaltyReward,
-
-        dailyScratchReward:
-          orderDailyScratchReward,
+        loyaltyReward: orderLoyaltyReward,
+        dailyScratchReward: orderDailyScratchReward,
 
         status: "New",
-
-        preparationMinutes:
-          preparationMinutes,
-
-        preparationStartedAt:
-          null,
-
-        preparationEndAt:
-          null,
-
+        preparationMinutes,
+        preparationStartedAt: null,
+        preparationEndAt: null,
         foodReadyAt: null,
         dispatchedAt: null,
         deliveredAt: null,
-
-        createdAt:
-          Timestamp.now(),
+        createdAt: Timestamp.now(),
       };
 
-      const selectedAddress =
-        isTakeaway
-          ? {
-              id: `takeaway-${Date.now()}`,
-              label: "Pickup Store",
-              address: TAKEAWAY_STORE.address,
-              fullAddress: TAKEAWAY_STORE.address,
-              latitude: TAKEAWAY_STORE.lat,
-              longitude: TAKEAWAY_STORE.lng,
-              savedAt: new Date().toISOString(),
-            }
-          : await saveCustomerAddress();
+      const selectedAddress = isTakeaway
+        ? {
+            id: `takeaway-${Date.now()}`,
+            label: "Pickup Store",
+            address: TAKEAWAY_STORE.address,
+            fullAddress: TAKEAWAY_STORE.address,
+            latitude: TAKEAWAY_STORE.lat,
+            longitude: TAKEAWAY_STORE.lng,
+            savedAt: new Date().toISOString(),
+          }
+        : await saveCustomerAddress();
 
-      if (
-        paymentMethod ===
-        "Online Payment"
-      ) {
+      if (paymentMethod === "Online Payment") {
         await startOnlinePayment({
           customer,
           orderData,
@@ -2341,11 +1967,7 @@ useEffect(() => {
 
       navigate("/success");
     } catch (error) {
-      console.error(
-        "❌ Order placement error:",
-        error
-      );
-
+      console.error("❌ Order placement error:", error);
       alert(
         `Order place nahi ho paya.\n\n${
           error?.message || "Unknown error"
@@ -2356,18 +1978,45 @@ useEffect(() => {
     }
   };
 
-  /* =======================================================
-     PAGE - PREMIUM SUGAR CAFE UI
-  ======================================================= */
+  if (!cart.length) {
+    return (
+      <div className="checkout-page">
+        <header className="checkout-header">
+          <button
+            type="button"
+            className="checkout-back"
+            onClick={() => navigate("/")}
+          >
+            ←
+          </button>
+          <div className="checkout-header-content">
+            <span className="checkout-eyebrow">
+              SUGAR CAFE
+            </span>
+            <h1>Checkout</h1>
+            <p>Your cart is currently empty.</p>
+          </div>
+        </header>
+
+        <section className="checkout-card empty-checkout">
+          <div className="empty-checkout-icon">🛒</div>
+          <h2>Your cart is empty</h2>
+          <p>Add something delicious before coming to checkout.</p>
+          <button
+            type="button"
+            className="primary-checkout-btn"
+            onClick={() => navigate("/")}
+          >
+            Browse Menu
+          </button>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="checkout-page">
-
-      {/* =================================================
-          PREMIUM HEADER
-      ================================================= */}
       <header className="checkout-header">
-
         <button
           type="button"
           className="checkout-back"
@@ -2378,12 +2027,8 @@ useEffect(() => {
         </button>
 
         <div className="checkout-header-content">
-          <span className="checkout-eyebrow">
-            SUGAR CAFE
-          </span>
-
+          <span className="checkout-eyebrow">SUGAR CAFE</span>
           <h1>Checkout</h1>
-
           <p>
             Almost there! Your delicious food is one step away ✨
           </p>
@@ -2396,40 +2041,23 @@ useEffect(() => {
             <small>Secure</small>
           </div>
         </div>
-
       </header>
 
-      {/* =================================================
-          ORDER TYPE
-      ================================================= */}
-
       <section className="checkout-card order-type-card">
-
         <div className="section-heading">
-          <div className="section-icon orange-icon">
-            🛵
-          </div>
-
+          <div className="section-icon orange-icon">🛵</div>
           <div>
-            <span className="section-kicker">
-              CHOOSE YOUR OPTION
-            </span>
-
+            <span className="section-kicker">CHOOSE YOUR OPTION</span>
             <h2>Order Type</h2>
-
-            <p>
-              How would you like to receive your order?
-            </p>
+            <p>How would you like to receive your order?</p>
           </div>
         </div>
 
         <div className="order-type-grid">
-
           <button
             type="button"
             onClick={() => {
               setOrderType("Delivery");
-
               localStorage.setItem(
                 "sugarCafeOrderType",
                 "Delivery"
@@ -2441,30 +2069,20 @@ useEffect(() => {
                 : "order-type-btn delivery"
             }
           >
-
-            <span className="order-type-visual">
-              🛵
-            </span>
-
+            <span className="order-type-visual">🛵</span>
             <span className="order-type-text">
               <strong>Delivery</strong>
-
-              <small>
-                We deliver to your location
-              </small>
+              <small>We deliver to your location</small>
             </span>
-
             <span className="radio-modern">
               {orderType === "Delivery" && "✓"}
             </span>
-
           </button>
 
           <button
             type="button"
             onClick={() => {
               setOrderType("Takeaway");
-
               localStorage.setItem(
                 "sugarCafeOrderType",
                 "Takeaway"
@@ -2476,84 +2094,513 @@ useEffect(() => {
                 : "order-type-btn takeaway"
             }
           >
-
-            <span className="order-type-visual">
-              🛍️
-            </span>
-
+            <span className="order-type-visual">🛍️</span>
             <span className="order-type-text">
               <strong>Takeaway</strong>
-
-              <small>
-                Pick up from our cafe
-              </small>
+              <small>Pick up from our cafe</small>
             </span>
-
             <span className="radio-modern">
               {orderType === "Takeaway" && "✓"}
             </span>
-
           </button>
-
         </div>
 
         {isTakeaway && (
           <div className="takeaway-info premium-info">
-
-            <div className="info-icon">
-              🏪
-            </div>
-
+            <div className="info-icon">🏪</div>
             <div>
-              <strong>
-                {TAKEAWAY_STORE.name}
-              </strong>
-
-              <p>
-                {TAKEAWAY_STORE.address}
-              </p>
-
+              <strong>{TAKEAWAY_STORE.name}</strong>
+              <p>{TAKEAWAY_STORE.address}</p>
               <small>
                 Your order will be prepared for pickup.
               </small>
             </div>
-
           </div>
         )}
-
       </section>
-
-      {/* =================================================
-          DELIVERY LOCATION
-      ================================================= */}
 
       {!isTakeaway && (
         <section className="checkout-card location-card premium-location-card">
-
           <div className="location-card-heading">
-
             <div className="section-heading compact">
-
-              <div className="section-icon location-icon">
-                📍
-              </div>
-
+              <div className="section-icon location-icon">📍</div>
               <div>
-                <span className="section-kicker">
-                  DELIVERY
-                </span>
-
-                <h2>
-                  Delivery Location
-                </h2>
-
-                <p>
-                  Your location is detected automatically
-                </p>
+                <span className="section-kicker">DELIVERY</span>
+                <h2>Delivery Location</h2>
+                <p>Your location is detected automatically</p>
               </div>
-
             </div>
 
             {locationConfirmed ? (
               <span className="location-confirmed-badge">
-                <span>✓</sp
+                <span>✓</span> Confirmed
+              </span>
+            ) : (
+              <span className="location-pending-badge">
+                Select location
+              </span>
+            )}
+          </div>
+
+          <div className="location-actions">
+            <button
+              type="button"
+              className="current-location-btn"
+              onClick={getCurrentLocation}
+              disabled={loadingLocation}
+            >
+              {loadingLocation ? "Detecting..." : "📍 Use My Current Location"}
+            </button>
+          </div>
+
+          {savedAddresses.length > 0 && (
+            <div className="saved-addresses">
+              <div className="saved-address-title">
+                Saved addresses
+              </div>
+
+              <div className="saved-address-list">
+                {savedAddresses.map((saved) => (
+                  <button
+                    key={saved.id || `${saved.latitude}-${saved.longitude}`}
+                    type="button"
+                    className="saved-address-btn"
+                    onClick={() => selectSavedAddress(saved)}
+                  >
+                    <span>🏠</span>
+                    <span>
+                      {saved.fullAddress ||
+                        saved.address ||
+                        "Saved address"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="checkout-map-wrap">
+            <MapContainer
+              center={[mapCenter.lat, mapCenter.lng]}
+              zoom={17}
+              scrollWheelZoom={true}
+              className="checkout-map"
+              whenCreated={onMapCreated}
+            >
+              <TileLayer
+                attribution='&copy; OpenStreetMap contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+
+              <LocationMapEvents
+                onMoveEnd={handleMapMoveEnd}
+              />
+
+              <Marker
+                position={[marker.lat, marker.lng]}
+                icon={locationIcon}
+              />
+            </MapContainer>
+
+            <div className="map-center-label">
+              Move the map to set delivery location
+            </div>
+          </div>
+
+          <div className="address-preview">
+            <div className="address-preview-icon">📍</div>
+            <div className="address-preview-content">
+              <span>Selected address</span>
+              <strong>
+                {address || "Detecting your address..."}
+              </strong>
+            </div>
+          </div>
+
+          <div className="location-distance-row">
+            <span>
+              📏 Distance: <strong>{distance.toFixed(2)} km</strong>
+            </span>
+            <span
+              className={
+                deliveryAvailable
+                  ? "delivery-status available"
+                  : "delivery-status unavailable"
+              }
+            >
+              {deliveryAvailable
+                ? "✓ Delivery available"
+                : `✕ Outside ${maxDeliveryDistanceKm} km`}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            className={
+              locationConfirmed
+                ? "confirm-location-btn confirmed"
+                : "confirm-location-btn"
+            }
+            onClick={confirmDeliveryLocation}
+            disabled={
+              loadingLocation ||
+              !address.trim() ||
+              !deliveryAvailable
+            }
+          >
+            {locationConfirmed
+              ? "✓ Delivery Location Confirmed"
+              : "Confirm Delivery Location"}
+          </button>
+        </section>
+      )}
+
+      <section className="checkout-card customer-card">
+        <div className="section-heading">
+          <div className="section-icon">👤</div>
+          <div>
+            <span className="section-kicker">CUSTOMER</span>
+            <h2>Your Details</h2>
+            <p>These details will be used for your order.</p>
+          </div>
+        </div>
+
+        {customerProfile ? (
+          <div className="customer-profile-box">
+            <div className="customer-avatar">
+              {customerProfile.photoURL ? (
+                <img
+                  src={customerProfile.photoURL}
+                  alt=""
+                />
+              ) : (
+                "👤"
+              )}
+            </div>
+            <div>
+              <strong>
+                {customerProfile.name || "Customer"}
+              </strong>
+              <span>
+                {customerProfile.phone || "Mobile number not available"}
+              </span>
+              {customerProfile.email && (
+                <span>{customerProfile.email}</span>
+              )}
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="login-checkout-btn"
+            onClick={() =>
+              navigate("/login", {
+                state: { from: "/checkout" },
+              })
+            }
+          >
+            Login to continue
+          </button>
+        )}
+      </section>
+
+      <section className="checkout-card order-note-card">
+        <div className="section-heading">
+          <div className="section-icon">📝</div>
+          <div>
+            <span className="section-kicker">OPTIONAL</span>
+            <h2>Special Instructions</h2>
+            <p>Anything we should know about your order?</p>
+          </div>
+        </div>
+
+        <textarea
+          value={specialNote}
+          onChange={(event) => setSpecialNote(event.target.value)}
+          placeholder="Example: Less spicy, no onion, extra sauce..."
+          rows={4}
+          maxLength={500}
+        />
+        <div className="note-counter">
+          {specialNote.length}/500
+        </div>
+      </section>
+
+      {Number(totalPrice) >= DAILY_SCRATCH_MIN_BILL && (
+        <section className="checkout-card scratch-card-section">
+          <div className="section-heading">
+            <div className="section-icon">🎁</div>
+            <div>
+              <span className="section-kicker">SPECIAL REWARD</span>
+              <h2>Daily Scratch & Win</h2>
+              <p>
+                Your bill qualifies for a surprise reward.
+              </p>
+            </div>
+          </div>
+
+          {!dailyScratch.unlocked ? (
+            <button
+              type="button"
+              className="unlock-scratch-btn"
+              onClick={unlockDailyScratch}
+            >
+              🎁 Unlock Scratch Card
+            </button>
+          ) : dailyScratch.revealed ? (
+            <div className="revealed-reward-box">
+              <div className="revealed-reward-icon">
+                🎉
+              </div>
+              <strong>
+                {dailyScratch.reward?.title ||
+                  (dailyScratch.reward?.type === "discount"
+                    ? `${dailyScratch.reward.discountPercent}% OFF`
+                    : `FREE ${dailyScratch.reward?.itemName || "Reward"}`)}
+              </strong>
+              <span>
+            Your reward will be applied to this order.
+              </span>
+            </div>
+          ) : (
+            <div className="scratch-card-container">
+              <DailyScratchCard
+                disabled={dailyScratchRevealing}
+                onReveal={revealDailyScratch}
+              />
+              <p className="scratch-help">
+                Scratch at least 45% of the card to reveal your reward.
+              </p>
+            </div>
+          )}
+        </section>
+      )}
+
+      <section className="checkout-card loyalty-card">
+        <div className="section-heading">
+          <div className="section-icon">⭐</div>
+          <div>
+            <span className="section-kicker">SUGAR REWARDS</span>
+            <h2>6 + 1 Loyalty</h2>
+            <p>
+              Orders of ₹{LOYALTY_MIN_BILL}+ count toward your reward.
+            </p>
+          </div>
+        </div>
+
+        {loyaltyData.loading ? (
+          <div className="reward-loading">
+            Checking your reward progress...
+          </div>
+        ) : (
+          <>
+            <div className="loyalty-progress-row">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div
+                  key={index}
+                  className={
+                    index < loyaltyData.qualifyingOrders
+                      ? "loyalty-dot active"
+                      : "loyalty-dot"
+                  }
+                >
+                  {index < loyaltyData.qualifyingOrders
+                    ? "✓"
+                    : index + 1}
+                </div>
+              ))}
+            </div>
+
+            <div className="loyalty-status-text">
+              {rewardAvailable ? (
+                <strong>
+                  🎉 Your loyalty reward is ready to use!
+                </strong>
+              ) : currentReward?.scratchCardReady ? (
+                <strong>
+                  🎁 You unlocked your 6 + 1 reward!
+                </strong>
+              ) : (
+                <span>
+                  {loyaltyData.qualifyingOrders}/6 qualifying
+                  orders completed.
+                </span>
+              )}
+            </div>
+          </>
+        )}
+      </section>
+
+      <section className="checkout-card payment-card">
+        <div className="section-heading">
+          <div className="section-icon">💳</div>
+          <div>
+            <span className="section-kicker">PAYMENT</span>
+            <h2>Payment Method</h2>
+            <p>Select how you would like to pay.</p>
+          </div>
+        </div>
+
+        <div className="payment-options">
+          {codEnabled && (
+            <button
+              type="button"
+              className={
+                paymentMethod === "Cash on Delivery"
+                  ? "payment-option active"
+                  : "payment-option"
+              }
+              onClick={() =>
+                setPaymentMethod("Cash on Delivery")
+              }
+            >
+              <span className="payment-option-icon">
+                💵
+              </span>
+              <span>
+                <strong>Cash on Delivery</strong>
+                <small>Pay when your order arrives</small>
+              </span>
+              <span className="radio-modern">
+                {paymentMethod === "Cash on Delivery" && "✓"}
+              </span>
+            </button>
+          )}
+
+          {upiEnabled && (
+            <button
+              type="button"
+              className={
+                paymentMethod === "Online Payment"
+                  ? "payment-option active"
+                  : "payment-option"
+              }
+              onClick={() =>
+                setPaymentMethod("Online Payment")
+              }
+            >
+              <span className="payment-option-icon">
+                📱
+              </span>
+              <span>
+                <strong>Online Payment</strong>
+                <small>UPI / Razorpay secure payment</small>
+              </span>
+              <span className="radio-modern">
+                {paymentMethod === "Online Payment" && "✓"}
+              </span>
+            </button>
+          )}
+        </div>
+
+        {!codEnabled && !upiEnabled && (
+          <div className="payment-unavailable">
+            Payment methods are currently unavailable.
+          </div>
+        )}
+      </section>
+
+      <section className="checkout-card bill-card">
+        <div className="section-heading">
+          <div className="section-icon">🧾</div>
+          <div>
+            <span className="section-kicker">ORDER SUMMARY</span>
+            <h2>Bill Details</h2>
+          </div>
+        </div>
+
+        <div className="bill-items">
+          {cart.map((item) => {
+            const qty = Number(item.qty || item.quantity || 1);
+            const price = Number(item.price || 0);
+
+            return (
+              <div
+                className="bill-line"
+                key={item.id || item.name}
+              >
+                <span>
+                  {item.name} × {qty}
+                </span>
+                <strong>
+                  ₹{(price * qty).toFixed(2)}
+                </strong>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="bill-divider" />
+
+        <div className="bill-line">
+          <span>Subtotal</span>
+          <strong>₹{Number(totalPrice).toFixed(2)}</strong>
+        </div>
+
+        {!isTakeaway && (
+          <div className="bill-line">
+            <span>Delivery charge</span>
+            <strong>
+              {deliveryAvailable
+                ? `₹${Number(deliveryCharge).toFixed(2)}`
+                : "—"}
+            </strong>
+          </div>
+        )}
+
+        {discount > 0 && (
+          <div className="bill-line discount-line">
+            <span>Reward discount</span>
+            <strong>
+              -₹{Number(discount).toFixed(2)}
+            </strong>
+          </div>
+        )}
+
+        <div className="bill-line total-line">
+          <span>Total</span>
+          <strong>₹{Number(grandTotal).toFixed(2)}</strong>
+        </div>
+      </section>
+
+      <section className="checkout-bottom">
+        <div className="checkout-total-mini">
+          <span>Payable</span>
+          <strong>₹{Number(grandTotal).toFixed(2)}</strong>
+        </div>
+
+        <button
+          type="button"
+          className="place-order-btn"
+          onClick={placeOrder}
+          disabled={
+            placingOrder ||
+            loyaltyData.loading ||
+            (!isTakeaway &&
+              (!locationConfirmed ||
+                !deliveryAvailable))
+          }
+        >
+          {placingOrder ? (
+            <>
+              <span className="checkout-spinner" />
+              Processing...
+            </>
+          ) : paymentMethod === "Online Payment" ? (
+            "Pay Securely & Place Order"
+          ) : isTakeaway ? (
+            "Place Takeaway Order"
+          ) : (
+            "Place Delivery Order"
+          )}
+        </button>
+
+        <small className="checkout-secure-note">
+          🔒 Your order and payment information are securely processed.
+        </small>
+      </section>
+    </div>
+  );
+}
+
+export default Checkout;    
