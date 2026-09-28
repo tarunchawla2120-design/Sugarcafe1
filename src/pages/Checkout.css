@@ -1,154 +1,693 @@
 /* =========================================================
-   SUGAR CAFE — FINAL UNIFIED DARK CHECKOUT
+   SUGAR CAFE — CHECKOUT FINAL CSS
 ========================================================= */
 
 .checkout-page {
-  background: #081b2b;
-  color: #fff;
-  min-height: 100vh;
-}
-
-/* HEADER */
-.checkout-header {
-  margin-bottom: 22px;
-  padding: 6px 4px;
-}
-
-.checkout-back-btn {
-  width: 42px;
-  height: 42px;
-  border: 1px solid rgba(255,255,255,.10);
-  border-radius: 14px;
-  background: #102f4a;
-  color: #fff;
-  font-size: 23px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.checkout-brand {
-  margin-top: 15px;
-  color: #ff765e;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 2px;
-}
-
-.checkout-main-title {
-  margin: 3px 0 0;
-  color: #fff;
-  font-size: 40px;
-  line-height: 1.05;
-  font-weight: 900;
-}
-
-.checkout-subtitle {
-  margin: 9px 0 0;
-  color: rgba(255,255,255,.58);
-  font-size: 15px;
-  line-height: 1.45;
-}
-
-.checkout-secure-top {
-  margin-top: 13px;
-  color: #5ee39a;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-/* INPUTS */
-.checkout-page input,
-.checkout-page textarea {
-  background: #f5f5f5;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 18px 16px 130px;
+  box-sizing: border-box;
   color: #111;
 }
 
-.checkout-page input:focus,
-.checkout-page textarea:focus {
-  border-color: #ff765e;
+/* =========================================================
+   COMMON CARD
+========================================================= */
+
+.checkout-card {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 16px;
+  padding: 20px;
+  border-radius: 24px;
+  background: #111;
+  color: #fff;
+  overflow: hidden;
 }
 
-/* LOCATION */
+/* =========================================================
+   SECTION HEADING
+========================================================= */
+
+.section-heading {
+  width: 100%;
+  display: flex !important;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 20px;
+  box-sizing: border-box;
+}
+
+.section-heading > div:last-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.section-icon {
+  width: 46px;
+  height: 46px;
+  min-width: 46px;
+  border-radius: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: #111;
+  font-size: 22px;
+  box-sizing: border-box;
+}
+
+.section-kicker {
+  display: block;
+  margin-bottom: 5px;
+  color: rgba(255,255,255,.5);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+
+.section-heading h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 23px;
+  line-height: 1.15;
+  font-weight: 900;
+}
+
+.section-heading p {
+  margin: 6px 0 0;
+  color: rgba(255,255,255,.58);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* =========================================================
+   ORDER TYPE
+========================================================= */
+
+.order-type-options {
+  width: 100%;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px;
+  box-sizing: border-box;
+}
+
+.order-type-option {
+  width: 100% !important;
+  min-height: 76px;
+  display: flex !important;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 15px;
+  box-sizing: border-box;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: #191919;
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition: .2s ease;
+}
+
+.order-type-option.active {
+  background: #252525;
+  border-color: #5ee39a;
+  box-shadow: 0 0 0 1px rgba(94,227,154,.15);
+}
+
+.order-type-icon {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: #fff;
+  font-size: 22px;
+}
+
+.order-type-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.order-type-content strong {
+  display: block;
+  color: #fff;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.order-type-content small {
+  display: block;
+  margin-top: 5px;
+  color: rgba(255,255,255,.55);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.order-type-radio {
+  width: 27px;
+  height: 27px;
+  min-width: 27px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255,255,255,.25);
+  color: #111;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.order-type-option.active .order-type-radio {
+  background: #5ee39a;
+  border-color: #5ee39a;
+}
+
+/* =========================================================
+   LOCATION
+========================================================= */
+
 .location-card {
-  position: relative;
+  overflow: hidden;
+}
+
+.location-controls {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
 }
 
 .location-button {
-  background: #173d60;
-  border: 1px solid rgba(255,255,255,.10);
+  width: 100%;
+  min-height: 52px;
+  padding: 13px 16px;
+  border: 0;
+  border-radius: 15px;
+  background: #fff;
+  color: #111;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  box-sizing: border-box;
 }
 
-.location-button:hover {
-  background: #1b466d;
+.location-button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
 }
 
 /* MAP */
-.checkout-page .leaflet-container {
+
+.location-controls .leaflet-container {
+  width: 100% !important;
+  height: 280px !important;
+  border-radius: 20px;
+  overflow: hidden;
+  z-index: 1;
+}
+
+/* =========================================================
+   ADDRESS
+========================================================= */
+
+.address-preview {
+  width: 100%;
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  box-sizing: border-box;
+  border-radius: 16px;
+  background: rgba(255,255,255,.07);
   border: 1px solid rgba(255,255,255,.08);
-  box-shadow: 0 8px 25px rgba(0,0,0,.20);
 }
 
-/* CUSTOMER */
+.address-preview-content {
+  min-width: 0;
+  flex: 1;
+}
+
+.address-preview-content span {
+  display: block;
+  margin-bottom: 4px;
+  color: rgba(255,255,255,.45);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.address-preview-content strong {
+  display: block;
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+/* =========================================================
+   DISTANCE
+========================================================= */
+
+.distance-status {
+  width: 100%;
+  padding: 13px 14px;
+  box-sizing: border-box;
+  border-radius: 14px;
+  background: rgba(255,255,255,.06);
+  color: rgba(255,255,255,.75);
+  font-size: 14px;
+}
+
+/* =========================================================
+   CUSTOMER
+========================================================= */
+
 .customer-profile-box {
-  background: rgba(255,255,255,.025);
-  padding: 5px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 15px;
+  box-sizing: border-box;
   border-radius: 18px;
+  background: #191919;
+  border: 1px solid rgba(255,255,255,.08);
 }
 
-/* SCRATCH */
+.customer-avatar {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  font-size: 22px;
+}
+
+.customer-profile-box strong {
+  display: block;
+  color: #fff;
+  font-size: 16px;
+}
+
+.customer-profile-box span {
+  display: block;
+  margin-top: 4px;
+  color: rgba(255,255,255,.5);
+  font-size: 13px;
+}
+
+/* =========================================================
+   INPUTS
+========================================================= */
+
+.checkout-card input,
+.checkout-card textarea {
+  font-family: inherit;
+}
+
+.checkout-card textarea {
+  width: 100%;
+  min-height: 110px;
+  padding: 14px;
+  box-sizing: border-box;
+  resize: vertical;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 16px;
+  background: #191919;
+  color: #fff;
+  outline: none;
+  font-size: 14px;
+}
+
+.checkout-card textarea::placeholder {
+  color: rgba(255,255,255,.35);
+}
+
+.checkout-card textarea:focus {
+  border-color: #5ee39a;
+}
+
+.character-count {
+  margin-top: 6px;
+  color: rgba(255,255,255,.35);
+  text-align: right;
+  font-size: 11px;
+}
+
+/* =========================================================
+   LOYALTY
+========================================================= */
+
+.loyalty-progress-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+}
+
+.loyalty-dot {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #191919;
+  border: 1px solid rgba(255,255,255,.15);
+  color: rgba(255,255,255,.45);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.loyalty-dot.active {
+  background: #5ee39a;
+  border-color: #5ee39a;
+  color: #111;
+}
+
+.loyalty-status-text {
+  margin-top: 14px;
+  color: rgba(255,255,255,.65);
+  font-size: 14px;
+}
+
+/* =========================================================
+   PAYMENT
+========================================================= */
+
+.payment-options {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.payment-option {
+  width: 100%;
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 14px;
+  box-sizing: border-box;
+  border-radius: 17px;
+  border: 1px solid rgba(255,255,255,.1);
+  background: #191919;
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.payment-option.active {
+  border-color: #5ee39a;
+  background: #242424;
+}
+
+.payment-option-icon {
+  width: 43px;
+  height: 43px;
+  min-width: 43px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 13px;
+  background: #fff;
+  font-size: 21px;
+}
+
+.payment-option > span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+
+.payment-option strong {
+  display: block;
+  color: #fff;
+  font-size: 15px;
+}
+
+.payment-option small {
+  display: block;
+  margin-top: 4px;
+  color: rgba(255,255,255,.5);
+  font-size: 12px;
+}
+
+.radio-modern {
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.25);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.payment-option.active .radio-modern {
+  background: #5ee39a;
+  border-color: #5ee39a;
+  color: #111;
+}
+
+/* =========================================================
+   SCRATCH
+========================================================= */
+
 .scratch-card-section {
   background:
-    linear-gradient(
-      145deg,
-      #122f4b 0%,
-      #0b243b 100%
-    );
+    linear-gradient(145deg,#0d2d38,#09252f);
 }
 
 .unlock-scratch-btn {
-  white-space: nowrap;
+  border: 0;
+  border-radius: 13px;
+  background: #5ee39a;
+  color: #111;
+  font-weight: 900;
+  cursor: pointer;
 }
 
-/* BILL */
-.bill-card {
-  background:
-    linear-gradient(
-      145deg,
-      #122f4b 0%,
-      #0b243b 100%
-    );
+/* =========================================================
+   BILL
+========================================================= */
+
+.bill-items {
+  width: 100%;
 }
 
-/* ERROR */
-.checkout-page > div[style*="rgba(255,80,70"] {
-  background: rgba(255,80,70,.10) !important;
-  border-color: rgba(255,100,80,.25) !important;
+.bill-line {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 8px 0;
+  color: rgba(255,255,255,.7);
+  font-size: 14px;
 }
 
-/* BOTTOM */
+.bill-line span {
+  min-width: 0;
+  word-break: break-word;
+}
+
+.bill-line strong {
+  flex-shrink: 0;
+  color: #fff;
+}
+
+.bill-divider {
+  width: 100%;
+  height: 1px;
+  margin: 10px 0;
+  background: rgba(255,255,255,.1);
+}
+
+.total-line {
+  padding-top: 14px;
+}
+
+.total-line span {
+  color: #fff;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.total-line strong {
+  color: #5ee39a;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+/* =========================================================
+   BOTTOM CHECKOUT
+========================================================= */
+
 .checkout-bottom {
-  margin-top: 4px;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 8px;
+  padding: 16px;
+  border-radius: 22px;
+  background: #111;
+  color: #fff;
+  box-shadow: 0 12px 35px rgba(0,0,0,.18);
 }
 
-/* MOBILE */
+.checkout-total-mini {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.checkout-total-mini span {
+  color: rgba(255,255,255,.55);
+  font-size: 13px;
+}
+
+.checkout-total-mini strong {
+  color: #fff;
+  font-size: 22px;
+}
+
+.place-order-btn {
+  width: 100%;
+  min-height: 56px;
+  border: 0;
+  border-radius: 17px;
+  background: #5ee39a;
+  color: #111;
+  font-size: 16px;
+  font-weight: 900;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.place-order-btn:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.checkout-secure-note {
+  display: block;
+  margin-top: 10px;
+  color: rgba(255,255,255,.4);
+  text-align: center;
+  font-size: 11px;
+}
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
 @media (max-width: 600px) {
 
-  .checkout-main-title {
-    font-size: 34px;
+  .checkout-page {
+    width: 100%;
+    max-width: 100%;
+    padding: 16px 12px 125px;
+    overflow-x: hidden;
   }
 
-  .checkout-subtitle {
-    font-size: 14px;
+  .checkout-card {
+    width: 100%;
+    padding: 18px;
+    border-radius: 21px;
   }
 
-  .checkout-brand {
-    font-size: 11px;
+  .section-heading {
+    display: flex !important;
+    width: 100%;
   }
 
-  .checkout-back-btn {
+  .section-heading h2 {
+    font-size: 21px;
+  }
+
+  .section-heading p {
+    font-size: 13px;
+  }
+
+  .order-type-option {
+    width: 100% !important;
+  }
+
+  .location-controls {
+    width: 100%;
+  }
+
+  .location-controls .leaflet-container {
+    height: 270px !important;
+  }
+
+  .loyalty-dot {
+    width: 35px;
+    height: 35px;
+    min-width: 35px;
+  }
+
+  .checkout-bottom {
+    width: 100%;
+    margin-top: 8px;
+  }
+}
+
+/* =========================================================
+   VERY SMALL PHONES
+========================================================= */
+
+@media (max-width: 380px) {
+
+  .checkout-page {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .checkout-card {
+    padding: 16px;
+  }
+
+  .section-icon {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+  }
+
+  .order-type-option {
+    padding: 12px;
+  }
+
+  .order-type-icon {
     width: 40px;
     height: 40px;
+    min-width: 40px;
+  }
+
+  .loyalty-progress-row {
+    gap: 4px;
+  }
+
+  .loyalty-dot {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    font-size: 11px;
   }
 }
