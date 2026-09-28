@@ -1562,94 +1562,38 @@ export default function Checkout() {
   return (
     <div className="checkout-page">
 
-      {/* ==================================================
-          HEADER
-      ================================================== */}
+{/* ==================================================
+    HEADER
+================================================== */}
 
-      <div
-        style={{
-          marginBottom: 22,
-          padding:
-            "4px 4px",
-        }}
-      >
+<div className="checkout-header">
 
-        <button
-          type="button"
-          onClick={() =>
-            navigate(-1)
-          }
-          style={{
-            border: 0,
-            background:
-              "transparent",
+  <button
+    type="button"
+    className="checkout-back-btn"
+    onClick={() => navigate(-1)}
+    aria-label="Go back"
+  >
+    ←
+  </button>
 
-            color: "#111",
+  <div className="checkout-brand">
+    SUGAR CAFE
+  </div>
 
-            fontSize: 26,
+  <h1 className="checkout-main-title">
+    Checkout
+  </h1>
 
-            cursor:
-              "pointer",
+  <p className="checkout-subtitle">
+    Almost there! Your delicious food is one step away ✨
+  </p>
 
-            marginBottom: 8,
-          }}
-        >
-          ←
-        </button>
+  <div className="checkout-secure-top">
+    ✓ <strong>100% Secure Checkout</strong>
+  </div>
 
-        <div
-          style={{
-            color: "#111",
-            fontSize: 15,
-            marginBottom: 2,
-          }}
-        >
-          SUGAR CAFE
-        </div>
-
-        <h1
-          style={{
-            margin: 0,
-            color: "#111",
-            fontSize: 42,
-            lineHeight: 1.05,
-            fontWeight: 900,
-          }}
-        >
-          Checkout
-        </h1>
-
-        <p
-          style={{
-            margin:
-              "8px 0 0",
-
-            color: "#111",
-
-            fontSize: 18,
-          }}
-        >
-          Almost there! Your
-          delicious food is one
-          step away ✨
-        </p>
-
-        <div
-          style={{
-            marginTop: 15,
-
-            color: "#111",
-
-            fontWeight: 700,
-          }}
-        >
-          ✓{" "}
-          <strong>
-            100% Secure
-          </strong>
-        </div>
-
-      </div>
+</div>
 
       {/* ==================================================
           ORDER TYPE
