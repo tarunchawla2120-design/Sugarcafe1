@@ -24,6 +24,29 @@ function normalizePhone(phone) {
   return String(phone || "").replace(/\D/g, "").slice(-10);
 }
 
+/*
+=========================================================
+FIREBASE REQUEST TIMEOUT
+=========================================================
+Prevents "Checking Account..." from staying forever
+if Firebase/network does not respond.
+*/
+
+function withTimeout(promise, timeout = 12000) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(
+          new Error(
+            "Firebase request timed out. Please check your internet connection."
+          )
+        );
+      }, timeout);
+    }),
+  ]);
+}
+
 function Login() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -32,21 +55,43 @@ function Login() {
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
 
+  /*
+  =========================================================
+  CHECK EXISTING SESSION
+  =========================================================
+  */
+
   useEffect(() => {
     const savedCustomerId = localStorage.getItem(
       "sugarCafeCustomerId"
     );
 
     if (savedCustomerId) {
-      navigate("/home", { replace: true });
+      navigate("/home", {
+        replace: true,
+      });
     }
   }, [navigate]);
+
+  /*
+  =========================================================
+  LOGIN
+  =========================================================
+  */
 
   const handleLogin = async (e) => {
     e.preventDefault();
 
+    if (loading) return;
+
     const cleanName = name.trim();
     const cleanPhone = normalizePhone(phone);
+
+    /*
+    -------------------------------------------------------
+    VALIDATION
+    -------------------------------------------------------
+    */
 
     if (!cleanName) {
       alert("Please enter your name.");
@@ -61,25 +106,45 @@ function Login() {
     try {
       setLoading(true);
 
-      const customersRef = collection(db, "customers");
+      /*
+      =====================================================
+      FIND CUSTOMER
+      =====================================================
+      */
+
+      const customersRef = collection(
+        db,
+        "customers"
+      );
 
       const customerQuery = query(
         customersRef,
         where("phone", "==", cleanPhone)
       );
 
-      const customerSnapshot = await getDocs(customerQuery);
+      /*
+      IMPORTANT:
+      Firebase cannot keep the button stuck forever.
+      */
+
+      const customerSnapshot = await withTimeout(
+        getDocs(customerQuery),
+        12000
+      );
 
       let customerId;
       let customerData;
       let customerRef;
 
-      // ============================================
-      // EXISTING CUSTOMER
-      // ============================================
+      /*
+      =====================================================
+      EXISTING CUSTOMER
+      =====================================================
+      */
 
       if (!customerSnapshot.empty) {
-        const customerDoc = customerSnapshot.docs[0];
+        const customerDoc =
+          customerSnapshot.docs[0];
 
         customerRef = customerDoc.ref;
 
@@ -90,35 +155,53 @@ function Login() {
 
         customerId = customerData.customerId;
 
-        // Old customer without ID
+        /*
+        ---------------------------------------------------
+        OLD CUSTOMER WITHOUT CUSTOMER ID
+        ---------------------------------------------------
+        */
+
         if (!customerId) {
           customerId = generateCustomerId();
 
-          await updateDoc(customerRef, {
-            customerId,
-            updatedAt: serverTimestamp(),
-          });
+          await withTimeout(
+            updateDoc(customerRef, {
+              customerId,
+              updatedAt: serverTimestamp(),
+            }),
+            10000
+          );
 
           customerData.customerId = customerId;
         }
 
-        // Keep customer's latest name
+        /*
+        ---------------------------------------------------
+        UPDATE CUSTOMER NAME
+        ---------------------------------------------------
+        */
+
         if (
           cleanName &&
           cleanName !== customerData.name
         ) {
-          await updateDoc(customerRef, {
-            name: cleanName,
-            updatedAt: serverTimestamp(),
-          });
+          await withTimeout(
+            updateDoc(customerRef, {
+              name: cleanName,
+              updatedAt: serverTimestamp(),
+            }),
+            10000
+          );
 
           customerData.name = cleanName;
         }
       }
 
-      // ============================================
-      // NEW CUSTOMER
-      // ============================================
+      /*
+      =====================================================
+      NEW CUSTOMER
+      =====================================================
+      */
 
       else {
         customerId = generateCustomerId();
@@ -132,9 +215,12 @@ function Login() {
           updatedAt: serverTimestamp(),
         };
 
-        customerRef = await addDoc(
-          customersRef,
-          newCustomer
+        customerRef = await withTimeout(
+          addDoc(
+            customersRef,
+            newCustomer
+          ),
+          12000
         );
 
         customerData = {
@@ -143,9 +229,11 @@ function Login() {
         };
       }
 
-      // ============================================
-      // SAVE PERMANENT SESSION
-      // ============================================
+      /*
+      =====================================================
+      SAVE CUSTOMER SESSION
+      =====================================================
+      */
 
       localStorage.setItem(
         "sugarCafeCustomerId",
@@ -156,58 +244,123 @@ function Login() {
         "sugarCafeUser",
         JSON.stringify({
           customerId,
-          name: customerData?.name || cleanName,
+          name:
+            customerData?.name ||
+            cleanName,
           phone: cleanPhone,
         })
       );
 
-      // ============================================
-      // FIREBASE CLOUD MESSAGING
-      // ============================================
-
-      try {
-        const fcmToken = await registerForNotifications();
-
-        if (fcmToken && customerRef) {
-          await updateDoc(customerRef, {
-            fcmToken,
-            fcmTokens: arrayUnion(fcmToken),
-            fcmTokenUpdatedAt: serverTimestamp(),
-            notificationsEnabled: true,
-            updatedAt: serverTimestamp(),
-          });
-
-          console.log("FCM token saved successfully.");
-        }
-      } catch (notificationError) {
-        // Notification failure should NOT stop customer login.
-        console.error(
-          "Notification setup failed:",
-          notificationError
-        );
-      }
-
-      // ============================================
-      // REDIRECT
-      // ============================================
+      /*
+      =====================================================
+      IMPORTANT:
+      LOGIN DOES NOT WAIT FOR FCM
+      =====================================================
+      */
 
       const redirectTo =
         location.state?.from || "/home";
+
+      /*
+      -----------------------------------------------------
+      GO TO HOME IMMEDIATELY
+      -----------------------------------------------------
+      */
 
       navigate(redirectTo, {
         replace: true,
       });
 
-    } catch (error) {
-      console.error("Customer login error:", error);
+      /*
+      =====================================================
+      FCM / PUSH NOTIFICATION
+      =====================================================
+      Runs in background.
 
-      alert(
-        "Unable to login right now. Please try again."
+      If notification setup fails, customer login
+      remains successful.
+      =====================================================
+      */
+
+      Promise.resolve()
+        .then(async () => {
+          try {
+            const fcmToken =
+              await withTimeout(
+                registerForNotifications(),
+                10000
+              );
+
+            if (
+              fcmToken &&
+              customerRef
+            ) {
+              await withTimeout(
+                updateDoc(
+                  customerRef,
+                  {
+                    fcmToken,
+                    fcmTokens:
+                      arrayUnion(
+                        fcmToken
+                      ),
+                    fcmTokenUpdatedAt:
+                      serverTimestamp(),
+                    notificationsEnabled:
+                      true,
+                    updatedAt:
+                      serverTimestamp(),
+                  }
+                ),
+                10000
+              );
+
+              console.log(
+                "FCM token saved successfully."
+              );
+            }
+          } catch (notificationError) {
+            console.error(
+              "Notification setup failed:",
+              notificationError
+            );
+          }
+        });
+    } catch (error) {
+      /*
+      =====================================================
+      LOGIN ERROR
+      =====================================================
+      */
+
+      console.error(
+        "Customer login error:",
+        error
       );
+
+      if (
+        error?.message?.includes(
+          "timed out"
+        )
+      ) {
+        alert(
+          "Connection is taking too long. Please check your internet connection and try again."
+        );
+      } else {
+        alert(
+          "Unable to login right now. Please try again."
+        );
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  /*
+  =========================================================
+  UI
+  =========================================================
+  */
 
   return (
     <div className="login-page">
@@ -215,6 +368,7 @@ function Login() {
       <div className="login-card">
 
         {/* LOGO */}
+
         <div className="login-brand">
 
           <div className="login-logo">
@@ -228,6 +382,7 @@ function Login() {
         </div>
 
         {/* HEADING */}
+
         <div className="login-heading">
 
           <div className="login-eyebrow">
@@ -251,12 +406,14 @@ function Login() {
         </div>
 
         {/* FORM */}
+
         <form
           onSubmit={handleLogin}
           className="login-form"
         >
 
           {/* NAME */}
+
           <div className="login-field">
 
             <label htmlFor="customer-name">
@@ -278,6 +435,7 @@ function Login() {
           </div>
 
           {/* PHONE */}
+
           <div className="login-field">
 
             <label htmlFor="customer-phone">
@@ -317,6 +475,7 @@ function Login() {
           </div>
 
           {/* BUTTON */}
+
           <button
             type="submit"
             className="login-button"
@@ -340,6 +499,7 @@ function Login() {
         </form>
 
         {/* SECURITY NOTE */}
+
         <div className="login-note">
 
           <div className="login-note-icon">
@@ -347,6 +507,7 @@ function Login() {
           </div>
 
           <div>
+
             <strong>
               Your account stays connected
             </strong>
@@ -356,9 +517,12 @@ function Login() {
               Sugar Café customer account
               connected across devices.
             </p>
+
           </div>
 
         </div>
+
+        {/* FOOTER */}
 
         <div className="login-footer">
           Sugar Café • Good food, sweet moments
