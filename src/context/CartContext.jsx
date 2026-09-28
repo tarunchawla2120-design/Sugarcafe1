@@ -1,4 +1,9 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+} from "react";
 
 const CartContext = createContext();
 
@@ -6,96 +11,146 @@ export const useCart = () => useContext(CartContext);
 
 export const CartProvider = ({ children }) => {
   const [cart, setCart] = useState(() => {
-    try {
-      const savedCart = localStorage.getItem("sugarCafeCart");
-      return savedCart ? JSON.parse(savedCart) : [];
-    } catch (error) {
-      console.error("Cart load error:", error);
-      return [];
-    }
+    const savedCart =
+      localStorage.getItem("sugarCafeCart");
+
+    return savedCart
+      ? JSON.parse(savedCart)
+      : [];
   });
 
-  // Add item
   const addToCart = (item) => {
-    setCart((currentCart) => {
-      const exist = currentCart.find((x) => x.id === item.id);
+    console.log("Cart Updated");
 
-      if (exist) {
-        return currentCart.map((x) =>
+    const exist = cart.find(
+      (x) => x.id === item.id
+    );
+
+    if (exist) {
+      setCart(
+        cart.map((x) =>
           x.id === item.id
-            ? { ...x, qty: x.qty + 1 }
+            ? {
+                ...x,
+                qty: Number(x.qty || 0) + 1,
+              }
             : x
-        );
-      }
-
-      return [...currentCart, { ...item, qty: 1 }];
-    });
+        )
+      );
+    } else {
+      setCart([
+        ...cart,
+        {
+          ...item,
+          qty: 1,
+        },
+      ]);
+    }
   };
 
-  // Increase quantity
   const increaseQty = (id) => {
-    setCart((currentCart) =>
-      currentCart.map((item) =>
+    setCart(
+      cart.map((item) =>
         item.id === id
-          ? { ...item, qty: item.qty + 1 }
+          ? {
+              ...item,
+              qty: Number(item.qty || 0) + 1,
+            }
           : item
       )
     );
   };
 
-  // Decrease quantity
   const decreaseQty = (id) => {
-    setCart((currentCart) =>
-      currentCart
+    setCart(
+      cart
         .map((item) =>
           item.id === id
-            ? { ...item, qty: item.qty - 1 }
+            ? {
+                ...item,
+                qty: Number(item.qty || 0) - 1,
+              }
             : item
         )
-        .filter((item) => item.qty > 0)
+        .filter(
+          (item) => Number(item.qty || 0) > 0
+        )
     );
   };
 
-  // Remove item
   const removeFromCart = (id) => {
-    setCart((currentCart) =>
-      currentCart.filter((item) => item.id !== id)
+    setCart(
+      cart.filter(
+        (item) => item.id !== id
+      )
     );
   };
 
-  // ⭐ Clear complete cart
+  /* =========================================
+     CHECKOUT COMPATIBILITY
+  ========================================= */
+
+  const cartItems = cart.map((item) => ({
+    ...item,
+
+    // Existing Cart uses qty
+    // New Checkout uses quantity
+    quantity: Number(
+      item.qty ||
+        item.quantity ||
+        1
+    ),
+  }));
+
   const clearCart = () => {
     setCart([]);
-    localStorage.removeItem("sugarCafeCart");
   };
 
-  // Total items
+  /* =========================================
+     TOTALS
+  ========================================= */
+
   const totalItems = cart.reduce(
-    (total, item) => total + Number(item.qty || 0),
+    (sum, item) =>
+      sum +
+      Number(item.qty || 0),
     0
   );
 
-  // Total price
   const totalPrice = cart.reduce(
-    (total, item) =>
-      total + Number(item.price || 0) * Number(item.qty || 0),
+    (sum, item) =>
+      sum +
+      Number(item.price || 0) *
+        Number(item.qty || 0),
     0
   );
 
-  // Save cart whenever it changes
+  /* =========================================
+     SAVE CART
+  ========================================= */
+
   useEffect(() => {
-    localStorage.setItem("sugarCafeCart", JSON.stringify(cart));
+    localStorage.setItem(
+      "sugarCafeCart",
+      JSON.stringify(cart)
+    );
   }, [cart]);
 
   return (
     <CartContext.Provider
       value={{
+        /* Existing */
         cart,
         addToCart,
         increaseQty,
         decreaseQty,
         removeFromCart,
+
+        /* Checkout compatibility */
+        cartItems,
         clearCart,
+
+        /* Totals */
         totalItems,
         totalPrice,
       }}
