@@ -3,7 +3,7 @@
 ========================================================= */
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import "./checkout.css";
+
 import {
   MapContainer,
   TileLayer,
