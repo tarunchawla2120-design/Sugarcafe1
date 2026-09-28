@@ -1,2606 +1,1112 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-import { useNavigate } from "react-router-dom";
-import { useCart } from "../context/CartContext";
-import {
-  addDoc,
-  collection,
-  Timestamp,
-  query,
-  where,
-  getDocs,
-  updateDoc,
-  doc,
-} from "firebase/firestore";
-import { db } from "../firebase";
-import { useStoreSettings } from "../context/StoreContext";
-import "./Checkout.css";
+/* =========================================================
+   SUGAR CAFE — CHECKOUT PREMIUM FINAL
+========================================================= */
 
-const LOYALTY_MIN_BILL = 500;
-const DAILY_SCRATCH_MIN_BILL = 499;
-
-const LOYALTY_REWARDS = [
-  { type: "free_menu_item", itemName: "Classic Cold Coffee", discountPercent: 0 },
-  { type: "free_menu_item", itemName: "Cheese Aloo Tikki Burger", discountPercent: 0 },
-  { type: "free_menu_item", itemName: "Aloo Cheese Puff", discountPercent: 0 },
-  { type: "free_menu_item", itemName: "Paneer Cheese Sandwich", discountPercent: 0 },
-  { type: "free_menu_item", itemName: "Diet Coke", discountPercent: 0 },
-  { type: "free_menu_item", itemName: "Salted French Fries", discountPercent: 0 },
-  { type: "free_menu_item", itemName: "Hot Chocolate Brownie", discountPercent: 0 },
-  { type: "free_menu_item", itemName: "Hot Chocolava", discountPercent: 0 },
-];
-
-const DAILY_SCRATCH_REWARDS = [
-  { type: "discount", discountPercent: 5, title: "5% OFF" },
-  { type: "free_menu_item", itemName: "Cheese Aloo Puff", title: "FREE Cheese Aloo Puff" },
-  { type: "free_menu_item", itemName: "Veg Aloo Tikka Burger", title: "FREE Veg Aloo Tikka Burger" },
-  { type: "free_menu_item", itemName: "French Fries", title: "FREE French Fries" },
-];
-
-const TAKEAWAY_STORE = {
-  name: "Sugar Crown – NTPC",
-  address: "NTPC Gate, Sada Colony, Jamnipali, Korba, Chhattisgarh – 495450",
-  lat: 22.417212,
-  lng: 82.665984,
-};
-
-const SHOP_LOCATION = {
-  lat: 22.417212,
-  lng: 82.665984,
-};
-
-function loyaltyTime(value) {
-  if (!value) return 0;
-  if (typeof value.toMillis === "function") return value.toMillis();
-  if (typeof value.toDate === "function") return value.toDate().getTime();
-  if (typeof value.seconds === "number") return value.seconds * 1000;
-  const parsed = new Date(value).getTime();
-  return Number.isNaN(parsed) ? 0 : parsed;
+.checkout-page {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 20px 16px 130px;
+  box-sizing: border-box;
+  color: #fff;
 }
 
-function normalizeMenuName(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
+/* =========================================================
+   COMMON CARD
+========================================================= */
+
+.checkout-card {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 18px;
+  padding: 26px;
+  border-radius: 30px;
+  border: 1px solid rgba(120, 160, 200, 0.16);
+  background: linear-gradient(
+    145deg,
+    rgba(14, 35, 55, 0.98),
+    rgba(7, 25, 42, 0.98)
+  );
+  box-shadow:
+    0 14px 35px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.025);
+  overflow: hidden;
 }
 
-function calculateDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+/* =========================================================
+   SECTION HEADING
+========================================================= */
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 24px;
 }
 
-function formatAddressFallback(lat, lng) {
-  return `${Number(lat).toFixed(6)}, ${Number(lng).toFixed(6)}`;
+.section-heading > div:last-child {
+  min-width: 0;
+  flex: 1;
 }
 
-const locationIcon = L.divIcon({
-  className: "sugar-fixed-pin-marker",
-  html: `
-    <div class="sugar-pin">
-      <div class="sugar-pin-dot"></div>
-    </div>
-  `,
-  iconSize: [46, 58],
-  iconAnchor: [23, 58],
-});
+.section-icon {
+  width: 62px;
+  height: 62px;
+  min-width: 62px;
+  border-radius: 20px;
 
-function LocationMapEvents({ onMoveEnd }) {
-  useMapEvents({
-    moveend: (event) => {
-      const center = event.target.getCenter();
-      onMoveEnd({ lat: center.lat, lng: center.lng });
-    },
-  });
-  return null;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 29px;
+
+  background: linear-gradient(
+    145deg,
+    #163d61,
+    #102e4b
+  );
+
+  border: 1px solid rgba(80, 150, 220, 0.15);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.04);
 }
 
-function DailyScratchCard({ disabled = false, onReveal }) {
-  const canvasRef = useRef(null);
-  const scratchingRef = useRef(false);
-  const revealedRef = useRef(false);
+.section-kicker {
+  display: block;
+  margin-bottom: 5px;
 
-  const prepareCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  color: #ff765e;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  line-height: 1.2;
+}
 
-    const width = 640;
-    const height = 320;
-    canvas.width = width;
-    canvas.height = height;
+.section-heading h2 {
+  margin: 0;
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+  color: #fff;
+  font-size: 27px;
+  line-height: 1.15;
+  font-weight: 800;
+}
 
-    const gradient = ctx.createLinearGradient(0, 0, width, height);
-    gradient.addColorStop(0, "#f4f4f4");
-    gradient.addColorStop(0.5, "#cfcfcf");
-    gradient.addColorStop(1, "#eeeeee");
+.section-heading p {
+  margin: 7px 0 0;
 
-    ctx.globalCompositeOperation = "source-over";
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, width, height);
+  color: rgba(255,255,255,.55);
+  font-size: 15px;
+  line-height: 1.4;
+}
 
-    ctx.strokeStyle = "rgba(0,0,0,.10)";
-    ctx.lineWidth = 2;
+/* =========================================================
+   ORDER TYPE
+========================================================= */
 
-    for (let x = -height; x < width; x += 28) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x + height, height);
-      ctx.stroke();
-    }
+.order-type-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
 
-    ctx.fillStyle = "#333";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font = "800 42px Arial";
-    ctx.fillText("SCRATCH HERE", width / 2, height / 2 - 15);
+.order-type-option {
+  min-height: 105px;
+  padding: 16px;
 
-    ctx.font = "600 23px Arial";
-    ctx.fillStyle = "#666";
-    ctx.fillText("✨ Reveal your reward ✨", width / 2, height / 2 + 35);
-  }, []);
+  display: flex;
+  align-items: center;
+  gap: 14px;
 
-  useEffect(() => {
-    if (!disabled) {
-      revealedRef.current = false;
-      prepareCanvas();
-    }
-    return () => {
-      scratchingRef.current = false;
-    };
-  }, [disabled, prepareCanvas]);
+  border-radius: 22px;
+  border: 1px solid rgba(120,160,200,.18);
 
-  const getPoint = (event) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
-    return {
-      x: (event.clientX - rect.left) * (canvas.width / rect.width),
-      y: (event.clientY - rect.top) * (canvas.height / rect.height),
-    };
-  };
+  background: linear-gradient(
+    145deg,
+    #102b45,
+    #0d263e
+  );
 
-  const revealCard = () => {
-    if (revealedRef.current) return;
-    revealedRef.current = true;
+  color: #fff;
+  text-align: left;
 
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+  cursor: pointer;
 
-    if (typeof onReveal === "function") onReveal();
-  };
+  transition:
+    transform .18s ease,
+    border-color .18s ease,
+    background .18s ease;
+}
 
-  const checkScratchPercentage = () => {
-    if (revealedRef.current) return;
+.order-type-option:active {
+  transform: scale(.985);
+}
 
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx) return;
+.order-type-option.active {
+  border: 2px solid #ff7058;
 
-    try {
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      let transparent = 0;
-      let total = 0;
-
-      for (let y = 0; y < canvas.height; y += 10) {
-        for (let x = 0; x < canvas.width; x += 10) {
-          const index = (y * canvas.width + x) * 4;
-          total++;
-          if (imageData.data[index + 3] < 80) transparent++;
-        }
-      }
-
-      if (total > 0 && (transparent / total) * 100 >= 45) revealCard();
-    } catch (error) {
-      console.error("Scratch percentage error:", error);
-    }
-  };
-
-  const scratchAt = (event) => {
-    if (disabled || revealedRef.current) return;
-
-    const canvas = canvasRef.current;
-    const point = getPoint(event);
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !point || !ctx) return;
-
-    ctx.globalCompositeOperation = "destination-out";
-    ctx.beginPath();
-    ctx.arc(point.x, point.y, 34, 0, Math.PI * 2);
-    ctx.fill();
-    checkScratchPercentage();
-  };
-
-  const handlePointerDown = (event) => {
-    if (disabled) return;
-    scratchingRef.current = true;
-    try {
-      event.currentTarget.setPointerCapture(event.pointerId);
-    } catch {}
-    scratchAt(event);
-  };
-
-  const handlePointerMove = (event) => {
-    if (!scratchingRef.current || disabled) return;
-    scratchAt(event);
-  };
-
-  const handlePointerUp = (event) => {
-    scratchingRef.current = false;
-    try {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    } catch {}
-  };
-
-  return (
-    <div className="daily-scratch-wrap">
-      <div className="daily-scratch-underlay">
-        <div className="daily-scratch-gift">🎁</div>
-        <strong>Your Daily Reward</strong>
-        <span>Scratch the card to reveal</span>
-      </div>
-      <canvas
-        ref={canvasRef}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        className="daily-scratch-canvas"
-      />
-    </div>
+  background: linear-gradient(
+    145deg,
+    rgba(40,39,53,.98),
+    rgba(24,32,48,.98)
   );
 }
 
-function Checkout() {
-  const navigate = useNavigate();
-  const rawStore = useStoreSettings();
-  const store = rawStore || {};
-  const { cart, totalPrice, clearCart } = useCart();
-
-  const maxDeliveryDistanceKm = Number(store.maxDeliveryDistanceKm ?? 10);
-  const deliveryPerKm = Number(store.deliveryPerKm ?? 20);
-  const minDeliveryCharge = Number(store.minDeliveryCharge ?? 20);
-  const maxDeliveryCharge = Number(store.maxDeliveryCharge ?? 300);
-  const deliveryAvailableSetting = store.deliveryAvailable ?? true;
-  const upiEnabled = store.upiEnabled ?? false;
-  const codEnabled = store.codEnabled ?? true;
-  const cafeName = store.cafeName || "Sugar Cafe";
-  const preparationMinutes = Number(store.preparationMinutes ?? 15);
-  const orderTimingLabel = store.orderTimingLabel || "during store hours";
-  const announcement = store.announcement || "";
-
-  const [orderType, setOrderType] = useState(
-    () => localStorage.getItem("sugarCafeOrderType") || "Delivery"
-  );
-  const isTakeaway = orderType === "Takeaway";
-
-  const [address, setAddress] = useState("");
-  const [loadingLocation, setLoadingLocation] = useState(false);
-  const [placingOrder, setPlacingOrder] = useState(false);
-  const [specialNote, setSpecialNote] = useState("");
-  const [locationConfirmed, setLocationConfirmed] = useState(false);
-  const [customerProfile, setCustomerProfile] = useState(null);
-  const [savedAddresses, setSavedAddresses] = useState([]);
-
-  const [paymentMethod, setPaymentMethod] = useState(() => {
-    if (rawStore?.codEnabled !== false) return "Cash on Delivery";
-    if (rawStore?.upiEnabled === true) return "Online Payment";
-    return "Cash on Delivery";
-  });
-
-  const [loyaltyData, setLoyaltyData] = useState({
-    loading: true,
-    qualifyingOrders: 0,
-    pendingReward: null,
-    currentReward: null,
-  });
-
-  const [dailyScratch, setDailyScratch] = useState({
-    loading: true,
-    eligible: false,
-    unlocked: false,
-    revealed: false,
-    reward: null,
-    rewardIndex: null,
-    previousCount: 0,
-  });
-
-  const [dailyScratchRevealing, setDailyScratchRevealing] = useState(false);
-  const [mapCenter, setMapCenter] = useState(SHOP_LOCATION);
-  const [marker, setMarker] = useState(SHOP_LOCATION);
-  const mapRef = useRef(null);
-  const mapMoveAddressRequestRef = useRef(0);
-
-  useEffect(() => {
-    try {
-      const savedUser = localStorage.getItem("sugarCafeUser");
-
-      if (savedUser) {
-        const data = JSON.parse(savedUser);
-        const profile = {
-          ...data,
-          customerId:
-            data.customerId ||
-            localStorage.getItem("sugarCafeCustomerId") ||
-            "",
-          name: data.name || "",
-          phone: data.phone || "",
-          email: data.email || "",
-          photoURL: data.photoURL || "",
-          addresses: Array.isArray(data.addresses) ? data.addresses : [],
-          guest: false,
-          loggedIn: true,
-        };
-        setCustomerProfile(profile);
-        setSavedAddresses(profile.addresses || []);
-      }
-
-      const savedLocation = localStorage.getItem("userLocation");
-      if (savedLocation) {
-        const loc = JSON.parse(savedLocation);
-        const lat = Number(loc.latitude);
-        const lng = Number(loc.longitude);
-
-        if (Number.isFinite(lat) && Number.isFinite(lng)) {
-          const saved = { lat, lng };
-          setMarker(saved);
-          setMapCenter(saved);
-
-          if (loc.fullAddress || loc.address) {
-            setAddress(loc.fullAddress || loc.address);
-            setLocationConfirmed(true);
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Customer checkout loading error:", error);
-    }
-  }, []);
-
-  const reverseGeocode = useCallback(async (latitude, longitude) => {
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&accept-language=en`,
-        { headers: { Accept: "application/json" } }
-      );
-
-      if (!response.ok) throw new Error("Address lookup failed");
-
-      const data = await response.json();
-      return data.display_name || formatAddressFallback(latitude, longitude);
-    } catch (error) {
-      console.error("Reverse geocoding error:", error);
-      return formatAddressFallback(latitude, longitude);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (isTakeaway || !navigator.geolocation) return;
-
-    try {
-      const savedLocation = localStorage.getItem("userLocation");
-      if (savedLocation) {
-        const loc = JSON.parse(savedLocation);
-        const lat = Number(loc.latitude);
-        const lng = Number(loc.longitude);
-        if (Number.isFinite(lat) && Number.isFinite(lng)) return;
-      }
-    } catch (error) {
-      console.warn("Saved location check failed:", error);
-    }
-
-    let cancelled = false;
-
-    const detectLocation = () => {
-      if (cancelled) return;
-
-      setLoadingLocation(true);
-
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          if (cancelled) return;
-
-          try {
-            const latitude = position.coords.latitude;
-            const longitude = position.coords.longitude;
-            const newLocation = { lat: latitude, lng: longitude };
-
-            setMarker(newLocation);
-            setMapCenter(newLocation);
-
-            if (mapRef.current) {
-              mapRef.current.setView([latitude, longitude], 17, {
-                animate: true,
-              });
-            }
-
-            const detectedAddress = await reverseGeocode(latitude, longitude);
-            if (cancelled) return;
-
-            setAddress(detectedAddress);
-            setLocationConfirmed(false);
-
-            try {
-              localStorage.setItem(
-                "userLocation",
-                JSON.stringify({
-                  latitude,
-                  longitude,
-                  address: detectedAddress,
-                  fullAddress: detectedAddress,
-                  savedAt: new Date().toISOString(),
-                })
-              );
-            } catch (storageError) {
-              console.warn("Location save failed:", storageError);
-            }
-          } catch (error) {
-            console.error("Auto location processing error:", error);
-          } finally {
-            if (!cancelled) setLoadingLocation(false);
-          }
-        },
-        (error) => {
-          if (cancelled) return;
-          console.warn("Automatic location permission/status:", error);
-          setLoadingLocation(false);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 60000,
-        }
-      );
-    };
-
-    const timer = setTimeout(detectLocation, 500);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [isTakeaway, reverseGeocode]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadLoyaltyStatus = async () => {
-      const customerId =
-        customerProfile?.customerId ||
-        localStorage.getItem("sugarCafeCustomerId");
-
-      if (!customerId) {
-        if (!cancelled) {
-          setLoyaltyData({
-            loading: false,
-            qualifyingOrders: 0,
-            pendingReward: null,
-            currentReward: null,
-          });
-        }
-        return;
-      }
-
-      try {
-        const ordersQuery = query(
-          collection(db, "orders"),
-          where("customerId", "==", customerId)
-        );
-        const snapshot = await getDocs(ordersQuery);
-        if (cancelled) return;
-
-        const customerOrders = snapshot.docs
-          .map((orderDoc) => ({ id: orderDoc.id, ...orderDoc.data() }))
-          .sort((a, b) => loyaltyTime(a.createdAt) - loyaltyTime(b.createdAt));
-
-        const qualifyingOrders = customerOrders.filter((order) => {
-          const status = String(order.status || "").toLowerCase();
-          const bill = Number(order.subtotal ?? order.total ?? 0);
-          return status === "delivered" && bill >= LOYALTY_MIN_BILL;
-        });
-
-        const rewardOrders = customerOrders.filter((order) => {
-          const cycle = Number(order.loyaltyReward?.cycle);
-          return Number.isFinite(cycle) && cycle > 0;
-        });
-
-        const maxCompletedCycle =
-          rewardOrders.length > 0
-            ? Math.max(
-                ...rewardOrders.map((order) =>
-                  Number(order.loyaltyReward.cycle)
-                )
-              )
-            : 0;
-
-        const alreadyAppliedSourceIds = new Set(
-          customerOrders
-            .map((order) => order.loyaltyReward?.sourceOrderId)
-            .filter(Boolean)
-        );
-
-        const activeRewardOrders = customerOrders
-          .filter((order) => {
-            const reward = order.loyaltyReward;
-            if (!reward) return false;
-            if (
-              reward.status !== "scratch_pending" &&
-              reward.status !== "available"
-            ) {
-              return false;
-            }
-            return !alreadyAppliedSourceIds.has(order.id);
-          })
-          .sort(
-            (a, b) =>
-              loyaltyTime(
-                b.loyaltyReward?.createdAt || b.createdAt
-              ) -
-              loyaltyTime(
-                a.loyaltyReward?.createdAt || a.createdAt
-              )
-          );
-
-        const pendingRewardOrder = activeRewardOrders[0] || null;
-        const nextCycle = maxCompletedCycle + 1;
-        const requiredOrders = maxCompletedCycle * 6 + 6;
-
-        let currentReward = null;
-
-        if (
-          qualifyingOrders.length >= requiredOrders &&
-          !pendingRewardOrder
-        ) {
-          const rewardIndex = (nextCycle - 1) % LOYALTY_REWARDS.length;
-          const reward = LOYALTY_REWARDS[rewardIndex];
-
-          currentReward = {
-            cycle: nextCycle,
-            rewardIndex,
-            type: reward.type,
-            itemName: reward.itemName || null,
-            discountPercent: Number(reward.discountPercent || 0),
-            scratchCardReady: true,
-          };
-        }
-
-        const progress = Math.max(
-          0,
-          Math.min(
-            qualifyingOrders.length - maxCompletedCycle * 6,
-            6
-          )
-        );
-
-        if (!cancelled) {
-          setLoyaltyData({
-            loading: false,
-            qualifyingOrders: progress,
-            pendingReward: pendingRewardOrder,
-            currentReward,
-          });
-        }
-      } catch (error) {
-        console.error("Loyalty status error:", error);
-        if (!cancelled) {
-          setLoyaltyData({
-            loading: false,
-            qualifyingOrders: 0,
-            pendingReward: null,
-            currentReward: null,
-          });
-        }
-      }
-    };
-
-    loadLoyaltyStatus();
-    return () => {
-      cancelled = true;
-    };
-  }, [customerProfile?.customerId]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadDailyScratchStatus = async () => {
-      const customerId =
-        customerProfile?.customerId ||
-        localStorage.getItem("sugarCafeCustomerId");
-
-      if (!customerId) {
-        if (!cancelled) {
-          setDailyScratch({
-            loading: false,
-            eligible: Number(totalPrice) >= DAILY_SCRATCH_MIN_BILL,
-            unlocked: false,
-            revealed: false,
-            reward: null,
-            rewardIndex: null,
-            previousCount: 0,
-          });
-        }
-        return;
-      }
-
-      try {
-        const ordersQuery = query(
-          collection(db, "orders"),
-          where("customerId", "==", customerId)
-        );
-        const snapshot = await getDocs(ordersQuery);
-        if (cancelled) return;
-
-        const scratchOrders = snapshot.docs
-          .map((orderDoc) => ({ id: orderDoc.id, ...orderDoc.data() }))
-          .filter(
-            (order) => order.dailyScratchReward?.enabled === true
-          )
-          .sort(
-            (a, b) =>
-              loyaltyTime(
-                a.dailyScratchReward?.createdAt || a.createdAt
-              ) -
-              loyaltyTime(
-                b.dailyScratchReward?.createdAt || b.createdAt
-              )
-          );
-
-        const previousCount = scratchOrders.length;
-        const rewardIndex =
-          previousCount % DAILY_SCRATCH_REWARDS.length;
-        const reward = DAILY_SCRATCH_REWARDS[rewardIndex];
-
-        let restored = null;
-
-        try {
-          const stored = sessionStorage.getItem(
-            `sugarCafeDailyScratch_${customerId}`
-          );
-          if (stored) {
-            const parsed = JSON.parse(stored);
-            if (
-              parsed &&
-              Number(parsed.rewardIndex) === rewardIndex
-            ) {
-              restored = parsed;
-            }
-          }
-        } catch (storageError) {
-          console.warn("Daily scratch restore error:", storageError);
-        }
-
-        if (!cancelled) {
-          setDailyScratch({
-            loading: false,
-            eligible: Number(totalPrice) >= DAILY_SCRATCH_MIN_BILL,
-            unlocked: restored?.unlocked || false,
-            revealed: restored?.revealed || false,
-            reward: restored?.reward || reward,
-            rewardIndex,
-            previousCount,
-          });
-        }
-      } catch (error) {
-        console.error("Daily Scratch status error:", error);
-        if (!cancelled) {
-          setDailyScratch({
-            loading: false,
-            eligible: Number(totalPrice) >= DAILY_SCRATCH_MIN_BILL,
-            unlocked: false,
-            revealed: false,
-            reward: null,
-            rewardIndex: null,
-            previousCount: 0,
-          });
-        }
-      }
-    };
-
-    loadDailyScratchStatus();
-    return () => {
-      cancelled = true;
-    };
-  }, [customerProfile?.customerId, totalPrice]);
-
-  useEffect(() => {
-    const eligible = Number(totalPrice) >= DAILY_SCRATCH_MIN_BILL;
-
-    setDailyScratch((prev) => {
-      if (prev.eligible === eligible) return prev;
-      if (!eligible) {
-        return {
-          ...prev,
-          eligible: false,
-          unlocked: false,
-          revealed: false,
-        };
-      }
-      return { ...prev, eligible: true };
-    });
-  }, [totalPrice]);
-
-  const unlockDailyScratch = () => {
-    if (Number(totalPrice) < DAILY_SCRATCH_MIN_BILL) return;
-
-    const reward =
-      dailyScratch.reward ||
-      DAILY_SCRATCH_REWARDS[
-        Number.isFinite(dailyScratch.rewardIndex)
-          ? dailyScratch.rewardIndex
-          : 0
-      ];
-
-    const rewardIndex = Number.isFinite(dailyScratch.rewardIndex)
-      ? dailyScratch.rewardIndex
-      : 0;
-
-    const state = {
-      unlocked: true,
-      revealed: false,
-      reward,
-      rewardIndex,
-    };
-
-    try {
-      const customerId =
-        customerProfile?.customerId ||
-        localStorage.getItem("sugarCafeCustomerId") ||
-        "guest";
-
-      sessionStorage.setItem(
-        `sugarCafeDailyScratch_${customerId}`,
-        JSON.stringify(state)
-      );
-    } catch {}
-
-    setDailyScratch((prev) => ({
-      ...prev,
-      eligible: true,
-      unlocked: true,
-      revealed: false,
-      reward,
-      rewardIndex,
-    }));
-  };
-
-  const revealDailyScratch = async () => {
-    if (
-      !dailyScratch.unlocked ||
-      dailyScratch.revealed ||
-      dailyScratchRevealing ||
-      !dailyScratch.reward
-    ) {
-      return;
-    }
-
-    setDailyScratchRevealing(true);
-    await new Promise((resolve) => setTimeout(resolve, 300));
-
-    const state = {
-      unlocked: true,
-      revealed: true,
-      reward: dailyScratch.reward,
-      rewardIndex: dailyScratch.rewardIndex,
-    };
-
-    try {
-      const customerId =
-        customerProfile?.customerId ||
-        localStorage.getItem("sugarCafeCustomerId") ||
-        "guest";
-
-      sessionStorage.setItem(
-        `sugarCafeDailyScratch_${customerId}`,
-        JSON.stringify(state)
-      );
-    } catch {}
-
-    setDailyScratch((prev) => ({ ...prev, revealed: true }));
-    setDailyScratchRevealing(false);
-  };
-
-  const distance = calculateDistance(
-    SHOP_LOCATION.lat,
-    SHOP_LOCATION.lng,
-    marker.lat,
-    marker.lng
+.order-type-icon {
+  width: 55px;
+  height: 55px;
+  min-width: 55px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 18px;
+
+  background: linear-gradient(
+    145deg,
+    #12395c,
+    #15324f
   );
 
-  const deliveryAvailable =
-    distance <= maxDeliveryDistanceKm;
+  font-size: 27px;
+}
 
-  let deliveryCharge = 0;
+.order-type-content {
+  min-width: 0;
+  flex: 1;
+}
 
-  if (
-    !isTakeaway &&
-    Number(totalPrice) > 0 &&
-    deliveryAvailable
-  ) {
-    deliveryCharge = Math.ceil(distance) * deliveryPerKm;
+.order-type-content strong {
+  display: block;
+  color: #fff;
+  font-size: 18px;
+  line-height: 1.2;
+}
 
-    if (deliveryCharge < minDeliveryCharge) {
-      deliveryCharge = minDeliveryCharge;
-    }
+.order-type-content small {
+  display: block;
+  margin-top: 6px;
+  color: rgba(255,255,255,.58);
+  font-size: 13px;
+  line-height: 1.35;
+}
 
-    if (deliveryCharge > maxDeliveryCharge) {
-      deliveryCharge = maxDeliveryCharge;
-    }
+.order-type-radio {
+  width: 39px;
+  height: 39px;
+  min-width: 39px;
+
+  border-radius: 50%;
+  border: 3px solid #62778b;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.order-type-option.active .order-type-radio {
+  border-color: #ff7058;
+  background: #ff7058;
+  color: #fff;
+}
+
+/* =========================================================
+   PAYMENT
+========================================================= */
+
+.payment-options {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.payment-option {
+  width: 100%;
+  min-height: 100px;
+
+  padding: 16px 20px;
+  box-sizing: border-box;
+
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) 48px;
+  align-items: center;
+  gap: 16px;
+
+  border-radius: 27px;
+  border: 1px solid rgba(120,160,200,.18);
+
+  background: linear-gradient(
+    145deg,
+    #102b45,
+    #0d263e
+  );
+
+  color: #fff;
+  text-align: left;
+
+  cursor: pointer;
+
+  transition:
+    transform .18s ease,
+    border-color .18s ease,
+    background .18s ease,
+    box-shadow .18s ease;
+}
+
+.payment-option:active {
+  transform: scale(.985);
+}
+
+.payment-option.active {
+  border: 2px solid #ff7058;
+
+  background: linear-gradient(
+    145deg,
+    rgba(40,39,53,.98),
+    rgba(24,32,48,.98)
+  );
+
+  box-shadow:
+    0 0 0 1px rgba(255,112,88,.08),
+    0 12px 28px rgba(0,0,0,.18);
+}
+
+.payment-option-icon {
+  width: 64px;
+  height: 64px;
+
+  border-radius: 20px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 29px;
+
+  background: linear-gradient(
+    145deg,
+    #12395c,
+    #15324f
+  );
+}
+
+.payment-option > span:nth-child(2) {
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.payment-option strong {
+  display: block;
+
+  color: #fff;
+  font-size: 19px;
+  line-height: 1.2;
+}
+
+.payment-option small {
+  display: block;
+
+  color: rgba(255,255,255,.58);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.radio-modern {
+  width: 42px;
+  height: 42px;
+
+  border-radius: 50%;
+  border: 3px solid #62778b;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: #fff;
+  font-size: 21px;
+  font-weight: 800;
+
+  box-sizing: border-box;
+}
+
+.payment-option.active .radio-modern {
+  border-color: #ff7058;
+  background: #ff7058;
+  color: #fff;
+}
+
+/* =========================================================
+   LOCATION
+========================================================= */
+
+.location-card {
+  position: relative;
+}
+
+.location-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.location-button {
+  width: 100%;
+  min-height: 50px;
+
+  padding: 12px 16px;
+
+  border-radius: 15px;
+  border: 1px solid rgba(100,160,210,.25);
+
+  background: #123654;
+  color: #fff;
+
+  font-size: 15px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.location-button:active {
+  transform: scale(.985);
+}
+
+.address-preview {
+  width: 100%;
+  box-sizing: border-box;
+
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+
+  margin-top: 18px;
+  padding: 16px;
+
+  border-radius: 18px;
+
+  background: rgba(15,48,75,.65);
+
+  overflow: hidden;
+}
+
+.address-preview-content {
+  min-width: 0;
+  flex: 1;
+
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.address-preview-content > span {
+  color: rgba(255,255,255,.55);
+  font-size: 13px;
+}
+
+.address-preview-content > strong {
+  color: #fff;
+  font-size: 15px;
+  line-height: 1.45;
+
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.distance-status {
+  margin-top: 14px;
+
+  color: rgba(255,255,255,.78);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.distance-status strong {
+  color: #fff;
+}
+
+/* =========================================================
+   CUSTOMER
+========================================================= */
+
+.customer-profile-box {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.customer-profile-box > div:last-child {
+  min-width: 0;
+  flex: 1;
+
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.customer-profile-box strong {
+  display: block;
+
+  color: #fff;
+  font-size: 20px;
+  line-height: 1.2;
+
+  overflow-wrap: anywhere;
+}
+
+.customer-profile-box span {
+  display: block;
+
+  color: rgba(255,255,255,.62);
+  font-size: 15px;
+
+  word-break: break-word;
+}
+
+.customer-avatar {
+  width: 62px;
+  height: 62px;
+  min-width: 62px;
+
+  border-radius: 20px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: linear-gradient(
+    145deg,
+    #173e62,
+    #12304c
+  );
+
+  font-size: 30px;
+}
+
+/* =========================================================
+   SPECIAL INSTRUCTIONS
+========================================================= */
+
+.special-instructions textarea,
+.checkout-card textarea {
+  width: 100%;
+  min-height: 110px;
+
+  box-sizing: border-box;
+
+  padding: 14px 16px;
+
+  border-radius: 16px;
+  border: 1px solid rgba(120,160,200,.22);
+
+  background: #f5f5f5;
+  color: #111;
+
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.45;
+
+  resize: vertical;
+  outline: none;
+}
+
+.special-instructions textarea:focus,
+.checkout-card textarea:focus {
+  border-color: #ff765e;
+  box-shadow: 0 0 0 3px rgba(255,118,94,.12);
+}
+
+.special-instructions textarea::placeholder,
+.checkout-card textarea::placeholder {
+  color: #777;
+}
+
+.character-count {
+  margin-top: 7px;
+
+  color: rgba(255,255,255,.55);
+  font-size: 13px;
+  text-align: left;
+}
+
+/* =========================================================
+   DAILY SCRATCH
+========================================================= */
+
+.scratch-card-section {
+  padding-bottom: 24px;
+}
+
+.unlock-scratch-btn {
+  width: 100%;
+  min-height: 58px;
+
+  border: 0;
+  border-radius: 18px;
+
+  background: linear-gradient(
+    135deg,
+    #ff765c,
+    #ff9b55
+  );
+
+  color: #fff;
+
+  font-size: 16px;
+  font-weight: 800;
+
+  cursor: pointer;
+
+  box-shadow:
+    0 10px 24px rgba(255,110,80,.15);
+}
+
+.unlock-scratch-btn:active {
+  transform: scale(.985);
+}
+
+/* =========================================================
+   LOYALTY
+========================================================= */
+
+.loyalty-card {
+  padding: 27px 26px;
+}
+
+.loyalty-progress-row {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  margin: 26px 0 18px;
+}
+
+.loyalty-dot {
+  flex: 1;
+
+  width: 100%;
+  max-width: 50px;
+  min-width: 35px;
+  aspect-ratio: 1;
+
+  border-radius: 50%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #17314b;
+
+  border: 1px solid rgba(150,180,210,.2);
+
+  color: rgba(255,255,255,.55);
+
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.loyalty-dot.active {
+  background: linear-gradient(
+    135deg,
+    #ff7658,
+    #ff925b
+  );
+
+  border-color: #ff7658;
+  color: #fff;
+}
+
+.loyalty-status-text {
+  color: rgba(255,255,255,.6);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.loyalty-status-text strong {
+  color: #fff;
+}
+
+/* =========================================================
+   BILL / ORDER SUMMARY
+========================================================= */
+
+.bill-card {
+  padding: 28px 26px;
+}
+
+.bill-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bill-line {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 20px;
+  padding: 9px 0;
+
+  box-sizing: border-box;
+}
+
+.bill-line > span {
+  flex: 1;
+  min-width: 0;
+
+  color: rgba(255,255,255,.62);
+
+  font-size: 16px;
+  line-height: 1.4;
+
+  overflow-wrap: anywhere;
+}
+
+.bill-line > strong {
+  flex: 0 0 auto;
+
+  white-space: nowrap;
+
+  color: #fff;
+
+  font-size: 17px;
+  font-weight: 800;
+
+  text-align: right;
+}
+
+.bill-divider {
+  height: 1px;
+
+  margin: 12px 0;
+
+  background: rgba(255,255,255,.09);
+}
+
+.discount-line > span,
+.discount-line > strong {
+  color: #5ee39a;
+}
+
+.total-line {
+  margin-top: 6px;
+  padding-top: 17px;
+}
+
+.total-line > span {
+  color: #fff;
+
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.total-line > strong {
+  color: #fff;
+
+  font-size: 22px;
+  font-weight: 900;
+}
+
+/* =========================================================
+   BOTTOM CHECKOUT
+========================================================= */
+
+.checkout-bottom {
+  width: 100%;
+  box-sizing: border-box;
+
+  padding: 4px 2px;
+}
+
+.checkout-total-mini {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 15px;
+
+  margin-bottom: 12px;
+}
+
+.checkout-total-mini span {
+  color: rgba(255,255,255,.72);
+  font-size: 18px;
+}
+
+.checkout-total-mini strong {
+  color: #fff;
+  font-size: 23px;
+  white-space: nowrap;
+}
+
+.place-order-btn {
+  width: 100%;
+  min-height: 60px;
+
+  padding: 14px 18px;
+
+  border: 0;
+  border-radius: 18px;
+
+  background: linear-gradient(
+    135deg,
+    #ff6d55,
+    #ff8d59
+  );
+
+  color: #fff;
+
+  font-size: 17px;
+  font-weight: 800;
+
+  box-shadow:
+    0 10px 25px rgba(255,100,75,.18);
+
+  cursor: pointer;
+
+  transition:
+    transform .18s ease,
+    opacity .18s ease;
+}
+
+.place-order-btn:not(:disabled):active {
+  transform: scale(.985);
+}
+
+.place-order-btn:disabled {
+  opacity: .42;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.checkout-secure-note {
+  display: block;
+
+  margin-top: 12px;
+
+  color: rgba(255,255,255,.52);
+
+  text-align: center;
+
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* =========================================================
+   REMOVE DEFAULT BUTTON / INPUT STYLING
+========================================================= */
+
+.checkout-page button {
+  font-family: inherit;
+}
+
+.checkout-page button:not(.place-order-btn):not(.unlock-scratch-btn) {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* =========================================================
+   MAP SAFETY
+========================================================= */
+
+.checkout-page .leaflet-container {
+  width: 100%;
+  min-height: 280px;
+
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 600px) {
+
+  .checkout-page {
+    max-width: 100%;
+    padding: 12px 12px 115px;
   }
 
-  const currentReward = loyaltyData.currentReward || null;
-  const pendingReward =
-    loyaltyData.pendingReward?.loyaltyReward || null;
-  const pendingRewardStatus = pendingReward?.status || "";
-
-  const rewardAvailable =
-    Boolean(
-      pendingReward &&
-      pendingRewardStatus === "available"
-    );
-
-  let discount = 0;
-
-  if (
-    rewardAvailable &&
-    pendingReward.type === "discount" &&
-    Number(pendingReward.discountPercent) === 5
-  ) {
-    discount += Number(totalPrice) * 0.05;
+  .checkout-card {
+    padding: 22px 18px;
+    border-radius: 27px;
+    margin-bottom: 15px;
   }
 
-  if (
-    dailyScratch.revealed &&
-    dailyScratch.reward?.type === "discount" &&
-    Number(dailyScratch.reward.discountPercent) === 5
-  ) {
-    discount += Number(totalPrice) * 0.05;
+  /* ---------- headings ---------- */
+
+  .section-heading {
+    gap: 14px;
+    margin-bottom: 20px;
   }
 
-  discount = Math.round(discount * 100) / 100;
-  const gst = 0;
-
-  const grandTotal =
-    Number(totalPrice) +
-    Number(deliveryCharge) -
-    Number(discount) +
-    Number(gst);
-
-  const handleMapMoveEnd = useCallback(
-    async (location) => {
-      setMarker(location);
-      setMapCenter(location);
-      setLocationConfirmed(false);
-
-      const requestId = ++mapMoveAddressRequestRef.current;
-
-      try {
-        const detectedAddress = await reverseGeocode(
-          location.lat,
-          location.lng
-        );
-
-        if (requestId !== mapMoveAddressRequestRef.current) return;
-
-        setAddress(detectedAddress);
-
-        try {
-          localStorage.setItem(
-            "userLocation",
-            JSON.stringify({
-              latitude: location.lat,
-              longitude: location.lng,
-              address: detectedAddress,
-              fullAddress: detectedAddress,
-              savedAt: new Date().toISOString(),
-            })
-          );
-        } catch {}
-      } catch (error) {
-        console.error("Map reverse geocoding error:", error);
-
-        if (requestId === mapMoveAddressRequestRef.current) {
-          setAddress(
-            formatAddressFallback(
-              location.lat,
-              location.lng
-            )
-          );
-        }
-      }
-    },
-    [reverseGeocode]
-  );
-
-  const getCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      alert("Your browser does not support location.");
-      return;
-    }
-
-    setLoadingLocation(true);
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const { latitude, longitude } = position.coords;
-          const newLocation = { lat: latitude, lng: longitude };
-
-          setMarker(newLocation);
-          setMapCenter(newLocation);
-          setLocationConfirmed(false);
-
-          if (mapRef.current) {
-            mapRef.current.setView([latitude, longitude], 17, {
-              animate: true,
-            });
-          }
-
-          const detectedAddress = await reverseGeocode(
-            latitude,
-            longitude
-          );
-
-          setAddress(detectedAddress);
-
-          try {
-            localStorage.setItem(
-              "userLocation",
-              JSON.stringify({
-                latitude,
-                longitude,
-                address: detectedAddress,
-                fullAddress: detectedAddress,
-                savedAt: new Date().toISOString(),
-              })
-            );
-          } catch {}
-        } catch (error) {
-          console.error("Location processing error:", error);
-          alert(
-            "Location mil gayi, lekin address load nahi ho paya."
-          );
-        } finally {
-          setLoadingLocation(false);
-        }
-      },
-      (error) => {
-        console.error("Location Error:", error);
-        setLoadingLocation(false);
-
-        if (error.code === error.PERMISSION_DENIED) {
-          alert(
-            "Location permission denied. Browser settings mein location permission Allow karein."
-          );
-        } else if (error.code === error.POSITION_UNAVAILABLE) {
-          alert(
-            "Your location is currently unavailable. Please try again."
-          );
-        } else if (error.code === error.TIMEOUT) {
-          alert(
-            "Location lene mein time lag raha hai. Please try again."
-          );
-        } else {
-          alert("Unable to get your location.");
-        }
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 20000,
-        maximumAge: 0,
-      }
-    );
-  };
-
-  const onMapCreated = (map) => {
-    mapRef.current = map;
-  };
-
-  const confirmDeliveryLocation = () => {
-    if (!address.trim()) {
-      alert("Please wait until your delivery address is detected.");
-      return;
-    }
-
-    if (!deliveryAvailable) {
-      alert(
-        `Sorry! We currently deliver within ${maxDeliveryDistanceKm} km of our shop.`
-      );
-      return;
-    }
-
-    setLocationConfirmed(true);
-
-    try {
-      localStorage.setItem(
-        "userLocation",
-        JSON.stringify({
-          latitude: marker.lat,
-          longitude: marker.lng,
-          address: address.trim(),
-          fullAddress: address.trim(),
-          savedAt: new Date().toISOString(),
-        })
-      );
-    } catch (error) {
-      console.error("Location save error:", error);
-    }
-  };
-
-  const selectSavedAddress = (saved) => {
-    const lat = Number(saved.latitude);
-    const lng = Number(saved.longitude);
-
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-
-    const savedAddressText =
-      saved.fullAddress || saved.address || "";
-
-    const selected = { lat, lng };
-
-    setMarker(selected);
-    setMapCenter(selected);
-    setAddress(savedAddressText);
-    setLocationConfirmed(true);
-
-    if (mapRef.current) {
-      mapRef.current.setView([lat, lng], 17, { animate: true });
-    }
-
-    try {
-      localStorage.setItem(
-        "userLocation",
-        JSON.stringify(saved)
-      );
-    } catch {}
-  };
-
-  const getCustomerData = () => {
-    if (!customerProfile) return null;
-
-    return {
-      userId: customerProfile.uid || "",
-      customerId:
-        customerProfile.customerId ||
-        localStorage.getItem("sugarCafeCustomerId") ||
-        "",
-      customerName: customerProfile.name || "Customer",
-      customerPhone: customerProfile.phone || "",
-      customerEmail: customerProfile.email || "",
-      photoURL: customerProfile.photoURL || "",
-    };
-  };
-
-  const findLoyaltyMenuItem = async (rewardName) => {
-    if (!rewardName) return null;
-
-    try {
-      const menuSnapshot = await getDocs(collection(db, "menu"));
-
-      const menuItems = menuSnapshot.docs.map((menuDoc) => ({
-        id: menuDoc.id,
-        ...menuDoc.data(),
-      }));
-
-      const wanted = normalizeMenuName(rewardName);
-
-      return (
-        menuItems.find((item) => {
-          const menuName = item.name || item.title || "";
-          return normalizeMenuName(menuName) === wanted;
-        }) || null
-      );
-    } catch (error) {
-      console.error("Menu lookup error:", error);
-      return null;
-    }
-  };
-
-  const loadRazorpay = () =>
-    new Promise((resolve) => {
-      if (window.Razorpay) {
-        resolve(true);
-        return;
-      }
-
-      const script = document.createElement("script");
-      script.src =
-        "https://checkout.razorpay.com/v1/checkout.js";
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-
-  const saveCustomerAddress = async () => {
-    const selectedAddress = {
-      id: `${Date.now()}`,
-      label: "Delivery Address",
-      address: address.trim(),
-      fullAddress: address.trim(),
-      latitude: Number(marker.lat),
-      longitude: Number(marker.lng),
-      savedAt: new Date().toISOString(),
-    };
-
-    try {
-      const savedUser = localStorage.getItem("sugarCafeUser");
-
-      if (savedUser) {
-        const profile = JSON.parse(savedUser);
-
-        const customerId =
-          profile.customerId ||
-          localStorage.getItem("sugarCafeCustomerId") ||
-          "";
-
-        const existingAddresses = Array.isArray(profile.addresses)
-          ? profile.addresses
-          : [];
-
-        const alreadyExists = existingAddresses.some(
-          (item) =>
-            String(item.address || "").trim() ===
-              selectedAddress.address &&
-            Number(item.latitude) === selectedAddress.latitude &&
-            Number(item.longitude) === selectedAddress.longitude
-        );
-
-        const updatedAddresses = alreadyExists
-          ? existingAddresses
-          : [...existingAddresses, selectedAddress];
-
-        const updatedProfile = {
-          ...profile,
-          customerId,
-          addresses: updatedAddresses,
-          defaultAddress: selectedAddress,
-          guest: false,
-          loggedIn: true,
-        };
-
-        localStorage.setItem(
-          "sugarCafeUser",
-          JSON.stringify(updatedProfile)
-        );
-        localStorage.setItem(
-          "sugarCafeCustomerId",
-          customerId
-        );
-
-        setCustomerProfile(updatedProfile);
-        setSavedAddresses(updatedAddresses);
-
-        if (customerId) {
-          try {
-            const customerQuery = query(
-              collection(db, "customers"),
-              where("customerId", "==", customerId)
-            );
-
-            const customerSnapshot = await getDocs(customerQuery);
-
-            if (!customerSnapshot.empty) {
-              await updateDoc(
-                doc(
-                  db,
-                  "customers",
-                  customerSnapshot.docs[0].id
-                ),
-                {
-                  addresses: updatedAddresses,
-                  defaultAddress: selectedAddress,
-                  updatedAt: Timestamp.now(),
-                }
-              );
-            }
-          } catch (firebaseError) {
-            console.error(
-              "Firebase address update error:",
-              firebaseError
-            );
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Customer address save error:", error);
-    }
-
-    return selectedAddress;
-  };
-
-  const saveCompletedOrder = async (
-    orderData,
-    selectedAddress
-  ) => {
-    const orderRef = await addDoc(
-      collection(db, "orders"),
-      orderData
-    );
-
-    if (orderData.loyaltyReward?.sourceOrderId) {
-      try {
-        await updateDoc(
-          doc(
-            db,
-            "orders",
-            orderData.loyaltyReward.sourceOrderId
-          ),
-          {
-            "loyaltyReward.status": "applied",
-            "loyaltyReward.appliedOrderId": orderRef.id,
-            "loyaltyReward.appliedAt": Timestamp.now(),
-          }
-        );
-      } catch (error) {
-        console.error(
-          "Source loyalty reward update error:",
-          error
-        );
-      }
-    }
-
-    try {
-      const customerId =
-        orderData.customerId ||
-        localStorage.getItem("sugarCafeCustomerId") ||
-        "guest";
-
-      sessionStorage.removeItem(
-        `sugarCafeDailyScratch_${customerId}`
-      );
-    } catch {}
-
-    localStorage.setItem("lastOrderId", orderRef.id);
-    localStorage.setItem(
-      "lastOrderNumber",
-      orderData.orderNumber
-    );
-    localStorage.setItem(
-      "lastOrderPaymentStatus",
-      orderData.paymentStatus
-    );
-
-    const savedUser = localStorage.getItem("sugarCafeUser");
-
-    if (savedUser) {
-      try {
-        const profile = JSON.parse(savedUser);
-
-        const customerId =
-          profile.customerId ||
-          orderData.customerId ||
-          localStorage.getItem("sugarCafeCustomerId") ||
-          "";
-
-        const existingAddresses = Array.isArray(profile.addresses)
-          ? profile.addresses
-          : [];
-
-        const alreadyExists = existingAddresses.some(
-          (item) =>
-            String(item.address || "").trim() ===
-              String(selectedAddress.address || "").trim() &&
-            Number(item.latitude) === Number(selectedAddress.latitude) &&
-            Number(item.longitude) === Number(selectedAddress.longitude)
-        );
-
-        const updatedAddresses = alreadyExists
-          ? existingAddresses
-          : [...existingAddresses, selectedAddress];
-
-        const updatedProfile = {
-          ...profile,
-          customerId,
-          addresses: updatedAddresses,
-          defaultAddress: selectedAddress,
-          guest: false,
-          loggedIn: true,
-        };
-
-        localStorage.setItem(
-          "sugarCafeUser",
-          JSON.stringify(updatedProfile)
-        );
-        localStorage.setItem(
-          "sugarCafeCustomerId",
-          customerId
-        );
-
-        setCustomerProfile(updatedProfile);
-        setSavedAddresses(updatedAddresses);
-      } catch (error) {
-        console.error(
-          "Customer profile update error:",
-          error
-        );
-      }
-    }
-
-    clearCart();
-    return orderRef;
-  };
-
-  const readApiResponse = async (response) => {
-    const raw = await response.text();
-
-    if (!raw) {
-      throw new Error(
-        `Payment service returned an empty response (HTTP ${response.status}).`
-      );
-    }
-
-    try {
-      return JSON.parse(raw);
-    } catch {
-      const preview = raw.replace(/\s+/g, " ").slice(0, 180);
-      throw new Error(
-        `Payment service returned an invalid response (HTTP ${response.status}). ${preview}`
-      );
-    }
-  };
-
-  const startOnlinePayment = async ({
-    customer,
-    orderData,
-    selectedAddress,
-  }) => {
-    const paymentBaseUrl = (
-      import.meta.env.VITE_PAYMENT_API_URL || ""
-    ).replace(/\/$/, "");
-
-    if (!paymentBaseUrl) {
-      throw new Error(
-        "Online payment service URL is not configured. Please check VITE_PAYMENT_API_URL."
-      );
-    }
-
-    const gatewayResponse = await fetch(
-      `${paymentBaseUrl}/api/payment/create-order`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          orderData,
-          selectedAddress,
-        }),
-      }
-    );
-
-    const gatewayData = await readApiResponse(gatewayResponse);
-
-    if (!gatewayResponse.ok) {
-      throw new Error(
-        gatewayData.error ||
-          "Unable to start online payment."
-      );
-    }
-
-    const loaded = await loadRazorpay();
-
-    if (!loaded) {
-      throw new Error(
-        "Payment gateway load nahi ho paya. Internet connection check karein."
-      );
-    }
-
-    await new Promise((resolve, reject) => {
-      let settled = false;
-
-      const fail = (error) => {
-        if (settled) return;
-        settled = true;
-        reject(error);
-      };
-
-      const success = () => {
-        if (settled) return;
-        settled = true;
-        resolve();
-      };
-
-      const razorpay = new window.Razorpay({
-        key: gatewayData.keyId,
-        amount: gatewayData.amount,
-        currency: gatewayData.currency,
-        name: cafeName,
-        description: `Sugar Cafe Order ${orderData.orderNumber}`,
-        order_id: gatewayData.orderId,
-        prefill: {
-          name: customer.customerName || "",
-          email: customer.customerEmail || "",
-          contact: customer.customerPhone || "",
-        },
-        handler: async (response) => {
-          try {
-            const verifyResponse = await fetch(
-              `${paymentBaseUrl}/api/payment/verify`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  razorpayOrderId:
-                    response.razorpay_order_id,
-                  razorpayPaymentId:
-                    response.razorpay_payment_id,
-                  razorpaySignature:
-                    response.razorpay_signature,
-                }),
-              }
-            );
-
-            const verifyData =
-              await readApiResponse(verifyResponse);
-
-            if (
-              !verifyResponse.ok ||
-              !verifyData.verified
-            ) {
-              fail(
-                new Error(
-                  "Payment verification failed."
-                )
-              );
-              return;
-            }
-
-            if (!verifyData.finalized) {
-              const paidOrder = {
-                ...orderData,
-                paymentMethod: "Online Payment",
-                paymentStatus: "Paid",
-                paymentNote:
-                  "Paid and verified by Razorpay.",
-                razorpayOrderId:
-                  response.razorpay_order_id,
-                razorpayPaymentId:
-                  response.razorpay_payment_id,
-                razorpaySignature:
-                  response.razorpay_signature,
-              };
-
-              await saveCompletedOrder(
-                paidOrder,
-                selectedAddress
-              );
-            }
-
-            success();
-          } catch (error) {
-            fail(error);
-          }
-        },
-        modal: {
-          ondismiss: () => {
-            fail(new Error("Payment cancelled."));
-          },
-        },
-      });
-
-      razorpay.on("payment.failed", (response) => {
-        fail(
-          new Error(
-            response?.error?.description ||
-              "Payment failed. Please try again."
-          )
-        );
-      });
-
-      razorpay.open();
-    });
-  };
-
-  const placeOrder = async () => {
-    if (loyaltyData.loading) {
-      alert(
-        "Please wait a moment while we check your Sugar Rewards."
-      );
-      return;
-    }
-
-    if (!isTakeaway && !deliveryAvailableSetting) {
-      alert(
-        announcement ||
-          `Delivery orders are available only ${orderTimingLabel}.`
-      );
-      return;
-    }
-
-    if (
-      paymentMethod === "Online Payment" &&
-      !upiEnabled
-    ) {
-      alert(
-        "Online payment is currently unavailable. Please choose another payment method."
-      );
-      return;
-    }
-
-    if (
-      paymentMethod === "Cash on Delivery" &&
-      !codEnabled
-    ) {
-      alert(
-        "Cash on Delivery is currently unavailable. Please choose another payment method."
-      );
-      return;
-    }
-
-    if (!cart.length) {
-      alert("Your cart is empty.");
-      return;
-    }
-
-    if (
-      !customerProfile ||
-      !customerProfile.name ||
-      !customerProfile.phone
-    ) {
-      alert(
-        "Please login with your customer account before placing the order."
-      );
-      navigate("/login", {
-        state: { from: "/checkout" },
-      });
-      return;
-    }
-
-    const customer = getCustomerData();
-
-    if (!customer?.customerPhone) {
-      alert("Mobile number is required to place the order.");
-      return;
-    }
-
-    if (!customer?.customerId) {
-      alert(
-        "Customer account is not ready. Please login again."
-      );
-      navigate("/login", {
-        state: { from: "/checkout" },
-      });
-      return;
-    }
-
-    if (!isTakeaway) {
-      if (!locationConfirmed) {
-        alert(
-          "Please confirm your delivery location first."
-        );
-        return;
-      }
-
-      if (!address.trim()) {
-        alert("Please select your delivery address.");
-        return;
-      }
-
-      if (!deliveryAvailable) {
-        alert(
-          `Sorry! We currently deliver within ${maxDeliveryDistanceKm} km of our shop.`
-        );
-        return;
-      }
-    }
-
-    if (Number(totalPrice) >= DAILY_SCRATCH_MIN_BILL) {
-      if (!dailyScratch.unlocked) {
-        alert(
-          "🎁 Your bill is eligible for Daily Scratch & Win. Please unlock and scratch your card before placing the order."
-        );
-        return;
-      }
-
-      if (!dailyScratch.revealed) {
-        alert(
-          "🎁 Please scratch your Daily Scratch Card to reveal your reward before placing the order."
-        );
-        return;
-      }
-    }
-
-    try {
-      setPlacingOrder(true);
-
-      const orderItems = cart.map((item) => ({
-        id: item.id || "",
-        name: item.name || "",
-        price: Number(item.price || 0),
-        qty: Number(item.qty || item.quantity || 1),
-        image: item.image || "",
-        category: item.category || "",
-      }));
-
-      let finalOrderItems = [...orderItems];
-      let orderLoyaltyReward = null;
-      let orderDailyScratchReward = null;
-
-      if (
-        pendingReward &&
-        pendingReward.status === "available"
-      ) {
-        const reward = pendingReward;
-        const sourceOrderId =
-          loyaltyData.pendingReward?.id || null;
-
-        if (!sourceOrderId) {
-          throw new Error(
-            "Loyalty reward source order could not be identified."
-          );
-        }
-
-        orderLoyaltyReward = {
-          ...reward,
-          sourceOrderId,
-          status: "applied",
-          appliedAt: Timestamp.now(),
-        };
-
-        if (
-          reward.type === "discount" &&
-          Number(reward.discountPercent) === 5
-        ) {
-          orderLoyaltyReward.appliedDiscount =
-            Number(totalPrice) * 0.05;
-        }
-
-        if (reward.type === "free_menu_item") {
-          let menuItem = null;
-
-          if (reward.itemId && reward.itemName) {
-            menuItem = {
-              id: reward.itemId,
-              name: reward.itemName,
-              price: Number(reward.itemPrice || 0),
-              image: reward.itemImage || "",
-              category:
-                reward.itemCategory || "Loyalty Reward",
-            };
-          }
-
-          if (!menuItem?.id) {
-            menuItem = await findLoyaltyMenuItem(
-              reward.itemName
-            );
-          }
-
-          if (!menuItem) {
-            throw new Error(
-              `Loyalty reward item "${reward.itemName}" is currently unavailable in the menu.`
-            );
-          }
-
-          const rewardItemName =
-            menuItem.name ||
-            menuItem.title ||
-            reward.itemName;
-
-          const rewardItemImage =
-            menuItem.image ||
-            menuItem.imageUrl ||
-            menuItem.photoURL ||
-            reward.itemImage ||
-            "";
-
-          const rewardItemPrice = Number(
-            menuItem.price || reward.itemPrice || 0
-          );
-
-          finalOrderItems.push({
-            id: menuItem.id,
-            name: rewardItemName,
-            price: 0,
-            qty: 1,
-            image: rewardItemImage,
-            category:
-              menuItem.category ||
-              reward.itemCategory ||
-              "Loyalty Reward",
-            isFreeReward: true,
-            loyaltyReward: true,
-            originalPrice: rewardItemPrice,
-          });
-
-          orderLoyaltyReward.itemId = menuItem.id;
-          orderLoyaltyReward.itemName = rewardItemName;
-          orderLoyaltyReward.itemImage = rewardItemImage;
-          orderLoyaltyReward.itemPrice = rewardItemPrice;
-          orderLoyaltyReward.itemCategory =
-            menuItem.category ||
-            reward.itemCategory ||
-            "Loyalty Reward";
-        }
-      }
-
-      if (
-        !orderLoyaltyReward &&
-        currentReward?.scratchCardReady
-      ) {
-        const reward = currentReward;
-
-        orderLoyaltyReward = {
-          cycle: Number(reward.cycle),
-          rewardIndex: Number(reward.rewardIndex),
-          type: reward.type,
-          itemName: reward.itemName || null,
-          discountPercent: Number(
-            reward.discountPercent || 0
-          ),
-          status: "scratch_pending",
-          scratchPending: true,
-          scratchRevealed: false,
-          source: "6+1-loyalty",
-          createdAt: Timestamp.now(),
-        };
-
-        if (reward.type === "free_menu_item") {
-          const menuItem = await findLoyaltyMenuItem(
-            reward.itemName
-          );
-
-          if (!menuItem) {
-            throw new Error(
-              `Loyalty reward item "${reward.itemName}" was not found in the current menu.`
-            );
-          }
-
-          orderLoyaltyReward.itemId = menuItem.id;
-          orderLoyaltyReward.itemName =
-            menuItem.name ||
-            menuItem.title ||
-            reward.itemName;
-          orderLoyaltyReward.itemImage =
-            menuItem.image ||
-            menuItem.imageUrl ||
-            menuItem.photoURL ||
-            "";
-          orderLoyaltyReward.itemPrice = Number(
-            menuItem.price || 0
-          );
-          orderLoyaltyReward.itemCategory =
-            menuItem.category || "Loyalty Reward";
-        }
-      }
-
-      if (
-        dailyScratch.eligible &&
-        dailyScratch.unlocked &&
-        dailyScratch.revealed &&
-        dailyScratch.reward
-      ) {
-        const reward = dailyScratch.reward;
-        const rewardIndex = Number(
-          dailyScratch.rewardIndex
-        );
-
-        orderDailyScratchReward = {
-          enabled: true,
-          rewardIndex: Number.isFinite(rewardIndex)
-            ? rewardIndex
-            : 0,
-          type: reward.type,
-          title: reward.title || "",
-          status: "applied",
-          scratchRevealed: true,
-          discountPercent: Number(
-            reward.discountPercent || 0
-          ),
-          createdAt: Timestamp.now(),
-        };
-
-        if (
-          reward.type === "discount" &&
-          Number(reward.discountPercent) === 5
-        ) {
-          orderDailyScratchReward.appliedDiscount =
-            Math.round(
-              Number(totalPrice) * 0.05 * 100
-            ) / 100;
-        }
-
-        if (reward.type === "free_menu_item") {
-          const menuItem = await findLoyaltyMenuItem(
-            reward.itemName
-          );
-
-          if (!menuItem) {
-            throw new Error(
-              `Daily Scratch reward "${reward.itemName}" is currently unavailable in the menu.`
-            );
-          }
-
-          const rewardItemName =
-            menuItem.name ||
-            menuItem.title ||
-            reward.itemName;
-
-          const rewardItemImage =
-            menuItem.image ||
-            menuItem.imageUrl ||
-            menuItem.photoURL ||
-            "";
-
-          const rewardItemPrice = Number(
-            menuItem.price || 0
-          );
-
-          finalOrderItems.push({
-            id: menuItem.id,
-            name: rewardItemName,
-            price: 0,
-            qty: 1,
-            image: rewardItemImage,
-            category:
-              menuItem.category ||
-              "Daily Scratch Reward",
-            isFreeReward: true,
-            dailyScratchReward: true,
-            originalPrice: rewardItemPrice,
-          });
-
-          orderDailyScratchReward.itemId =
-            menuItem.id;
-          orderDailyScratchReward.itemName =
-            rewardItemName;
-          orderDailyScratchReward.itemImage =
-            rewardItemImage;
-          orderDailyScratchReward.itemPrice =
-            rewardItemPrice;
-          orderDailyScratchReward.itemCategory =
-            menuItem.category ||
-            "Daily Scratch Reward";
-        }
-      }
-
-      const orderData = {
-        orderNumber: `SC-${Date.now()}`,
-        userId: customer.userId || "",
-        customerId: customer.customerId,
-        customerName: customer.customerName,
-        phone: customer.customerPhone,
-        email: customer.customerEmail,
-        photoURL: customer.photoURL,
-
-        address: isTakeaway
-          ? TAKEAWAY_STORE.address
-          : address,
-
-        storeName: isTakeaway
-          ? TAKEAWAY_STORE.name
-          : cafeName,
-
-        storeAddress: isTakeaway
-          ? TAKEAWAY_STORE.address
-          : "",
-
-        specialNote: specialNote.trim(),
-
-        latitude: isTakeaway
-          ? TAKEAWAY_STORE.lat
-          : marker.lat,
-
-        longitude: isTakeaway
-          ? TAKEAWAY_STORE.lng
-          : marker.lng,
-
-        distance: isTakeaway
-          ? 0
-          : Number(distance.toFixed(2)),
-
-        orderType: isTakeaway ? "Takeaway" : "Delivery",
-        paymentMethod,
-
-        paymentStatus:
-          paymentMethod === "Online Payment"
-            ? "Paid"
-            : "Pending",
-
-        paymentNote:
-          paymentMethod === "Online Payment"
-            ? "Paid and verified by Razorpay."
-            : "",
-
-        items: finalOrderItems,
-
-        subtotal: Number(totalPrice),
-        deliveryCharge: Number(deliveryCharge),
-        discount: Number(discount),
-        gst: Number(gst),
-        total: Number(grandTotal),
-
-        loyaltyReward: orderLoyaltyReward,
-        dailyScratchReward: orderDailyScratchReward,
-
-        status: "New",
-        preparationMinutes,
-        preparationStartedAt: null,
-        preparationEndAt: null,
-        foodReadyAt: null,
-        dispatchedAt: null,
-        deliveredAt: null,
-        createdAt: Timestamp.now(),
-      };
-
-      const selectedAddress = isTakeaway
-        ? {
-            id: `takeaway-${Date.now()}`,
-            label: "Pickup Store",
-            address: TAKEAWAY_STORE.address,
-            fullAddress: TAKEAWAY_STORE.address,
-            latitude: TAKEAWAY_STORE.lat,
-            longitude: TAKEAWAY_STORE.lng,
-            savedAt: new Date().toISOString(),
-          }
-        : await saveCustomerAddress();
-
-      if (paymentMethod === "Online Payment") {
-        await startOnlinePayment({
-          customer,
-          orderData,
-          selectedAddress,
-        });
-      } else {
-        await saveCompletedOrder(
-          orderData,
-          selectedAddress
-        );
-      }
-
-      alert(
-        isTakeaway
-          ? "🛍️ Takeaway order received! Sugar Café is preparing your order."
-          : "🕐 Order received! Sugar Café is reviewing your order."
-      );
-
-      navigate("/success");
-    } catch (error) {
-      console.error("❌ Order placement error:", error);
-      alert(
-        `Order place nahi ho paya.\n\n${
-          error?.message || "Unknown error"
-        }`
-      );
-    } finally {
-      setPlacingOrder(false);
-    }
-  };
-
-  if (!cart.length) {
-    return (
-      <div className="checkout-page">
-        <header className="checkout-header">
-          <button
-            type="button"
-            className="checkout-back"
-            onClick={() => navigate("/")}
-          >
-            ←
-          </button>
-          <div className="checkout-header-content">
-            <span className="checkout-eyebrow">
-              SUGAR CAFE
-            </span>
-            <h1>Checkout</h1>
-            <p>Your cart is currently empty.</p>
-          </div>
-        </header>
-
-        <section className="checkout-card empty-checkout">
-          <div className="empty-checkout-icon">🛒</div>
-          <h2>Your cart is empty</h2>
-          <p>Add something delicious before coming to checkout.</p>
-          <button
-            type="button"
-            className="primary-checkout-btn"
-            onClick={() => navigate("/")}
-          >
-            Browse Menu
-          </button>
-        </section>
-      </div>
-    );
+  .section-icon {
+    width: 55px;
+    height: 55px;
+    min-width: 55px;
+    border-radius: 18px;
+    font-size: 25px;
   }
 
-  return (
-    <div className="checkout-page">
-      <header className="checkout-header">
-        <button
-          type="button"
-          className="checkout-back"
-          onClick={() => navigate(-1)}
-          aria-label="Go back"
-        >
-          ←
-        </button>
+  .section-kicker {
+    font-size: 12px;
+    letter-spacing: 1.8px;
+  }
 
-        <div className="checkout-header-content">
-          <span className="checkout-eyebrow">SUGAR CAFE</span>
-          <h1>Checkout</h1>
-          <p>
-            Almost there! Your delicious food is one step away ✨
-          </p>
-        </div>
+  .section-heading h2 {
+    font-size: 23px;
+  }
 
-        <div className="secure-badge">
-          <span className="secure-icon">✓</span>
-          <div>
-            <strong>100%</strong>
-            <small>Secure</small>
-          </div>
-        </div>
-      </header>
+  .section-heading p {
+    font-size: 13px;
+  }
 
-      <section className="checkout-card order-type-card">
-        <div className="section-heading">
-          <div className="section-icon orange-icon">🛵</div>
-          <div>
-            <span className="section-kicker">CHOOSE YOUR OPTION</span>
-            <h2>Order Type</h2>
-            <p>How would you like to receive your order?</p>
-          </div>
-        </div>
+  /* ---------- order type ---------- */
 
-        <div className="order-type-grid">
-          <button
-            type="button"
-            onClick={() => {
-              setOrderType("Delivery");
-              localStorage.setItem(
-                "sugarCafeOrderType",
-                "Delivery"
-              );
-            }}
-            className={
-              orderType === "Delivery"
-                ? "order-type-btn delivery active"
-                : "order-type-btn delivery"
-            }
-          >
-            <span className="order-type-visual">🛵</span>
-            <span className="order-type-text">
-              <strong>Delivery</strong>
-              <small>We deliver to your location</small>
-            </span>
-            <span className="radio-modern">
-              {orderType === "Delivery" && "✓"}
-            </span>
-          </button>
+  .order-type-options {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
 
-          <button
-            type="button"
-            onClick={() => {
-              setOrderType("Takeaway");
-              localStorage.setItem(
-                "sugarCafeOrderType",
-                "Takeaway"
-              );
-            }}
-            className={
-              orderType === "Takeaway"
-                ? "order-type-btn takeaway active"
-                : "order-type-btn takeaway"
-            }
-          >
-            <span className="order-type-visual">🛍️</span>
-            <span className="order-type-text">
-              <strong>Takeaway</strong>
-              <small>Pick up from our cafe</small>
-            </span>
-            <span className="radio-modern">
-              {orderType === "Takeaway" && "✓"}
-            </span>
-          </button>
-        </div>
+  .order-type-option {
+    min-height: 82px;
+    padding: 12px 14px;
+    border-radius: 20px;
+  }
 
-        {isTakeaway && (
-          <div className="takeaway-info premium-info">
-            <div className="info-icon">🏪</div>
-            <div>
-              <strong>{TAKEAWAY_STORE.name}</strong>
-              <p>{TAKEAWAY_STORE.address}</p>
-              <small>
-                Your order will be prepared for pickup.
-              </small>
-            </div>
-          </div>
-        )}
-      </section>
+  .order-type-icon {
+    width: 50px;
+    height: 50px;
+    min-width: 50px;
 
-      {!isTakeaway && (
-        <section className="checkout-card location-card premium-location-card">
-          <div className="location-card-heading">
-            <div className="section-heading compact">
-              <div className="section-icon location-icon">📍</div>
-              <div>
-                <span className="section-kicker">DELIVERY</span>
-                <h2>Delivery Location</h2>
-                <p>Your location is detected automatically</p>
-              </div>
-            </div>
+    border-radius: 16px;
+    font-size: 24px;
+  }
 
-            {locationConfirmed ? (
-              <span className="location-confirmed-badge">
-                <span>✓</span> Confirmed
-              </span>
-            ) : (
-              <span className="location-pending-badge">
-                Select location
-              </span>
-            )}
-          </div>
+  .order-type-content strong {
+    font-size: 17px;
+  }
 
-          <div className="location-actions">
-            <button
-              type="button"
-              className="current-location-btn"
-              onClick={getCurrentLocation}
-              disabled={loadingLocation}
-            >
-              {loadingLocation ? "Detecting..." : "📍 Use My Current Location"}
-            </button>
-          </div>
+  .order-type-content small {
+    font-size: 12px;
+  }
 
-          {savedAddresses.length > 0 && (
-            <div className="saved-addresses">
-              <div className="saved-address-title">
-                Saved addresses
-              </div>
+  .order-type-radio {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+  }
 
-              <div className="saved-address-list">
-                {savedAddresses.map((saved) => (
-                  <button
-                    key={saved.id || `${saved.latitude}-${saved.longitude}`}
-                    type="button"
-                    className="saved-address-btn"
-                    onClick={() => selectSavedAddress(saved)}
-                  >
-                    <span>🏠</span>
-                    <span>
-                      {saved.fullAddress ||
-                        saved.address ||
-                        "Saved address"}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+  /* ---------- payment ---------- */
 
-          <div className="checkout-map-wrap">
-            <MapContainer
-              center={[mapCenter.lat, mapCenter.lng]}
-              zoom={17}
-              scrollWheelZoom={true}
-              className="checkout-map"
-              whenCreated={onMapCreated}
-            >
-              <TileLayer
-                attribution='&copy; OpenStreetMap contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
+  .payment-options {
+    gap: 11px;
+  }
 
-              <LocationMapEvents
-                onMoveEnd={handleMapMoveEnd}
-              />
+  .payment-option {
+    min-height: 92px;
 
-              <Marker
-                position={[marker.lat, marker.lng]}
-                icon={locationIcon}
-              />
-            </MapContainer>
+    padding: 13px 14px;
 
-            <div className="map-center-label">
-              Move the map to set delivery location
-            </div>
-          </div>
+    grid-template-columns:
+      54px
+      minmax(0, 1fr)
+      42px;
 
-          <div className="address-preview">
-            <div className="address-preview-icon">📍</div>
-            <div className="address-preview-content">
-              <span>Selected address</span>
-              <strong>
-                {address || "Detecting your address..."}
-              </strong>
-            </div>
-          </div>
+    gap: 12px;
 
-          <div className="location-distance-row">
-            <span>
-              📏 Distance: <strong>{distance.toFixed(2)} km</strong>
-            </span>
-            <span
-              className={
-                deliveryAvailable
-                  ? "delivery-status available"
-                  : "delivery-status unavailable"
-              }
-            >
-              {deliveryAvailable
-                ? "✓ Delivery available"
-                : `✕ Outside ${maxDeliveryDistanceKm} km`}
-            </span>
-          </div>
+    border-radius: 24px;
+  }
 
-          <button
-            type="button"
-            className={
-              locationConfirmed
-                ? "confirm-location-btn confirmed"
-                : "confirm-location-btn"
-            }
-            onClick={confirmDeliveryLocation}
-            disabled={
-              loadingLocation ||
-              !address.trim() ||
-              !deliveryAvailable
-            }
-          >
-            {locationConfirmed
-              ? "✓ Delivery Location Confirmed"
-              : "Confirm Delivery Location"}
-          </button>
-        </section>
-      )}
+  .payment-option-icon {
+    width: 54px;
+    height: 54px;
 
-      <section className="checkout-card customer-card">
-        <div className="section-heading">
-          <div className="section-icon">👤</div>
-          <div>
-            <span className="section-kicker">CUSTOMER</span>
-            <h2>Your Details</h2>
-            <p>These details will be used for your order.</p>
-          </div>
-        </div>
+    border-radius: 17px;
+    font-size: 25px;
+  }
 
-        {customerProfile ? (
-          <div className="customer-profile-box">
-            <div className="customer-avatar">
-              {customerProfile.photoURL ? (
-                <img
-                  src={customerProfile.photoURL}
-                  alt=""
-                />
-              ) : (
-                "👤"
-              )}
-            </div>
-            <div>
-              <strong>
-                {customerProfile.name || "Customer"}
-              </strong>
-              <span>
-                {customerProfile.phone || "Mobile number not available"}
-              </span>
-              {customerProfile.email && (
-                <span>{customerProfile.email}</span>
-              )}
-            </div>
-          </div>
-        ) : (
-          <button
-            type="button"
-            className="login-checkout-btn"
-            onClick={() =>
-              navigate("/login", {
-                state: { from: "/checkout" },
-              })
-            }
-          >
-            Login to continue
-          </button>
-        )}
-      </section>
+  .payment-option strong {
+    font-size: 17px;
+  }
 
-      <section className="checkout-card order-note-card">
-        <div className="section-heading">
-          <div className="section-icon">📝</div>
-          <div>
-            <span className="section-kicker">OPTIONAL</span>
-            <h2>Special Instructions</h2>
-            <p>Anything we should know about your order?</p>
-          </div>
-        </div>
+  .payment-option small {
+    font-size: 13px;
+  }
 
-        <textarea
-          value={specialNote}
-          onChange={(event) => setSpecialNote(event.target.value)}
-          placeholder="Example: Less spicy, no onion, extra sauce..."
-          rows={4}
-          maxLength={500}
-        />
-        <div className="note-counter">
-          {specialNote.length}/500
-        </div>
-      </section>
+  .radio-modern {
+    width: 40px;
+    height: 40px;
+  }
 
-      {Number(totalPrice) >= DAILY_SCRATCH_MIN_BILL && (
-        <section className="checkout-card scratch-card-section">
-          <div className="section-heading">
-            <div className="section-icon">🎁</div>
-            <div>
-              <span className="section-kicker">SPECIAL REWARD</span>
-              <h2>Daily Scratch & Win</h2>
-              <p>
-                Your bill qualifies for a surprise reward.
-              </p>
-            </div>
-          </div>
+  /* ---------- customer ---------- */
 
-          {!dailyScratch.unlocked ? (
-            <button
-              type="button"
-              className="unlock-scratch-btn"
-              onClick={unlockDailyScratch}
-            >
-              🎁 Unlock Scratch Card
-            </button>
-          ) : dailyScratch.revealed ? (
-            <div className="revealed-reward-box">
-              <div className="revealed-reward-icon">
-                🎉
-              </div>
-              <strong>
-                {dailyScratch.reward?.title ||
-                  (dailyScratch.reward?.type === "discount"
-                    ? `${dailyScratch.reward.discountPercent}% OFF`
-                    : `FREE ${dailyScratch.reward?.itemName || "Reward"}`)}
-              </strong>
-              <span>
-            Your reward will be applied to this order.
-              </span>
-            </div>
-          ) : (
-            <div className="scratch-card-container">
-              <DailyScratchCard
-                disabled={dailyScratchRevealing}
-                onReveal={revealDailyScratch}
-              />
-              <p className="scratch-help">
-                Scratch at least 45% of the card to reveal your reward.
-              </p>
-            </div>
-          )}
-        </section>
-      )}
+  .customer-profile-box {
+    gap: 13px;
+  }
 
-      <section className="checkout-card loyalty-card">
-        <div className="section-heading">
-          <div className="section-icon">⭐</div>
-          <div>
-            <span className="section-kicker">SUGAR REWARDS</span>
-            <h2>6 + 1 Loyalty</h2>
-            <p>
-              Orders of ₹{LOYALTY_MIN_BILL}+ count toward your reward.
-            </p>
-          </div>
-        </div>
+  .customer-avatar {
+    width: 56px;
+    height: 56px;
+    min-width: 56px;
 
-        {loyaltyData.loading ? (
-          <div className="reward-loading">
-            Checking your reward progress...
-          </div>
-        ) : (
-          <>
-            <div className="loyalty-progress-row">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <div
-                  key={index}
-                  className={
-                    index < loyaltyData.qualifyingOrders
-                      ? "loyalty-dot active"
-                      : "loyalty-dot"
-                  }
-                >
-                  {index < loyaltyData.qualifyingOrders
-                    ? "✓"
-                    : index + 1}
-                </div>
-              ))}
-            </div>
+    border-radius: 18px;
+    font-size: 27px;
+  }
 
-            <div className="loyalty-status-text">
-              {rewardAvailable ? (
-                <strong>
-                  🎉 Your loyalty reward is ready to use!
-                </strong>
-              ) : currentReward?.scratchCardReady ? (
-                <strong>
-                  🎁 You unlocked your 6 + 1 reward!
-                </strong>
-              ) : (
-                <span>
-                  {loyaltyData.qualifyingOrders}/6 qualifying
-                  orders completed.
-                </span>
-              )}
-            </div>
-          </>
-        )}
-      </section>
+  .customer-profile-box strong {
+    font-size: 18px;
+  }
 
-      <section className="checkout-card payment-card">
-        <div className="section-heading">
-          <div className="section-icon">💳</div>
-          <div>
-            <span className="section-kicker">PAYMENT</span>
-            <h2>Payment Method</h2>
-            <p>Select how you would like to pay.</p>
-          </div>
-        </div>
+  .customer-profile-box span {
+    font-size: 14px;
+  }
 
-        <div className="payment-options">
-          {codEnabled && (
-            <button
-              type="button"
-              className={
-                paymentMethod === "Cash on Delivery"
-                  ? "payment-option active"
-                  : "payment-option"
-              }
-              onClick={() =>
-                setPaymentMethod("Cash on Delivery")
-              }
-            >
-              <span className="payment-option-icon">
-                💵
-              </span>
-              <span>
-                <strong>Cash on Delivery</strong>
-                <small>Pay when your order arrives</small>
-              </span>
-              <span className="radio-modern">
-                {paymentMethod === "Cash on Delivery" && "✓"}
-              </span>
-            </button>
-          )}
+  /* ---------- address ---------- */
 
-          {upiEnabled && (
-            <button
-              type="button"
-              className={
-                paymentMethod === "Online Payment"
-                  ? "payment-option active"
-                  : "payment-option"
-              }
-              onClick={() =>
-                setPaymentMethod("Online Payment")
-              }
-            >
-              <span className="payment-option-icon">
-                📱
-              </span>
-              <span>
-                <strong>Online Payment</strong>
-                <small>UPI / Razorpay secure payment</small>
-              </span>
-              <span className="radio-modern">
-                {paymentMethod === "Online Payment" && "✓"}
-              </span>
-            </button>
-          )}
-        </div>
+  .address-preview {
+    padding: 14px;
+    border-radius: 17px;
+  }
 
-        {!codEnabled && !upiEnabled && (
-          <div className="payment-unavailable">
-            Payment methods are currently unavailable.
-          </div>
-        )}
-      </section>
+  .address-preview-content > strong {
+    font-size: 14px;
+  }
 
-      <section className="checkout-card bill-card">
-        <div className="section-heading">
-          <div className="section-icon">🧾</div>
-          <div>
-            <span className="section-kicker">ORDER SUMMARY</span>
-            <h2>Bill Details</h2>
-          </div>
-        </div>
+  /* ---------- loyalty ---------- */
 
-        <div className="bill-items">
-          {cart.map((item) => {
-            const qty = Number(item.qty || item.quantity || 1);
-            const price = Number(item.price || 0);
+  .loyalty-card {
+    padding: 23px 18px;
+  }
 
-            return (
-              <div
-                className="bill-line"
-                key={item.id || item.name}
-              >
-                <span>
-                  {item.name} × {qty}
-                </span>
-                <strong>
-                  ₹{(price * qty).toFixed(2)}
-                </strong>
-              </div>
-            );
-          })}
-        </div>
+  .loyalty-progress-row {
+    gap: 7px;
+    margin: 22px 0 15px;
+  }
 
-        <div className="bill-divider" />
+  .loyalty-dot {
+    min-width: 30px;
+    max-width: 43px;
+    font-size: 13px;
+  }
 
-        <div className="bill-line">
-          <span>Subtotal</span>
-          <strong>₹{Number(totalPrice).toFixed(2)}</strong>
-        </div>
+  /* ---------- bill ---------- */
 
-        {!isTakeaway && (
-          <div className="bill-line">
-            <span>Delivery charge</span>
-            <strong>
-              {deliveryAvailable
-                ? `₹${Number(deliveryCharge).toFixed(2)}`
-                : "—"}
-            </strong>
-          </div>
-        )}
+  .bill-card {
+    padding: 24px 18px;
+  }
 
-        {discount > 0 && (
-          <div className="bill-line discount-line">
-            <span>Reward discount</span>
-            <strong>
-              -₹{Number(discount).toFixed(2)}
-            </strong>
-          </div>
-        )}
+  .bill-line {
+    gap: 12px;
+    padding: 8px 0;
+  }
 
-        <div className="bill-line total-line">
-          <span>Total</span>
-          <strong>₹{Number(grandTotal).toFixed(2)}</strong>
-        </div>
-      </section>
+  .bill-line > span {
+    font-size: 15px;
+  }
 
-      <section className="checkout-bottom">
-        <div className="checkout-total-mini">
-          <span>Payable</span>
-          <strong>₹{Number(grandTotal).toFixed(2)}</strong>
-        </div>
+  .bill-line > strong {
+    font-size: 16px;
+  }
 
-        <button
-          type="button"
-          className="place-order-btn"
-          onClick={placeOrder}
-          disabled={
-            placingOrder ||
-            loyaltyData.loading ||
-            (!isTakeaway &&
-              (!locationConfirmed ||
-                !deliveryAvailable))
-          }
-        >
-          {placingOrder ? (
-            <>
-              <span className="checkout-spinner" />
-              Processing...
-            </>
-          ) : paymentMethod === "Online Payment" ? (
-            "Pay Securely & Place Order"
-          ) : isTakeaway ? (
-            "Place Takeaway Order"
-          ) : (
-            "Place Delivery Order"
-          )}
-        </button>
+  .total-line > span {
+    font-size: 18px;
+  }
 
-        <small className="checkout-secure-note">
-          🔒 Your order and payment information are securely processed.
-        </small>
-      </section>
-    </div>
-  );
+  .total-line > strong {
+    font-size: 21px;
+  }
+
+  /* ---------- textarea ---------- */
+
+  .checkout-card textarea,
+  .special-instructions textarea {
+    min-height: 105px;
+    font-size: 14px;
+  }
+
+  /* ---------- bottom ---------- */
+
+  .checkout-total-mini span {
+    font-size: 16px;
+  }
+
+  .checkout-total-mini strong {
+    font-size: 22px;
+  }
+
+  .place-order-btn {
+    min-height: 58px;
+    font-size: 16px;
+    border-radius: 18px;
+  }
+
+  .checkout-secure-note {
+    font-size: 12px;
+  }
 }
 
-export default Checkout;    
+/* =========================================================
+   VERY SMALL PHONES
+========================================================= */
+
+@media (max-width: 380px) {
+
+  .checkout-page {
+    padding-left: 9px;
+    padding-right: 9px;
+  }
+
+  .checkout-card {
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+
+  .section-heading {
+    gap: 10px;
+  }
+
+  .section-icon {
+    width: 50px;
+    height: 50px;
+    min-width: 50px;
+  }
+
+  .section-heading h2 {
+    font-size: 21px;
+  }
+
+  .payment-option {
+    grid-template-columns: 50px minmax(0,1fr) 38px;
+    gap: 9px;
+  }
+
+  .payment-option-icon {
+    width: 50px;
+    height: 50px;
+  }
+
+  .radio-modern {
+    width: 36px;
+    height: 36px;
+  }
+
+  .loyalty-dot {
+    min-width: 27px;
+  }
+}
