@@ -1,1112 +1,2461 @@
 /* =========================================================
-   SUGAR CAFE — CHECKOUT PREMIUM FINAL
+   SUGAR CAFE — CHECKOUT FINAL
 ========================================================= */
 
-.checkout-page {
-  width: 100%;
-  max-width: 760px;
-  margin: 0 auto;
-  padding: 20px 16px 130px;
-  box-sizing: border-box;
-  color: #fff;
+import { useState, useEffect, useMemo, useCallback } from "react";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  useMapEvents,
+} from "react-leaflet";
+
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+import { useNavigate } from "react-router-dom";
+import { useCart } from "../context/CartContext";
+
+import {
+  addDoc,
+  collection,
+  getDocs,
+  query,
+  where,
+  Timestamp,
+} from "firebase/firestore";
+
+import {
+  onAuthStateChanged,
+} from "firebase/auth";
+
+import { db, auth } from "../firebase";
+
+/* =========================================================
+   CONSTANTS
+========================================================= */
+
+const MAX_DELIVERY_DISTANCE = 15;
+const DELIVERY_PER_KM = 20;
+const MIN_DELIVERY_CHARGE = 20;
+const MAX_DELIVERY_CHARGE = 300;
+
+const LOYALTY_MIN_BILL = 500;
+const LOYALTY_TARGET = 6;
+
+const DAILY_SCRATCH_MIN_BILL = 499;
+
+const DAILY_SCRATCH_REWARDS = [
+  {
+    type: "discount",
+    discountPercent: 5,
+    label: "5% OFF",
+  },
+  {
+    type: "free",
+    itemName: "Cheese Aloo Puff",
+    label: "FREE Cheese Aloo Puff",
+  },
+  {
+    type: "free",
+    itemName: "Veg Aloo Tikka Burger",
+    label: "FREE Veg Aloo Tikka Burger",
+  },
+  {
+    type: "free",
+    itemName: "French Fries",
+    label: "FREE French Fries",
+  },
+];
+
+/* =========================================================
+   LEAFLET ICON
+========================================================= */
+
+const markerIcon = new L.Icon({
+  iconUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
+
+  iconRetinaUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
+
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
+
+/* =========================================================
+   DISTANCE
+========================================================= */
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+
+  const c =
+    2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
 }
 
 /* =========================================================
-   COMMON CARD
+   MAP CLICK HANDLER
 ========================================================= */
 
-.checkout-card {
-  width: 100%;
-  box-sizing: border-box;
-  margin-bottom: 18px;
-  padding: 26px;
-  border-radius: 30px;
-  border: 1px solid rgba(120, 160, 200, 0.16);
-  background: linear-gradient(
-    145deg,
-    rgba(14, 35, 55, 0.98),
-    rgba(7, 25, 42, 0.98)
-  );
-  box-shadow:
-    0 14px 35px rgba(0, 0, 0, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.025);
-  overflow: hidden;
+function LocationPicker({ onSelect }) {
+  useMapEvents({
+    click(e) {
+      onSelect({
+        lat: e.latlng.lat,
+        lng: e.latlng.lng,
+      });
+    },
+  });
+
+  return null;
 }
 
 /* =========================================================
-   SECTION HEADING
+   DAILY SCRATCH CARD
 ========================================================= */
 
-.section-heading {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  margin-bottom: 24px;
-}
+function DailyScratchCard({ reward, onClose }) {
+  if (!reward) return null;
 
-.section-heading > div:last-child {
-  min-width: 0;
-  flex: 1;
-}
+  return (
+    <div
+      style={{
+        marginTop: 16,
+        padding: 20,
+        borderRadius: 24,
+        background:
+          "linear-gradient(145deg,#162f4b,#0d243b)",
+        border:
+          "1px solid rgba(255,118,94,.22)",
+        textAlign: "center",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 42,
+          marginBottom: 8,
+        }}
+      >
+        🎁
+      </div>
 
-.section-icon {
-  width: 62px;
-  height: 62px;
-  min-width: 62px;
-  border-radius: 20px;
+      <div
+        style={{
+          color: "#ff765e",
+          fontSize: 12,
+          fontWeight: 800,
+          letterSpacing: 2,
+        }}
+      >
+        TODAY'S SCRATCH & WIN
+      </div>
 
-  display: flex;
-  align-items: center;
-  justify-content: center;
+      <h3
+        style={{
+          margin: "8px 0",
+          color: "#fff",
+          fontSize: 24,
+        }}
+      >
+        {reward.label}
+      </h3>
 
-  font-size: 29px;
+      <p
+        style={{
+          margin: 0,
+          color: "rgba(255,255,255,.6)",
+          fontSize: 14,
+        }}
+      >
+        Your reward will be attached to this order.
+      </p>
 
-  background: linear-gradient(
-    145deg,
-    #163d61,
-    #102e4b
-  );
-
-  border: 1px solid rgba(80, 150, 220, 0.15);
-
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.04);
-}
-
-.section-kicker {
-  display: block;
-  margin-bottom: 5px;
-
-  color: #ff765e;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 2px;
-  line-height: 1.2;
-}
-
-.section-heading h2 {
-  margin: 0;
-
-  color: #fff;
-  font-size: 27px;
-  line-height: 1.15;
-  font-weight: 800;
-}
-
-.section-heading p {
-  margin: 7px 0 0;
-
-  color: rgba(255,255,255,.55);
-  font-size: 15px;
-  line-height: 1.4;
-}
-
-/* =========================================================
-   ORDER TYPE
-========================================================= */
-
-.order-type-options {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-}
-
-.order-type-option {
-  min-height: 105px;
-  padding: 16px;
-
-  display: flex;
-  align-items: center;
-  gap: 14px;
-
-  border-radius: 22px;
-  border: 1px solid rgba(120,160,200,.18);
-
-  background: linear-gradient(
-    145deg,
-    #102b45,
-    #0d263e
-  );
-
-  color: #fff;
-  text-align: left;
-
-  cursor: pointer;
-
-  transition:
-    transform .18s ease,
-    border-color .18s ease,
-    background .18s ease;
-}
-
-.order-type-option:active {
-  transform: scale(.985);
-}
-
-.order-type-option.active {
-  border: 2px solid #ff7058;
-
-  background: linear-gradient(
-    145deg,
-    rgba(40,39,53,.98),
-    rgba(24,32,48,.98)
-  );
-}
-
-.order-type-icon {
-  width: 55px;
-  height: 55px;
-  min-width: 55px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 18px;
-
-  background: linear-gradient(
-    145deg,
-    #12395c,
-    #15324f
-  );
-
-  font-size: 27px;
-}
-
-.order-type-content {
-  min-width: 0;
-  flex: 1;
-}
-
-.order-type-content strong {
-  display: block;
-  color: #fff;
-  font-size: 18px;
-  line-height: 1.2;
-}
-
-.order-type-content small {
-  display: block;
-  margin-top: 6px;
-  color: rgba(255,255,255,.58);
-  font-size: 13px;
-  line-height: 1.35;
-}
-
-.order-type-radio {
-  width: 39px;
-  height: 39px;
-  min-width: 39px;
-
-  border-radius: 50%;
-  border: 3px solid #62778b;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  font-size: 20px;
-  font-weight: 800;
-}
-
-.order-type-option.active .order-type-radio {
-  border-color: #ff7058;
-  background: #ff7058;
-  color: #fff;
-}
-
-/* =========================================================
-   PAYMENT
-========================================================= */
-
-.payment-options {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.payment-option {
-  width: 100%;
-  min-height: 100px;
-
-  padding: 16px 20px;
-  box-sizing: border-box;
-
-  display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) 48px;
-  align-items: center;
-  gap: 16px;
-
-  border-radius: 27px;
-  border: 1px solid rgba(120,160,200,.18);
-
-  background: linear-gradient(
-    145deg,
-    #102b45,
-    #0d263e
-  );
-
-  color: #fff;
-  text-align: left;
-
-  cursor: pointer;
-
-  transition:
-    transform .18s ease,
-    border-color .18s ease,
-    background .18s ease,
-    box-shadow .18s ease;
-}
-
-.payment-option:active {
-  transform: scale(.985);
-}
-
-.payment-option.active {
-  border: 2px solid #ff7058;
-
-  background: linear-gradient(
-    145deg,
-    rgba(40,39,53,.98),
-    rgba(24,32,48,.98)
-  );
-
-  box-shadow:
-    0 0 0 1px rgba(255,112,88,.08),
-    0 12px 28px rgba(0,0,0,.18);
-}
-
-.payment-option-icon {
-  width: 64px;
-  height: 64px;
-
-  border-radius: 20px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  font-size: 29px;
-
-  background: linear-gradient(
-    145deg,
-    #12395c,
-    #15324f
+      {onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          style={{
+            marginTop: 16,
+            padding: "10px 20px",
+            borderRadius: 14,
+            border: 0,
+            background: "#ff765e",
+            color: "#fff",
+            fontWeight: 700,
+          }}
+        >
+          Done
+        </button>
+      )}
+    </div>
   );
 }
 
-.payment-option > span:nth-child(2) {
-  min-width: 0;
-
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.payment-option strong {
-  display: block;
-
-  color: #fff;
-  font-size: 19px;
-  line-height: 1.2;
-}
-
-.payment-option small {
-  display: block;
-
-  color: rgba(255,255,255,.58);
-  font-size: 14px;
-  line-height: 1.35;
-}
-
-.radio-modern {
-  width: 42px;
-  height: 42px;
-
-  border-radius: 50%;
-  border: 3px solid #62778b;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  color: #fff;
-  font-size: 21px;
-  font-weight: 800;
-
-  box-sizing: border-box;
-}
-
-.payment-option.active .radio-modern {
-  border-color: #ff7058;
-  background: #ff7058;
-  color: #fff;
-}
-
 /* =========================================================
-   LOCATION
+   CHECKOUT
 ========================================================= */
 
-.location-card {
-  position: relative;
-}
+export default function Checkout() {
+  const navigate = useNavigate();
 
-.location-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
+  const cart = useCart();
 
-.location-button {
-  width: 100%;
-  min-height: 50px;
+  const {
+    cartItems = [],
+    clearCart,
+  } = cart || {};
 
-  padding: 12px 16px;
+  /* =======================================================
+     CUSTOMER
+  ======================================================= */
 
-  border-radius: 15px;
-  border: 1px solid rgba(100,160,210,.25);
-
-  background: #123654;
-  color: #fff;
-
-  font-size: 15px;
-  font-weight: 700;
-
-  cursor: pointer;
-}
-
-.location-button:active {
-  transform: scale(.985);
-}
-
-.address-preview {
-  width: 100%;
-  box-sizing: border-box;
-
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-
-  margin-top: 18px;
-  padding: 16px;
-
-  border-radius: 18px;
-
-  background: rgba(15,48,75,.65);
-
-  overflow: hidden;
-}
-
-.address-preview-content {
-  min-width: 0;
-  flex: 1;
-
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.address-preview-content > span {
-  color: rgba(255,255,255,.55);
-  font-size: 13px;
-}
-
-.address-preview-content > strong {
-  color: #fff;
-  font-size: 15px;
-  line-height: 1.45;
-
-  word-break: break-word;
-  overflow-wrap: anywhere;
-}
-
-.distance-status {
-  margin-top: 14px;
-
-  color: rgba(255,255,255,.78);
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.distance-status strong {
-  color: #fff;
-}
-
-/* =========================================================
-   CUSTOMER
-========================================================= */
-
-.customer-profile-box {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.customer-profile-box > div:last-child {
-  min-width: 0;
-  flex: 1;
-
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.customer-profile-box strong {
-  display: block;
-
-  color: #fff;
-  font-size: 20px;
-  line-height: 1.2;
-
-  overflow-wrap: anywhere;
-}
-
-.customer-profile-box span {
-  display: block;
-
-  color: rgba(255,255,255,.62);
-  font-size: 15px;
-
-  word-break: break-word;
-}
-
-.customer-avatar {
-  width: 62px;
-  height: 62px;
-  min-width: 62px;
-
-  border-radius: 20px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  background: linear-gradient(
-    145deg,
-    #173e62,
-    #12304c
+  const [customerName, setCustomerName] = useState(
+    localStorage.getItem("customerName") || ""
   );
 
-  font-size: 30px;
-}
-
-/* =========================================================
-   SPECIAL INSTRUCTIONS
-========================================================= */
-
-.special-instructions textarea,
-.checkout-card textarea {
-  width: 100%;
-  min-height: 110px;
-
-  box-sizing: border-box;
-
-  padding: 14px 16px;
-
-  border-radius: 16px;
-  border: 1px solid rgba(120,160,200,.22);
-
-  background: #f5f5f5;
-  color: #111;
-
-  font-family: inherit;
-  font-size: 15px;
-  line-height: 1.45;
-
-  resize: vertical;
-  outline: none;
-}
-
-.special-instructions textarea:focus,
-.checkout-card textarea:focus {
-  border-color: #ff765e;
-  box-shadow: 0 0 0 3px rgba(255,118,94,.12);
-}
-
-.special-instructions textarea::placeholder,
-.checkout-card textarea::placeholder {
-  color: #777;
-}
-
-.character-count {
-  margin-top: 7px;
-
-  color: rgba(255,255,255,.55);
-  font-size: 13px;
-  text-align: left;
-}
-
-/* =========================================================
-   DAILY SCRATCH
-========================================================= */
-
-.scratch-card-section {
-  padding-bottom: 24px;
-}
-
-.unlock-scratch-btn {
-  width: 100%;
-  min-height: 58px;
-
-  border: 0;
-  border-radius: 18px;
-
-  background: linear-gradient(
-    135deg,
-    #ff765c,
-    #ff9b55
+  const [customerPhone, setCustomerPhone] = useState(
+    localStorage.getItem("customerPhone") || ""
   );
 
-  color: #fff;
+  const [currentUser, setCurrentUser] = useState(null);
 
-  font-size: 16px;
-  font-weight: 800;
+  /* =======================================================
+     ORDER TYPE
+  ======================================================= */
 
-  cursor: pointer;
+  const [orderType, setOrderType] = useState("delivery");
 
-  box-shadow:
-    0 10px 24px rgba(255,110,80,.15);
-}
+  /* =======================================================
+     LOCATION
+  ======================================================= */
 
-.unlock-scratch-btn:active {
-  transform: scale(.985);
-}
+  const [location, setLocation] = useState(null);
 
-/* =========================================================
-   LOYALTY
-========================================================= */
+  const [address, setAddress] = useState("");
 
-.loyalty-card {
-  padding: 27px 26px;
-}
+  const [locationLoading, setLocationLoading] =
+    useState(false);
 
-.loyalty-progress-row {
-  width: 100%;
+  const [locationConfirmed, setLocationConfirmed] =
+    useState(false);
 
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  const [locationError, setLocationError] =
+    useState("");
 
-  margin: 26px 0 18px;
-}
+  /* =======================================================
+     CUSTOMER NOTE
+  ======================================================= */
 
-.loyalty-dot {
-  flex: 1;
+  const [specialNote, setSpecialNote] = useState("");
 
-  width: 100%;
-  max-width: 50px;
-  min-width: 35px;
-  aspect-ratio: 1;
+  /* =======================================================
+     PAYMENT
+  ======================================================= */
 
-  border-radius: 50%;
+  const [paymentMethod, setPaymentMethod] =
+    useState("Cash on Delivery");
 
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  /* =======================================================
+     LOYALTY
+  ======================================================= */
 
-  background: #17314b;
+  const [loyaltyCount, setLoyaltyCount] = useState(0);
 
-  border: 1px solid rgba(150,180,210,.2);
+  const [loyaltyLoading, setLoyaltyLoading] =
+    useState(true);
 
-  color: rgba(255,255,255,.55);
+  /* =======================================================
+     DAILY SCRATCH
+  ======================================================= */
 
-  font-size: 15px;
-  font-weight: 700;
-}
+  const [scratchReward, setScratchReward] =
+    useState(null);
 
-.loyalty-dot.active {
-  background: linear-gradient(
-    135deg,
-    #ff7658,
-    #ff925b
+  const [scratchUnlocked, setScratchUnlocked] =
+    useState(false);
+
+  /* =======================================================
+     ORDER
+  ======================================================= */
+
+  const [placingOrder, setPlacingOrder] =
+    useState(false);
+
+  const [error, setError] = useState("");
+
+  /* =======================================================
+     AUTH
+  ======================================================= */
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      (user) => {
+        setCurrentUser(user || null);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  /* =======================================================
+     CART TOTAL
+  ======================================================= */
+
+  const subtotal = useMemo(() => {
+    return cartItems.reduce((sum, item) => {
+      const price = Number(
+        item.price ??
+          item.salePrice ??
+          item.amount ??
+          0
+      );
+
+      const quantity = Number(
+        item.quantity ?? 1
+      );
+
+      return sum + price * quantity;
+    }, 0);
+  }, [cartItems]);
+
+  /* =======================================================
+     DELIVERY DISTANCE
+  ======================================================= */
+
+  const deliveryDistance = useMemo(() => {
+    if (!location) return 0;
+
+    /*
+      Sugar Cafe approximate base location.
+      Replace only if your existing project already
+      has a fixed cafe latitude/longitude.
+    */
+
+    const cafeLat = 22.3595;
+    const cafeLng = 82.7501;
+
+    return calculateDistance(
+      cafeLat,
+      cafeLng,
+      location.lat,
+      location.lng
+    );
+  }, [location]);
+
+  /* =======================================================
+     DELIVERY CHARGE
+  ======================================================= */
+
+  const deliveryCharge = useMemo(() => {
+    if (orderType !== "delivery") {
+      return 0;
+    }
+
+    if (!location) {
+      return 0;
+    }
+
+    const charge = Math.ceil(
+      deliveryDistance * DELIVERY_PER_KM
+    );
+
+    return Math.min(
+      Math.max(charge, MIN_DELIVERY_CHARGE),
+      MAX_DELIVERY_CHARGE
+    );
+  }, [
+    orderType,
+    location,
+    deliveryDistance,
+  ]);
+
+  /* =======================================================
+     DELIVERY AVAILABLE
+  ======================================================= */
+
+  const deliveryAvailable =
+    orderType === "takeaway"
+      ? true
+      : !!location &&
+        deliveryDistance <=
+          MAX_DELIVERY_DISTANCE;
+
+  /* =======================================================
+     TOTAL
+  ======================================================= */
+
+  const total = useMemo(() => {
+    return Math.max(
+      0,
+      subtotal + deliveryCharge
+    );
+  }, [subtotal, deliveryCharge]);
+
+  /* =======================================================
+     SCRATCH ELIGIBILITY
+  ======================================================= */
+
+  const scratchEligible =
+    subtotal >= DAILY_SCRATCH_MIN_BILL;
+
+  const amountToUnlockScratch = Math.max(
+    0,
+    DAILY_SCRATCH_MIN_BILL - subtotal
   );
 
-  border-color: #ff7658;
-  color: #fff;
-}
+  /* =======================================================
+     AUTH / CUSTOMER LOAD
+  ======================================================= */
 
-.loyalty-status-text {
-  color: rgba(255,255,255,.6);
-  font-size: 14px;
-  line-height: 1.4;
-}
+  useEffect(() => {
+    const savedName =
+      localStorage.getItem("customerName");
 
-.loyalty-status-text strong {
-  color: #fff;
-}
+    const savedPhone =
+      localStorage.getItem("customerPhone");
 
-/* =========================================================
-   BILL / ORDER SUMMARY
-========================================================= */
+    if (savedName) {
+      setCustomerName(savedName);
+    }
 
-.bill-card {
-  padding: 28px 26px;
-}
+    if (savedPhone) {
+      setCustomerPhone(savedPhone);
+    }
+  }, []);
 
-.bill-items {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
+  /* =======================================================
+     LOYALTY COUNT
+  ======================================================= */
 
-.bill-line {
-  width: 100%;
+  useEffect(() => {
+    let cancelled = false;
 
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+    async function loadLoyalty() {
+      setLoyaltyLoading(true);
 
-  gap: 20px;
-  padding: 9px 0;
+      try {
+        const customerId =
+          currentUser?.uid ||
+          localStorage.getItem("customerId") ||
+          customerPhone;
 
-  box-sizing: border-box;
-}
+        if (!customerId) {
+          setLoyaltyCount(0);
+          return;
+        }
 
-.bill-line > span {
-  flex: 1;
-  min-width: 0;
+        const q = query(
+          collection(db, "orders"),
+          where(
+            "customerId",
+            "==",
+            customerId
+          )
+        );
 
-  color: rgba(255,255,255,.62);
+        const snapshot = await getDocs(q);
 
-  font-size: 16px;
-  line-height: 1.4;
+        const qualifyingOrders =
+          snapshot.docs.filter((doc) => {
+            const data = doc.data();
 
-  overflow-wrap: anywhere;
-}
+            const bill =
+              Number(
+                data.subtotal ??
+                  data.bill ??
+                  data.total ??
+                  0
+              );
 
-.bill-line > strong {
-  flex: 0 0 auto;
+            return (
+              String(
+                data.status || ""
+              ).toLowerCase() ===
+                "delivered" &&
+              bill >= LOYALTY_MIN_BILL
+            );
+          });
 
-  white-space: nowrap;
+        if (!cancelled) {
+          setLoyaltyCount(
+            Math.min(
+              qualifyingOrders.length,
+              LOYALTY_TARGET
+            )
+          );
+        }
+      } catch (err) {
+        console.error(
+          "Loyalty loading error:",
+          err
+        );
 
-  color: #fff;
+        if (!cancelled) {
+          setLoyaltyCount(0);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoyaltyLoading(false);
+        }
+      }
+    }
 
-  font-size: 17px;
-  font-weight: 800;
+    loadLoyalty();
 
-  text-align: right;
-}
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    currentUser,
+    customerPhone,
+  ]);
 
-.bill-divider {
-  height: 1px;
+  /* =======================================================
+     REVERSE GEOCODING
+  ======================================================= */
 
-  margin: 12px 0;
+  const reverseGeocode = useCallback(
+    async (lat, lng) => {
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+          {
+            headers: {
+              Accept:
+                "application/json",
+              "User-Agent":
+                "SugarCafe/1.0",
+            },
+          }
+        );
 
-  background: rgba(255,255,255,.09);
-}
+        if (!response.ok) {
+          throw new Error(
+            "Unable to get address"
+          );
+        }
 
-.discount-line > span,
-.discount-line > strong {
-  color: #5ee39a;
-}
+        const data =
+          await response.json();
 
-.total-line {
-  margin-top: 6px;
-  padding-top: 17px;
-}
+        return (
+          data.display_name ||
+          "Selected location"
+        );
+      } catch (err) {
+        console.error(
+          "Reverse geocoding error:",
+          err
+        );
 
-.total-line > span {
-  color: #fff;
-
-  font-size: 19px;
-  font-weight: 800;
-}
-
-.total-line > strong {
-  color: #fff;
-
-  font-size: 22px;
-  font-weight: 900;
-}
-
-/* =========================================================
-   BOTTOM CHECKOUT
-========================================================= */
-
-.checkout-bottom {
-  width: 100%;
-  box-sizing: border-box;
-
-  padding: 4px 2px;
-}
-
-.checkout-total-mini {
-  width: 100%;
-
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  gap: 15px;
-
-  margin-bottom: 12px;
-}
-
-.checkout-total-mini span {
-  color: rgba(255,255,255,.72);
-  font-size: 18px;
-}
-
-.checkout-total-mini strong {
-  color: #fff;
-  font-size: 23px;
-  white-space: nowrap;
-}
-
-.place-order-btn {
-  width: 100%;
-  min-height: 60px;
-
-  padding: 14px 18px;
-
-  border: 0;
-  border-radius: 18px;
-
-  background: linear-gradient(
-    135deg,
-    #ff6d55,
-    #ff8d59
+        return "Selected location";
+      }
+    },
+    []
   );
 
-  color: #fff;
+  /* =======================================================
+     LOCATION SELECT
+  ======================================================= */
 
-  font-size: 17px;
-  font-weight: 800;
+  const handleLocationSelect =
+    useCallback(
+      async ({ lat, lng }) => {
+        setLocation({
+          lat,
+          lng,
+        });
 
-  box-shadow:
-    0 10px 25px rgba(255,100,75,.18);
+        setLocationConfirmed(false);
+        setLocationError("");
 
-  cursor: pointer;
+        const newAddress =
+          await reverseGeocode(
+            lat,
+            lng
+          );
 
-  transition:
-    transform .18s ease,
-    opacity .18s ease;
-}
+        setAddress(newAddress);
+      },
+      [reverseGeocode]
+    );
 
-.place-order-btn:not(:disabled):active {
-  transform: scale(.985);
-}
+  /* =======================================================
+     CURRENT LOCATION
+  ======================================================= */
 
-.place-order-btn:disabled {
-  opacity: .42;
-  cursor: not-allowed;
-  box-shadow: none;
-}
+  const useCurrentLocation =
+    useCallback(() => {
+      if (!navigator.geolocation) {
+        setLocationError(
+          "Location is not supported on this device."
+        );
 
-.checkout-secure-note {
-  display: block;
+        return;
+      }
 
-  margin-top: 12px;
+      setLocationLoading(true);
+      setLocationError("");
 
-  color: rgba(255,255,255,.52);
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const lat =
+            position.coords.latitude;
 
-  text-align: center;
+          const lng =
+            position.coords.longitude;
 
-  font-size: 13px;
-  line-height: 1.4;
-}
+          await handleLocationSelect({
+            lat,
+            lng,
+          });
 
-/* =========================================================
-   REMOVE DEFAULT BUTTON / INPUT STYLING
-========================================================= */
+          setLocationLoading(false);
+        },
+        (err) => {
+          console.error(
+            "Location error:",
+            err
+          );
 
-.checkout-page button {
-  font-family: inherit;
-}
+          setLocationError(
+            "Unable to detect your location. Please allow location access."
+          );
 
-.checkout-page button:not(.place-order-btn):not(.unlock-scratch-btn) {
-  -webkit-appearance: none;
-  appearance: none;
-}
+          setLocationLoading(false);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0,
+        }
+      );
+    }, [handleLocationSelect]);
 
-/* =========================================================
-   MAP SAFETY
-========================================================= */
+  /* =======================================================
+     CONFIRM LOCATION
+  ======================================================= */
 
-.checkout-page .leaflet-container {
-  width: 100%;
-  min-height: 280px;
+  const confirmLocation = () => {
+    if (!location) {
+      setLocationError(
+        "Please select your delivery location."
+      );
 
-  border-radius: 20px;
-  overflow: hidden;
-}
+      return;
+    }
 
-/* =========================================================
-   MOBILE
-========================================================= */
+    if (
+      deliveryDistance >
+      MAX_DELIVERY_DISTANCE
+    ) {
+      setLocationError(
+        `Delivery is available only within ${MAX_DELIVERY_DISTANCE} km.`
+      );
 
-@media (max-width: 600px) {
+      return;
+    }
 
-  .checkout-page {
-    max-width: 100%;
-    padding: 12px 12px 115px;
+    setLocationConfirmed(true);
+    setLocationError("");
+  };
+
+  /* =======================================================
+     ORDER TYPE CHANGE
+  ======================================================= */
+
+  const handleOrderTypeChange = (
+    type
+  ) => {
+    setOrderType(type);
+    setLocationError("");
+
+    if (type === "takeaway") {
+      setLocationConfirmed(true);
+    } else {
+      setLocationConfirmed(false);
+    }
+  };
+
+  /* =======================================================
+     SCRATCH UNLOCK
+  ======================================================= */
+
+  const unlockScratch = () => {
+    if (!scratchEligible) {
+      return;
+    }
+
+    const randomIndex =
+      Math.floor(
+        Math.random() *
+          DAILY_SCRATCH_REWARDS.length
+      );
+
+    const reward =
+      DAILY_SCRATCH_REWARDS[
+        randomIndex
+      ];
+
+    setScratchReward(reward);
+    setScratchUnlocked(true);
+  };
+
+  /* =======================================================
+     CUSTOMER VALIDATION
+  ======================================================= */
+
+  const validateCheckout = () => {
+    setError("");
+
+    if (!customerName.trim()) {
+      setError(
+        "Please enter your name."
+      );
+
+      return false;
+    }
+
+    if (
+      customerPhone.trim().length < 10
+    ) {
+      setError(
+        "Please enter a valid phone number."
+      );
+
+      return false;
+    }
+
+    if (
+      orderType === "delivery"
+    ) {
+      if (!location) {
+        setError(
+          "Please select your delivery location."
+        );
+
+        return false;
+      }
+
+      if (
+        !locationConfirmed
+      ) {
+        setError(
+          "Please confirm your delivery location."
+        );
+
+        return false;
+      }
+
+      if (
+        deliveryDistance >
+        MAX_DELIVERY_DISTANCE
+      ) {
+        setError(
+          "This location is outside our delivery area."
+        );
+
+        return false;
+      }
+    }
+
+    if (!cartItems.length) {
+      setError(
+        "Your cart is empty."
+      );
+
+      return false;
+    }
+
+    return true;
+  };
+
+  /* =======================================================
+     BUILD ORDER DATA
+  ======================================================= */
+
+  const buildOrderData = () => {
+    const customerId =
+      currentUser?.uid ||
+      localStorage.getItem(
+        "customerId"
+      ) ||
+      customerPhone;
+
+    const items = cartItems.map(
+      (item) => ({
+        id:
+          item.id ||
+          item.menuId ||
+          null,
+
+        name:
+          item.name ||
+          item.title ||
+          "Item",
+
+        price: Number(
+          item.price ??
+            item.salePrice ??
+            item.amount ??
+            0
+        ),
+
+        quantity: Number(
+          item.quantity ?? 1
+        ),
+
+        image:
+          item.image ||
+          item.imageUrl ||
+          "",
+
+        category:
+          item.category || "",
+      })
+    );
+
+    return {
+      customerId,
+
+      customer: {
+        name: customerName.trim(),
+        phone: customerPhone.trim(),
+      },
+
+      customerName:
+        customerName.trim(),
+
+      customerPhone:
+        customerPhone.trim(),
+
+      orderType,
+
+      address:
+        orderType === "delivery"
+          ? address
+          : "Takeaway",
+
+      location:
+        orderType === "delivery"
+          ? location
+          : null,
+
+      latitude:
+        orderType === "delivery"
+          ? location?.lat || null
+          : null,
+
+      longitude:
+        orderType === "delivery"
+          ? location?.lng || null
+          : null,
+
+      deliveryDistance:
+        orderType === "delivery"
+          ? Number(
+              deliveryDistance.toFixed(2)
+            )
+          : 0,
+
+      items,
+
+      subtotal,
+
+      deliveryCharge,
+
+      discount: 0,
+
+      gst: 0,
+
+      total,
+
+      bill: subtotal,
+
+      paymentMethod,
+
+      paymentStatus:
+        paymentMethod ===
+        "Cash on Delivery"
+          ? "Pending"
+          : "Pending",
+
+      status: "Pending",
+
+      specialInstructions:
+        specialNote.trim(),
+
+      specialNote:
+        specialNote.trim(),
+
+      dailyScratchEligible:
+        scratchEligible,
+
+      dailyScratchReward:
+        scratchReward || null,
+
+      loyaltyProgress:
+        loyaltyCount,
+
+      createdAt:
+        Timestamp.now(),
+
+      source: "Sugar Cafe Website",
+    };
+  };
+
+  /* =======================================================
+     CREATE FIRESTORE ORDER
+  ======================================================= */
+
+  const createFirestoreOrder =
+    async (
+      orderData,
+      paymentId = null
+    ) => {
+      const finalData = {
+        ...orderData,
+
+        paymentId:
+          paymentId || null,
+
+        paymentStatus:
+          paymentId
+            ? "Paid"
+            : orderData.paymentStatus,
+      };
+
+      const docRef =
+        await addDoc(
+          collection(
+            db,
+            "orders"
+          ),
+          finalData
+        );
+
+      return docRef.id;
+    };
+
+  /* =======================================================
+     RAZORPAY
+  ======================================================= */
+
+  const loadRazorpay =
+    () => {
+      return new Promise(
+        (resolve) => {
+          if (
+            window.Razorpay
+          ) {
+            resolve(true);
+            return;
+          }
+
+          const script =
+            document.createElement(
+              "script"
+            );
+
+          script.src =
+            "https://checkout.razorpay.com/v1/checkout.js";
+
+          script.onload = () =>
+            resolve(true);
+
+          script.onerror = () =>
+            resolve(false);
+
+          document.body.appendChild(
+            script
+          );
+        }
+      );
+    };
+
+  /* =======================================================
+     ONLINE PAYMENT
+  ======================================================= */
+
+  const handleOnlinePayment =
+    async () => {
+      const loaded =
+        await loadRazorpay();
+
+      if (!loaded) {
+        throw new Error(
+          "Razorpay failed to load."
+        );
+      }
+
+      /*
+       * IMPORTANT:
+       * Secret key must NEVER be placed here.
+       * Vercel/backend creates the Razorpay order.
+       */
+
+      const createResponse =
+        await fetch(
+          "/api/payment/create-order",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+              amount: Math.round(
+                total * 100
+              ),
+              currency: "INR",
+            }),
+          }
+        );
+
+      const createData =
+        await createResponse.json();
+
+      if (
+        !createResponse.ok ||
+        !createData?.id
+      ) {
+        throw new Error(
+          createData?.error ||
+            "Unable to create payment order."
+        );
+      }
+
+      return new Promise(
+        (resolve, reject) => {
+          const options = {
+            key:
+              createData.keyId ||
+              createData.key ||
+              import.meta.env
+                .VITE_RAZORPAY_KEY_ID,
+
+            amount:
+              createData.amount ||
+              Math.round(
+                total * 100
+              ),
+
+            currency:
+              createData.currency ||
+              "INR",
+
+            name: "Sugar Cafe",
+
+            description:
+              "Sugar Cafe Order",
+
+            order_id:
+              createData.id,
+
+            prefill: {
+              name:
+                customerName,
+
+              contact:
+                customerPhone,
+            },
+
+            theme: {
+              color:
+                "#ff7058",
+            },
+
+            handler:
+              async function (
+                response
+              ) {
+                try {
+                  const verifyResponse =
+                    await fetch(
+                      "/api/payment/verify",
+                      {
+                        method:
+                          "POST",
+
+                        headers: {
+                          "Content-Type":
+                            "application/json",
+                        },
+
+                        body:
+                          JSON.stringify(
+                            {
+                              razorpay_order_id:
+                                response.razorpay_order_id,
+
+                              razorpay_payment_id:
+                                response.razorpay_payment_id,
+
+                              razorpay_signature:
+                                response.razorpay_signature,
+
+                              amount:
+                                Math.round(
+                                  total *
+                                    100
+                                ),
+                            }
+                          ),
+                      }
+                    );
+
+                  const verifyData =
+                    await verifyResponse.json();
+
+                  if (
+                    !verifyResponse.ok ||
+                    !verifyData?.success
+                  ) {
+                    reject(
+                      new Error(
+                        verifyData?.error ||
+                          "Payment verification failed."
+                      )
+                    );
+
+                    return;
+                  }
+
+                  resolve(
+                    response.razorpay_payment_id
+                  );
+                } catch (err) {
+                  reject(err);
+                }
+              },
+
+            modal: {
+              ondismiss:
+                () => {
+                  reject(
+                    new Error(
+                      "Payment cancelled."
+                    )
+                  );
+                },
+            },
+          };
+
+          const razorpay =
+            new window.Razorpay(
+              options
+            );
+
+          razorpay.on(
+            "payment.failed",
+            (response) => {
+              reject(
+                new Error(
+                  response?.error
+                    ?.description ||
+                    "Payment failed."
+                )
+              );
+            }
+          );
+
+          razorpay.open();
+        }
+      );
+    };
+
+  /* =======================================================
+     PLACE ORDER
+  ======================================================= */
+
+  const handlePlaceOrder =
+    async () => {
+      if (
+        placingOrder
+      ) {
+        return;
+      }
+
+      const valid =
+        validateCheckout();
+
+      if (!valid) {
+        return;
+      }
+
+      try {
+        setPlacingOrder(true);
+        setError("");
+
+        localStorage.setItem(
+          "customerName",
+          customerName.trim()
+        );
+
+        localStorage.setItem(
+          "customerPhone",
+          customerPhone.trim()
+        );
+
+        const orderData =
+          buildOrderData();
+
+        /* ================================================
+           COD
+        ================================================ */
+
+        if (
+          paymentMethod ===
+          "Cash on Delivery"
+        ) {
+          const orderId =
+            await createFirestoreOrder(
+              orderData
+            );
+
+          localStorage.setItem(
+            "lastOrderId",
+            orderId
+          );
+
+          if (clearCart) {
+            clearCart();
+          }
+
+          navigate(
+            `/order-success?orderId=${orderId}`
+          );
+
+          return;
+        }
+
+        /* ================================================
+           ONLINE PAYMENT
+        ================================================ */
+
+        const paymentId =
+          await handleOnlinePayment();
+
+        const orderId =
+          await createFirestoreOrder(
+            {
+              ...orderData,
+
+              paymentMethod:
+                "Online Payment",
+
+              paymentStatus:
+                "Paid",
+
+              razorpayPaymentId:
+                paymentId,
+            },
+            paymentId
+          );
+
+        localStorage.setItem(
+          "lastOrderId",
+          orderId
+        );
+
+        if (clearCart) {
+          clearCart();
+        }
+
+        navigate(
+          `/order-success?orderId=${orderId}`
+        );
+      } catch (err) {
+        console.error(
+          "Place order error:",
+          err
+        );
+
+        setError(
+          err?.message ||
+            "Unable to place order. Please try again."
+        );
+      } finally {
+        setPlacingOrder(false);
+      }
+    };
+
+  /* =======================================================
+     EMPTY CART
+  ======================================================= */
+
+  if (!cartItems.length) {
+    return (
+      <div className="checkout-page">
+        <div className="checkout-card">
+          <div
+            style={{
+              textAlign: "center",
+              padding: "40px 10px",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 55,
+                marginBottom: 15,
+              }}
+            >
+              🛒
+            </div>
+
+            <h2
+              style={{
+                color: "#fff",
+                margin: 0,
+              }}
+            >
+              Your cart is empty
+            </h2>
+
+            <button
+              type="button"
+              className="place-order-btn"
+              style={{
+                marginTop: 20,
+              }}
+              onClick={() =>
+                navigate("/")
+              }
+            >
+              Browse Menu
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
-  .checkout-card {
-    padding: 22px 18px;
-    border-radius: 27px;
-    margin-bottom: 15px;
-  }
-
-  /* ---------- headings ---------- */
-
-  .section-heading {
-    gap: 14px;
-    margin-bottom: 20px;
-  }
-
-  .section-icon {
-    width: 55px;
-    height: 55px;
-    min-width: 55px;
-    border-radius: 18px;
-    font-size: 25px;
-  }
-
-  .section-kicker {
-    font-size: 12px;
-    letter-spacing: 1.8px;
-  }
-
-  .section-heading h2 {
-    font-size: 23px;
-  }
-
-  .section-heading p {
-    font-size: 13px;
-  }
-
-  /* ---------- order type ---------- */
-
-  .order-type-options {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-  .order-type-option {
-    min-height: 82px;
-    padding: 12px 14px;
-    border-radius: 20px;
-  }
-
-  .order-type-icon {
-    width: 50px;
-    height: 50px;
-    min-width: 50px;
-
-    border-radius: 16px;
-    font-size: 24px;
-  }
-
-  .order-type-content strong {
-    font-size: 17px;
-  }
-
-  .order-type-content small {
-    font-size: 12px;
-  }
-
-  .order-type-radio {
-    width: 38px;
-    height: 38px;
-    min-width: 38px;
-  }
-
-  /* ---------- payment ---------- */
-
-  .payment-options {
-    gap: 11px;
-  }
-
-  .payment-option {
-    min-height: 92px;
-
-    padding: 13px 14px;
-
-    grid-template-columns:
-      54px
-      minmax(0, 1fr)
-      42px;
-
-    gap: 12px;
-
-    border-radius: 24px;
-  }
-
-  .payment-option-icon {
-    width: 54px;
-    height: 54px;
-
-    border-radius: 17px;
-    font-size: 25px;
-  }
-
-  .payment-option strong {
-    font-size: 17px;
-  }
-
-  .payment-option small {
-    font-size: 13px;
-  }
-
-  .radio-modern {
-    width: 40px;
-    height: 40px;
-  }
-
-  /* ---------- customer ---------- */
-
-  .customer-profile-box {
-    gap: 13px;
-  }
-
-  .customer-avatar {
-    width: 56px;
-    height: 56px;
-    min-width: 56px;
-
-    border-radius: 18px;
-    font-size: 27px;
-  }
-
-  .customer-profile-box strong {
-    font-size: 18px;
-  }
-
-  .customer-profile-box span {
-    font-size: 14px;
-  }
-
-  /* ---------- address ---------- */
-
-  .address-preview {
-    padding: 14px;
-    border-radius: 17px;
-  }
-
-  .address-preview-content > strong {
-    font-size: 14px;
-  }
-
-  /* ---------- loyalty ---------- */
-
-  .loyalty-card {
-    padding: 23px 18px;
-  }
-
-  .loyalty-progress-row {
-    gap: 7px;
-    margin: 22px 0 15px;
-  }
-
-  .loyalty-dot {
-    min-width: 30px;
-    max-width: 43px;
-    font-size: 13px;
-  }
-
-  /* ---------- bill ---------- */
-
-  .bill-card {
-    padding: 24px 18px;
-  }
-
-  .bill-line {
-    gap: 12px;
-    padding: 8px 0;
-  }
-
-  .bill-line > span {
-    font-size: 15px;
-  }
-
-  .bill-line > strong {
-    font-size: 16px;
-  }
-
-  .total-line > span {
-    font-size: 18px;
-  }
-
-  .total-line > strong {
-    font-size: 21px;
-  }
-
-  /* ---------- textarea ---------- */
-
-  .checkout-card textarea,
-  .special-instructions textarea {
-    min-height: 105px;
-    font-size: 14px;
-  }
-
-  /* ---------- bottom ---------- */
-
-  .checkout-total-mini span {
-    font-size: 16px;
-  }
-
-  .checkout-total-mini strong {
-    font-size: 22px;
-  }
-
-  .place-order-btn {
-    min-height: 58px;
-    font-size: 16px;
-    border-radius: 18px;
-  }
-
-  .checkout-secure-note {
-    font-size: 12px;
-  }
-}
-
-/* =========================================================
-   VERY SMALL PHONES
-========================================================= */
-
-@media (max-width: 380px) {
-
-  .checkout-page {
-    padding-left: 9px;
-    padding-right: 9px;
-  }
-
-  .checkout-card {
-    padding-left: 15px;
-    padding-right: 15px;
-  }
-
-  .section-heading {
-    gap: 10px;
-  }
-
-  .section-icon {
-    width: 50px;
-    height: 50px;
-    min-width: 50px;
-  }
-
-  .section-heading h2 {
-    font-size: 21px;
-  }
-
-  .payment-option {
-    grid-template-columns: 50px minmax(0,1fr) 38px;
-    gap: 9px;
-  }
-
-  .payment-option-icon {
-    width: 50px;
-    height: 50px;
-  }
-
-  .radio-modern {
-    width: 36px;
-    height: 36px;
-  }
-
-  .loyalty-dot {
-    min-width: 27px;
-  }
+  /* =======================================================
+     JSX
+  ======================================================= */
+
+  return (
+    <div className="checkout-page">
+
+      {/* ==================================================
+          HEADER
+      ================================================== */}
+
+      <div
+        style={{
+          marginBottom: 22,
+          padding: "4px 4px",
+        }}
+      >
+        <button
+          type="button"
+          onClick={() =>
+            navigate(-1)
+          }
+          style={{
+            border: 0,
+            background:
+              "transparent",
+            color: "#111",
+            fontSize: 26,
+            cursor: "pointer",
+            marginBottom: 8,
+          }}
+        >
+          ←
+        </button>
+
+        <div
+          style={{
+            color: "#111",
+            fontSize: 15,
+            marginBottom: 2,
+          }}
+        >
+          SUGAR CAFE
+        </div>
+
+        <h1
+          style={{
+            margin: 0,
+            color: "#111",
+            fontSize: 42,
+            lineHeight: 1.05,
+            fontWeight: 900,
+          }}
+        >
+          Checkout
+        </h1>
+
+        <p
+          style={{
+            margin:
+              "8px 0 0",
+            color: "#111",
+            fontSize: 18,
+          }}
+        >
+          Almost there! Your delicious
+          food is one step away
+        </p>
+
+        <div
+          style={{
+            marginTop: 15,
+            color: "#111",
+            fontWeight: 700,
+          }}
+        >
+          ✨
+          <br />
+          ✓
+          <br />
+          <strong>
+            100% Secure
+          </strong>
+        </div>
+      </div>
+
+      {/* ==================================================
+          ORDER TYPE
+      ================================================== */}
+
+      <section className="checkout-card">
+
+        <div className="section-heading">
+
+          <div className="section-icon">
+            🛵
+          </div>
+
+          <div>
+            <span className="section-kicker">
+              CHOOSE YOUR OPTION
+            </span>
+
+            <h2>
+              Order Type
+            </h2>
+
+            <p>
+              How would you like to
+              receive your order?
+            </p>
+          </div>
+
+        </div>
+
+        <div className="order-type-options">
+
+          <button
+            type="button"
+            className={`order-type-option ${
+              orderType ===
+              "delivery"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              handleOrderTypeChange(
+                "delivery"
+              )
+            }
+          >
+
+            <div className="order-type-icon">
+              🛵
+            </div>
+
+            <div className="order-type-content">
+              <strong>
+                Delivery
+              </strong>
+
+              <small>
+                We deliver to your
+                location
+              </small>
+            </div>
+
+            <div className="order-type-radio">
+              {orderType ===
+                "delivery" &&
+                "✓"}
+            </div>
+
+          </button>
+
+          <button
+            type="button"
+            className={`order-type-option ${
+              orderType ===
+              "takeaway"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              handleOrderTypeChange(
+                "takeaway"
+              )
+            }
+          >
+
+            <div className="order-type-icon">
+              🛍️
+            </div>
+
+            <div className="order-type-content">
+              <strong>
+                Takeaway
+              </strong>
+
+              <small>
+                Pick up from our
+                cafe
+              </small>
+            </div>
+
+            <div className="order-type-radio">
+              {orderType ===
+                "takeaway" &&
+                "✓"}
+            </div>
+
+          </button>
+
+        </div>
+      </section>
+
+      {/* ==================================================
+          DELIVERY LOCATION
+      ================================================== */}
+
+      {orderType ===
+        "delivery" && (
+        <section className="checkout-card location-card">
+
+          <div className="section-heading">
+
+            <div className="section-icon">
+              📍
+            </div>
+
+            <div>
+              <span className="section-kicker">
+                DELIVERY
+              </span>
+
+              <h2>
+                Delivery Location
+              </h2>
+
+              <p>
+                Your location is detected
+                automatically
+              </p>
+            </div>
+
+          </div>
+
+          <div className="location-controls">
+
+            <button
+              type="button"
+              className="location-button"
+              onClick={
+                useCurrentLocation
+              }
+              disabled={
+                locationLoading
+              }
+            >
+              📍{" "}
+              {locationLoading
+                ? "Detecting location..."
+                : "Use My Current Location"}
+            </button>
+
+            <p
+              style={{
+                margin: 0,
+                color:
+                  "rgba(255,255,255,.6)",
+                fontSize: 14,
+              }}
+            >
+              Move the map to set
+              delivery location
+            </p>
+
+            <div
+              style={{
+                width: "100%",
+                overflow: "hidden",
+                borderRadius: 20,
+                marginTop: 4,
+              }}
+            >
+              <MapContainer
+                center={
+                  location
+                    ? [
+                        location.lat,
+                        location.lng,
+                      ]
+                    : [
+                        22.3595,
+                        82.7501,
+                      ]
+                }
+                zoom={14}
+                scrollWheelZoom={true}
+                style={{
+                  height: 280,
+                  width: "100%",
+                }}
+              >
+
+                <TileLayer
+                  attribution="© OpenStreetMap contributors"
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+
+                <LocationPicker
+                  onSelect={
+                    handleLocationSelect
+                  }
+                />
+
+                {location && (
+                  <Marker
+                    position={[
+                      location.lat,
+                      location.lng,
+                    ]}
+                    icon={markerIcon}
+                  />
+                )}
+
+              </MapContainer>
+            </div>
+
+            {address && (
+              <div className="address-preview">
+
+                <div
+                  style={{
+                    fontSize: 23,
+                  }}
+                >
+                  📍
+                </div>
+
+                <div className="address-preview-content">
+
+                  <span>
+                    Selected address
+                  </span>
+
+                  <strong>
+                    {address}
+                  </strong>
+
+                </div>
+
+              </div>
+            )}
+
+            {location && (
+              <div className="distance-status">
+                📏 Distance:{" "}
+                <strong>
+                  {deliveryDistance.toFixed(
+                    2
+                  )}{" "}
+                  km
+                </strong>
+
+                {" / "}
+
+                {deliveryAvailable ? (
+                  <span
+                    style={{
+                      color:
+                        "#5ee39a",
+                      fontWeight: 700,
+                    }}
+                  >
+                    ✓ Delivery available
+                  </span>
+                ) : (
+                  <span
+                    style={{
+                      color:
+                        "#ff765e",
+                      fontWeight: 700,
+                    }}
+                  >
+                    ✕ Outside delivery
+                    area
+                  </span>
+                )}
+              </div>
+            )}
+
+            <button
+              type="button"
+              className="location-button"
+              onClick={
+                confirmLocation
+              }
+              disabled={
+                !location ||
+                !deliveryAvailable
+              }
+            >
+              ✓ Confirm Delivery
+              Location
+            </button>
+
+            {locationError && (
+              <div
+                style={{
+                  color: "#ff765e",
+                  fontSize: 14,
+                  lineHeight: 1.4,
+                }}
+              >
+                {locationError}
+              </div>
+            )}
+
+          </div>
+        </section>
+      )}
+
+      {/* ==================================================
+          CUSTOMER
+      ================================================== */}
+
+      <section className="checkout-card">
+
+        <div className="section-heading">
+
+          <div className="section-icon">
+            👤
+          </div>
+
+          <div>
+            <span className="section-kicker">
+              CUSTOMER
+            </span>
+
+            <h2>
+              Your Details
+            </h2>
+
+            <p>
+              These details will be
+              used for your order.
+            </p>
+          </div>
+
+        </div>
+
+        <div className="customer-profile-box">
+
+          <div className="customer-avatar">
+            👤
+          </div>
+
+          <div>
+
+            <strong>
+              {customerName ||
+                "Customer"}
+            </strong>
+
+            <span>
+              {customerPhone ||
+                "Phone number not added"}
+            </span>
+
+          </div>
+
+        </div>
+
+        {/* Hidden fallback inputs for
+            customers without saved details */}
+
+        {(!customerName ||
+          !customerPhone) && (
+          <div
+            style={{
+              marginTop: 18,
+              display: "flex",
+              flexDirection:
+                "column",
+              gap: 10,
+            }}
+          >
+
+            {!customerName && (
+              <input
+                value={customerName}
+                onChange={(e) =>
+                  setCustomerName(
+                    e.target.value
+                  )
+                }
+                placeholder="Your name"
+                style={{
+                  width: "100%",
+                  boxSizing:
+                    "border-box",
+                  padding:
+                    "13px 15px",
+                  borderRadius: 14,
+                  border:
+                    "1px solid #d1d5db",
+                  fontSize: 15,
+                }}
+              />
+            )}
+
+            {!customerPhone && (
+              <input
+                value={customerPhone}
+                onChange={(e) =>
+                  setCustomerPhone(
+                    e.target.value
+                  )
+                }
+                placeholder="Phone number"
+                inputMode="numeric"
+                style={{
+                  width: "100%",
+                  boxSizing:
+                    "border-box",
+                  padding:
+                    "13px 15px",
+                  borderRadius: 14,
+                  border:
+                    "1px solid #d1d5db",
+                  fontSize: 15,
+                }}
+              />
+            )}
+
+          </div>
+        )}
+
+      </section>
+
+      {/* ==================================================
+          SPECIAL INSTRUCTIONS
+      ================================================== */}
+
+      <section className="checkout-card special-instructions">
+
+        <div className="section-heading">
+
+          <div className="section-icon">
+            📝
+          </div>
+
+          <div>
+            <span className="section-kicker">
+              OPTIONAL
+            </span>
+
+            <h2>
+              Special Instructions
+            </h2>
+
+            <p>
+              Anything we should know
+              about your order?
+            </p>
+          </div>
+
+        </div>
+
+        <textarea
+          value={specialNote}
+          onChange={(e) =>
+            setSpecialNote(
+              e.target.value.slice(
+                0,
+                500
+              )
+            )
+          }
+          placeholder="Example: Less spicy, no onion, extra sauce..."
+          maxLength={500}
+        />
+
+        <div className="character-count">
+          {specialNote.length}/500
+        </div>
+
+      </section>
+
+      {/* ==================================================
+          LOYALTY
+      ================================================== */}
+
+      <section className="checkout-card loyalty-card">
+
+        <div className="section-heading">
+
+          <div className="section-icon">
+            ⭐
+          </div>
+
+          <div>
+            <span className="section-kicker">
+              SUGAR REWARDS
+            </span>
+
+            <h2>
+              6 + 1 Loyalty
+            </h2>
+
+            <p>
+              Orders of ₹500+ count
+              toward your reward.
+            </p>
+          </div>
+
+        </div>
+
+        <div className="loyalty-progress-row">
+
+          {Array.from({
+            length: 6,
+          }).map((_, index) => (
+            <div
+              key={index}
+              className={`loyalty-dot ${
+                index <
+                loyaltyCount
+                  ? "active"
+                  : ""
+              }`}
+            >
+              {index <
+              loyaltyCount
+                ? "✓"
+                : index + 1}
+            </div>
+          ))}
+
+        </div>
+
+        <div className="loyalty-status-text">
+
+          {loyaltyLoading ? (
+            "Checking your rewards..."
+          ) : loyaltyCount >=
+            LOYALTY_TARGET ? (
+            <>
+              🎉{" "}
+              <strong>
+                Reward unlocked!
+              </strong>
+            </>
+          ) : (
+            <>
+              <strong>
+                {LOYALTY_TARGET -
+                  loyaltyCount}
+              </strong>{" "}
+              more qualifying
+              order
+              {LOYALTY_TARGET -
+                loyaltyCount !==
+              1
+                ? "s"
+                : ""}{" "}
+              to go
+            </>
+          )}
+
+        </div>
+
+      </section>
+
+      {/* ==================================================
+          PAYMENT
+      ================================================== */}
+
+      <section className="checkout-card">
+
+        <div className="section-heading">
+
+          <div className="section-icon">
+            💳
+          </div>
+
+          <div>
+            <span className="section-kicker">
+              PAYMENT METHOD
+            </span>
+
+            <h2>
+              Payment Method
+            </h2>
+
+            <p>
+              Choose how you want to
+              pay
+            </p>
+          </div>
+
+        </div>
+
+        <div className="payment-options">
+
+          {/* COD */}
+
+          <button
+            type="button"
+            className={`payment-option ${
+              paymentMethod ===
+              "Cash on Delivery"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              setPaymentMethod(
+                "Cash on Delivery"
+              )
+            }
+          >
+
+            <span className="payment-option-icon">
+              💵
+            </span>
+
+            <span>
+
+              <strong>
+                Cash on Delivery
+              </strong>
+
+              <small>
+                Pay when your order
+                arrives
+              </small>
+
+            </span>
+
+            <span className="radio-modern">
+              {paymentMethod ===
+                "Cash on Delivery" &&
+                "✓"}
+            </span>
+
+          </button>
+
+          {/* ONLINE */}
+
+          <button
+            type="button"
+            className={`payment-option ${
+              paymentMethod ===
+              "Online Payment"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              setPaymentMethod(
+                "Online Payment"
+              )
+            }
+          >
+
+            <span className="payment-option-icon">
+              📱
+            </span>
+
+            <span>
+
+              <strong>
+                Online Payment
+              </strong>
+
+              <small>
+                UPI / Card / Net
+                Banking
+              </small>
+
+            </span>
+
+            <span className="radio-modern">
+              {paymentMethod ===
+                "Online Payment" &&
+                "✓"}
+            </span>
+
+          </button>
+
+        </div>
+
+      </section>
+
+      {/* ==================================================
+          DAILY SCRATCH
+      ================================================== */}
+
+      <section className="checkout-card scratch-card-section">
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 18,
+          }}
+        >
+
+          <div
+            className="section-icon"
+            style={{
+              background:
+                "#fff",
+              color: "#111",
+            }}
+          >
+            🎁
+          </div>
+
+          <div
+            style={{
+              minWidth: 0,
+              flex: 1,
+            }}
+          >
+
+            <span className="section-kicker">
+              DAILY SCRATCH & WIN
+            </span>
+
+            {scratchEligible ? (
+              <>
+                <h2
+                  style={{
+                    margin: 0,
+                    color: "#fff",
+                    fontSize: 22,
+                  }}
+                >
+                  Scratch unlocked!
+                </h2>
+
+                <p
+                  style={{
+                    margin:
+                      "6px 0 0",
+                    color:
+                      "rgba(255,255,255,.55)",
+                  }}
+                >
+                  Reveal today's
+                  reward
+                </p>
+              </>
+            ) : (
+              <>
+                <h2
+                  style={{
+                    margin: 0,
+                    color: "#fff",
+                    fontSize: 22,
+                  }}
+                >
+                  Add ₹
+                  {amountToUnlockScratch}{" "}
+                  more
+                </h2>
+
+                <p
+                  style={{
+                    margin:
+                      "6px 0 0",
+                    color:
+                      "rgba(255,255,255,.55)",
+                  }}
+                >
+                  to unlock today's
+                  Scratch & Win
+                </p>
+              </>
+            )}
+
+          </div>
+
+          {scratchEligible && (
+            <button
+              type="button"
+              onClick={
+                unlockScratch
+              }
+              className="unlock-scratch-btn"
+              style={{
+                width: "auto",
+                minWidth: 95,
+                padding:
+                  "10px 14px",
+              }}
+            >
+              Scratch
+            </button>
+          )}
+
+        </div>
+
+        {scratchUnlocked &&
+          scratchReward && (
+            <DailyScratchCard
+              reward={
+                scratchReward
+              }
+              onClose={() =>
+                setScratchUnlocked(
+                  false
+                )
+              }
+            />
+          )}
+
+      </section>
+
+      {/* ==================================================
+          ORDER SUMMARY
+      ================================================== */}
+
+      <section className="checkout-card bill-card">
+
+        <div className="section-heading">
+
+          <div className="section-icon">
+            🧾
+          </div>
+
+          <div>
+            <span className="section-kicker">
+              ORDER SUMMARY
+            </span>
+
+            <h2>
+              Bill Details
+            </h2>
+          </div>
+
+        </div>
+
+        <div className="bill-items">
+
+          {cartItems.map(
+            (item, index) => {
+
+              const price =
+                Number(
+                  item.price ??
+                    item.salePrice ??
+                    item.amount ??
+                    0
+                );
+
+              const quantity =
+                Number(
+                  item.quantity ?? 1
+                );
+
+              return (
+                <div
+                  className="bill-line"
+                  key={
+                    item.id ||
+                    index
+                  }
+                >
+                  <span>
+                    {item.name ||
+                      item.title ||
+                      "Item"}{" "}
+                    × {quantity}
+                  </span>
+
+                  <strong>
+                    ₹
+                    {(
+                      price *
+                      quantity
+                    ).toFixed(2)}
+                  </strong>
+                </div>
+              );
+            }
+          )}
+
+          <div className="bill-divider" />
+
+          <div className="bill-line">
+
+            <span>
+              Subtotal
+            </span>
+
+            <strong>
+              ₹
+              {subtotal.toFixed(
+                2
+              )}
+            </strong>
+
+          </div>
+
+          {orderType ===
+            "delivery" && (
+            <div className="bill-line">
+
+              <span>
+                Delivery charge
+                {location
+                  ? ` (${deliveryDistance.toFixed(
+                      1
+                    )} km)`
+                  : ""}
+              </span>
+
+              <strong>
+                ₹
+                {deliveryCharge.toFixed(
+                  2
+                )}
+              </strong>
+
+            </div>
+          )}
+
+          <div className="bill-divider" />
+
+          <div className="bill-line total-line">
+
+            <span>
+              Total
+            </span>
+
+            <strong>
+              ₹
+              {total.toFixed(
+                2
+              )}
+            </strong>
+
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* ==================================================
+          ERROR
+      ================================================== */}
+
+      {error && (
+        <div
+          style={{
+            margin:
+              "4px 2px 15px",
+            padding:
+              "14px 16px",
+            borderRadius: 15,
+            background:
+              "rgba(255,80,70,.12)",
+            border:
+              "1px solid rgba(255,100,80,.3)",
+            color: "#ff8a78",
+            fontSize: 14,
+            lineHeight: 1.45,
+          }}
+        >
+          ⚠️ {error}
+        </div>
+      )}
+
+      {/* ==================================================
+          BOTTOM
+      ================================================== */}
+
+      <div className="checkout-bottom">
+
+        <div className="checkout-total-mini">
+
+          <span>
+            Payable
+          </span>
+
+          <strong>
+            ₹
+            {total.toFixed(
+              2
+            )}
+          </strong>
+
+        </div>
+
+        <button
+          type="button"
+          className="place-order-btn"
+          onClick={
+            handlePlaceOrder
+          }
+          disabled={
+            placingOrder ||
+            (orderType ===
+              "delivery" &&
+              !deliveryAvailable)
+          }
+        >
+          {placingOrder
+            ? paymentMethod ===
+              "Online Payment"
+              ? "Processing Payment..."
+              : "Placing Order..."
+            : orderType ===
+              "delivery"
+            ? "Place Delivery Order"
+            : "Place Takeaway Order"}
+        </button>
+
+        <span className="checkout-secure-note">
+          🔒 Your order and payment
+          information are securely
+          processed.
+        </span>
+
+      </div>
+
+    </div>
+  );
 }
