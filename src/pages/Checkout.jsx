@@ -3,6 +3,7 @@
 ========================================================= */
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+
 import {
   MapContainer,
   TileLayer,
@@ -25,9 +26,7 @@ import {
   Timestamp,
 } from "firebase/firestore";
 
-import {
-  onAuthStateChanged,
-} from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 
 import { db, auth } from "../firebase";
 
@@ -36,12 +35,20 @@ import { db, auth } from "../firebase";
 ========================================================= */
 
 const MAX_DELIVERY_DISTANCE = 15;
+
 const DELIVERY_PER_KM = 20;
+
 const MIN_DELIVERY_CHARGE = 20;
+
 const MAX_DELIVERY_CHARGE = 300;
 
+/* ---------- LOYALTY ---------- */
+
 const LOYALTY_MIN_BILL = 500;
+
 const LOYALTY_TARGET = 6;
+
+/* ---------- DAILY SCRATCH ---------- */
 
 const DAILY_SCRATCH_MIN_BILL = 499;
 
@@ -51,16 +58,19 @@ const DAILY_SCRATCH_REWARDS = [
     discountPercent: 5,
     label: "5% OFF",
   },
+
   {
     type: "free",
     itemName: "Cheese Aloo Puff",
     label: "FREE Cheese Aloo Puff",
   },
+
   {
     type: "free",
     itemName: "Veg Aloo Tikka Burger",
     label: "FREE Veg Aloo Tikka Burger",
   },
+
   {
     type: "free",
     itemName: "French Fries",
@@ -83,6 +93,7 @@ const markerIcon = new L.Icon({
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
 
   iconSize: [25, 41],
+
   iconAnchor: [12, 41],
 });
 
@@ -90,11 +101,19 @@ const markerIcon = new L.Icon({
    DISTANCE
 ========================================================= */
 
-function calculateDistance(lat1, lon1, lat2, lon2) {
+function calculateDistance(
+  lat1,
+  lon1,
+  lat2,
+  lon2
+) {
   const R = 6371;
 
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const dLat =
+    ((lat2 - lat1) * Math.PI) / 180;
+
+  const dLon =
+    ((lon2 - lon1) * Math.PI) / 180;
 
   const a =
     Math.sin(dLat / 2) ** 2 +
@@ -103,13 +122,17 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
       Math.sin(dLon / 2) ** 2;
 
   const c =
-    2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    2 *
+    Math.atan2(
+      Math.sqrt(a),
+      Math.sqrt(1 - a)
+    );
 
   return R * c;
 }
 
 /* =========================================================
-   MAP CLICK HANDLER
+   MAP LOCATION PICKER
 ========================================================= */
 
 function LocationPicker({ onSelect }) {
@@ -126,82 +149,98 @@ function LocationPicker({ onSelect }) {
 }
 
 /* =========================================================
-   DAILY SCRATCH CARD
+   DAILY SCRATCH RESULT CARD
 ========================================================= */
 
-function DailyScratchCard({ reward, onClose }) {
+function DailyScratchCard({ reward }) {
   if (!reward) return null;
 
   return (
     <div
       style={{
-        marginTop: 16,
-        padding: 20,
+        marginTop: 18,
+
+        padding:
+          "20px 16px 24px",
+
         borderRadius: 24,
+
         background:
-          "linear-gradient(145deg,#162f4b,#0d243b)",
+          "linear-gradient(145deg,#0d2d38,#09252f)",
+
         border:
-          "1px solid rgba(255,118,94,.22)",
+          "1px solid rgba(82,227,154,.28)",
+
         textAlign: "center",
+
+        boxShadow:
+          "0 10px 35px rgba(0,0,0,.18)",
       }}
     >
+      {/* CELEBRATION */}
+
       <div
         style={{
-          fontSize: 42,
-          marginBottom: 8,
+          fontSize: 28,
+          marginBottom: 4,
+        }}
+      >
+        ✨ 🎉 ✨
+      </div>
+
+      {/* GIFT */}
+
+      <div
+        style={{
+          fontSize: 58,
+          lineHeight: 1,
+          marginBottom: 12,
         }}
       >
         🎁
       </div>
 
+      {/* WON */}
+
       <div
         style={{
-          color: "#ff765e",
-          fontSize: 12,
-          fontWeight: 800,
-          letterSpacing: 2,
+          color: "#5ee39a",
+          fontSize: 13,
+          fontWeight: 900,
+          letterSpacing: 3,
+          marginBottom: 10,
         }}
       >
-        TODAY'S SCRATCH & WIN
+        YOU WON
       </div>
+
+      {/* REWARD */}
 
       <h3
         style={{
-          margin: "8px 0",
+          margin: 0,
           color: "#fff",
-          fontSize: 24,
+          fontSize: 28,
+          lineHeight: 1.15,
+          fontWeight: 900,
         }}
       >
         {reward.label}
       </h3>
 
+      {/* DESCRIPTION */}
+
       <p
         style={{
-          margin: 0,
-          color: "rgba(255,255,255,.6)",
+          margin: "12px 0 0",
+          color:
+            "rgba(255,255,255,.62)",
           fontSize: 14,
         }}
       >
-        Your reward will be attached to this order.
+        Your free reward will be
+        added to this order.
       </p>
-
-      {onClose && (
-        <button
-          type="button"
-          onClick={onClose}
-          style={{
-            marginTop: 16,
-            padding: "10px 20px",
-            borderRadius: 14,
-            border: 0,
-            background: "#ff765e",
-            color: "#fff",
-            fontWeight: 700,
-          }}
-        >
-          Done
-        </button>
-      )}
     </div>
   );
 }
@@ -224,29 +263,39 @@ export default function Checkout() {
      CUSTOMER
   ======================================================= */
 
-  const [customerName, setCustomerName] = useState(
-    localStorage.getItem("customerName") || ""
-  );
+  const [customerName, setCustomerName] =
+    useState(
+      localStorage.getItem(
+        "customerName"
+      ) || ""
+    );
 
-  const [customerPhone, setCustomerPhone] = useState(
-    localStorage.getItem("customerPhone") || ""
-  );
+  const [customerPhone, setCustomerPhone] =
+    useState(
+      localStorage.getItem(
+        "customerPhone"
+      ) || ""
+    );
 
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] =
+    useState(null);
 
   /* =======================================================
      ORDER TYPE
   ======================================================= */
 
-  const [orderType, setOrderType] = useState("delivery");
+  const [orderType, setOrderType] =
+    useState("delivery");
 
   /* =======================================================
      LOCATION
   ======================================================= */
 
-  const [location, setLocation] = useState(null);
+  const [location, setLocation] =
+    useState(null);
 
-  const [address, setAddress] = useState("");
+  const [address, setAddress] =
+    useState("");
 
   const [locationLoading, setLocationLoading] =
     useState(false);
@@ -261,7 +310,8 @@ export default function Checkout() {
      CUSTOMER NOTE
   ======================================================= */
 
-  const [specialNote, setSpecialNote] = useState("");
+  const [specialNote, setSpecialNote] =
+    useState("");
 
   /* =======================================================
      PAYMENT
@@ -274,7 +324,8 @@ export default function Checkout() {
      LOYALTY
   ======================================================= */
 
-  const [loyaltyCount, setLoyaltyCount] = useState(0);
+  const [loyaltyCount, setLoyaltyCount] =
+    useState(0);
 
   const [loyaltyLoading, setLoyaltyLoading] =
     useState(true);
@@ -296,19 +347,23 @@ export default function Checkout() {
   const [placingOrder, setPlacingOrder] =
     useState(false);
 
-  const [error, setError] = useState("");
+  const [error, setError] =
+    useState("");
 
   /* =======================================================
      AUTH
   ======================================================= */
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(
-      auth,
-      (user) => {
-        setCurrentUser(user || null);
-      }
-    );
+    const unsubscribe =
+      onAuthStateChanged(
+        auth,
+        (user) => {
+          setCurrentUser(
+            user || null
+          );
+        }
+      );
 
     return () => unsubscribe();
   }, []);
@@ -318,20 +373,26 @@ export default function Checkout() {
   ======================================================= */
 
   const subtotal = useMemo(() => {
-    return cartItems.reduce((sum, item) => {
-      const price = Number(
-        item.price ??
-          item.salePrice ??
-          item.amount ??
-          0
-      );
+    return cartItems.reduce(
+      (sum, item) => {
+        const price = Number(
+          item.price ??
+            item.salePrice ??
+            item.amount ??
+            0
+        );
 
-      const quantity = Number(
-        item.quantity ?? 1
-      );
+        const quantity = Number(
+          item.quantity ?? 1
+        );
 
-      return sum + price * quantity;
-    }, 0);
+        return (
+          sum +
+          price * quantity
+        );
+      },
+      0
+    );
   }, [cartItems]);
 
   /* =======================================================
@@ -342,12 +403,12 @@ export default function Checkout() {
     if (!location) return 0;
 
     /*
-      Sugar Cafe approximate base location.
-      Replace only if your existing project already
-      has a fixed cafe latitude/longitude.
+      Sugar Cafe approximate
+      base location.
     */
 
     const cafeLat = 22.3595;
+
     const cafeLng = 82.7501;
 
     return calculateDistance(
@@ -363,7 +424,9 @@ export default function Checkout() {
   ======================================================= */
 
   const deliveryCharge = useMemo(() => {
-    if (orderType !== "delivery") {
+    if (
+      orderType !== "delivery"
+    ) {
       return 0;
     }
 
@@ -372,11 +435,15 @@ export default function Checkout() {
     }
 
     const charge = Math.ceil(
-      deliveryDistance * DELIVERY_PER_KM
+      deliveryDistance *
+        DELIVERY_PER_KM
     );
 
     return Math.min(
-      Math.max(charge, MIN_DELIVERY_CHARGE),
+      Math.max(
+        charge,
+        MIN_DELIVERY_CHARGE
+      ),
       MAX_DELIVERY_CHARGE
     );
   }, [
@@ -403,39 +470,54 @@ export default function Checkout() {
   const total = useMemo(() => {
     return Math.max(
       0,
-      subtotal + deliveryCharge
+      subtotal +
+        deliveryCharge
     );
-  }, [subtotal, deliveryCharge]);
+  }, [
+    subtotal,
+    deliveryCharge,
+  ]);
 
   /* =======================================================
      SCRATCH ELIGIBILITY
   ======================================================= */
 
   const scratchEligible =
-    subtotal >= DAILY_SCRATCH_MIN_BILL;
+    subtotal >=
+    DAILY_SCRATCH_MIN_BILL;
 
-  const amountToUnlockScratch = Math.max(
-    0,
-    DAILY_SCRATCH_MIN_BILL - subtotal
-  );
+  const amountToUnlockScratch =
+    Math.max(
+      0,
+      DAILY_SCRATCH_MIN_BILL -
+        subtotal
+    );
 
   /* =======================================================
-     AUTH / CUSTOMER LOAD
+     CUSTOMER LOAD
   ======================================================= */
 
   useEffect(() => {
     const savedName =
-      localStorage.getItem("customerName");
+      localStorage.getItem(
+        "customerName"
+      );
 
     const savedPhone =
-      localStorage.getItem("customerPhone");
+      localStorage.getItem(
+        "customerPhone"
+      );
 
     if (savedName) {
-      setCustomerName(savedName);
+      setCustomerName(
+        savedName
+      );
     }
 
     if (savedPhone) {
-      setCustomerPhone(savedPhone);
+      setCustomerPhone(
+        savedPhone
+      );
     }
   }, []);
 
@@ -452,7 +534,9 @@ export default function Checkout() {
       try {
         const customerId =
           currentUser?.uid ||
-          localStorage.getItem("customerId") ||
+          localStorage.getItem(
+            "customerId"
+          ) ||
           customerPhone;
 
         if (!customerId) {
@@ -461,7 +545,10 @@ export default function Checkout() {
         }
 
         const q = query(
-          collection(db, "orders"),
+          collection(
+            db,
+            "orders"
+          ),
           where(
             "customerId",
             "==",
@@ -469,28 +556,33 @@ export default function Checkout() {
           )
         );
 
-        const snapshot = await getDocs(q);
+        const snapshot =
+          await getDocs(q);
 
         const qualifyingOrders =
-          snapshot.docs.filter((doc) => {
-            const data = doc.data();
+          snapshot.docs.filter(
+            (doc) => {
+              const data =
+                doc.data();
 
-            const bill =
-              Number(
-                data.subtotal ??
-                  data.bill ??
-                  data.total ??
-                  0
+              const bill =
+                Number(
+                  data.subtotal ??
+                    data.bill ??
+                    data.total ??
+                    0
+                );
+
+              return (
+                String(
+                  data.status || ""
+                ).toLowerCase() ===
+                  "delivered" &&
+                bill >=
+                  LOYALTY_MIN_BILL
               );
-
-            return (
-              String(
-                data.status || ""
-              ).toLowerCase() ===
-                "delivered" &&
-              bill >= LOYALTY_MIN_BILL
-            );
-          });
+            }
+          );
 
         if (!cancelled) {
           setLoyaltyCount(
@@ -511,7 +603,9 @@ export default function Checkout() {
         }
       } finally {
         if (!cancelled) {
-          setLoyaltyLoading(false);
+          setLoyaltyLoading(
+            false
+          );
         }
       }
     }
@@ -530,45 +624,48 @@ export default function Checkout() {
      REVERSE GEOCODING
   ======================================================= */
 
-  const reverseGeocode = useCallback(
-    async (lat, lng) => {
-      try {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
-          {
-            headers: {
-              Accept:
-                "application/json",
-              "User-Agent":
-                "SugarCafe/1.0",
-            },
+  const reverseGeocode =
+    useCallback(
+      async (lat, lng) => {
+        try {
+          const response =
+            await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+              {
+                headers: {
+                  Accept:
+                    "application/json",
+
+                  "User-Agent":
+                    "SugarCafe/1.0",
+                },
+              }
+            );
+
+          if (!response.ok) {
+            throw new Error(
+              "Unable to get address"
+            );
           }
-        );
 
-        if (!response.ok) {
-          throw new Error(
-            "Unable to get address"
+          const data =
+            await response.json();
+
+          return (
+            data.display_name ||
+            "Selected location"
           );
+        } catch (err) {
+          console.error(
+            "Reverse geocoding error:",
+            err
+          );
+
+          return "Selected location";
         }
-
-        const data =
-          await response.json();
-
-        return (
-          data.display_name ||
-          "Selected location"
-        );
-      } catch (err) {
-        console.error(
-          "Reverse geocoding error:",
-          err
-        );
-
-        return "Selected location";
-      }
-    },
-    []
-  );
+      },
+      []
+    );
 
   /* =======================================================
      LOCATION SELECT
@@ -576,13 +673,19 @@ export default function Checkout() {
 
   const handleLocationSelect =
     useCallback(
-      async ({ lat, lng }) => {
+      async ({
+        lat,
+        lng,
+      }) => {
         setLocation({
           lat,
           lng,
         });
 
-        setLocationConfirmed(false);
+        setLocationConfirmed(
+          false
+        );
+
         setLocationError("");
 
         const newAddress =
@@ -591,7 +694,9 @@ export default function Checkout() {
             lng
           );
 
-        setAddress(newAddress);
+        setAddress(
+          newAddress
+        );
       },
       [reverseGeocode]
     );
@@ -602,7 +707,9 @@ export default function Checkout() {
 
   const useCurrentLocation =
     useCallback(() => {
-      if (!navigator.geolocation) {
+      if (
+        !navigator.geolocation
+      ) {
         setLocationError(
           "Location is not supported on this device."
         );
@@ -611,23 +718,29 @@ export default function Checkout() {
       }
 
       setLocationLoading(true);
+
       setLocationError("");
 
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const lat =
-            position.coords.latitude;
+            position.coords
+              .latitude;
 
           const lng =
-            position.coords.longitude;
+            position.coords
+              .longitude;
 
           await handleLocationSelect({
             lat,
             lng,
           });
 
-          setLocationLoading(false);
+          setLocationLoading(
+            false
+          );
         },
+
         (err) => {
           console.error(
             "Location error:",
@@ -638,60 +751,78 @@ export default function Checkout() {
             "Unable to detect your location. Please allow location access."
           );
 
-          setLocationLoading(false);
+          setLocationLoading(
+            false
+          );
         },
+
         {
-          enableHighAccuracy: true,
+          enableHighAccuracy:
+            true,
+
           timeout: 15000,
+
           maximumAge: 0,
         }
       );
-    }, [handleLocationSelect]);
+    }, [
+      handleLocationSelect,
+    ]);
 
   /* =======================================================
      CONFIRM LOCATION
   ======================================================= */
 
-  const confirmLocation = () => {
-    if (!location) {
-      setLocationError(
-        "Please select your delivery location."
+  const confirmLocation =
+    () => {
+      if (!location) {
+        setLocationError(
+          "Please select your delivery location."
+        );
+
+        return;
+      }
+
+      if (
+        deliveryDistance >
+        MAX_DELIVERY_DISTANCE
+      ) {
+        setLocationError(
+          `Delivery is available only within ${MAX_DELIVERY_DISTANCE} km.`
+        );
+
+        return;
+      }
+
+      setLocationConfirmed(
+        true
       );
 
-      return;
-    }
-
-    if (
-      deliveryDistance >
-      MAX_DELIVERY_DISTANCE
-    ) {
-      setLocationError(
-        `Delivery is available only within ${MAX_DELIVERY_DISTANCE} km.`
-      );
-
-      return;
-    }
-
-    setLocationConfirmed(true);
-    setLocationError("");
-  };
+      setLocationError("");
+    };
 
   /* =======================================================
      ORDER TYPE CHANGE
   ======================================================= */
 
-  const handleOrderTypeChange = (
-    type
-  ) => {
-    setOrderType(type);
-    setLocationError("");
+  const handleOrderTypeChange =
+    (type) => {
+      setOrderType(type);
 
-    if (type === "takeaway") {
-      setLocationConfirmed(true);
-    } else {
-      setLocationConfirmed(false);
-    }
-  };
+      setLocationError("");
+
+      if (
+        type === "takeaway"
+      ) {
+        setLocationConfirmed(
+          true
+        );
+      } else {
+        setLocationConfirmed(
+          false
+        );
+      }
+    };
 
   /* =======================================================
      SCRATCH UNLOCK
@@ -713,212 +844,274 @@ export default function Checkout() {
         randomIndex
       ];
 
-    setScratchReward(reward);
-    setScratchUnlocked(true);
+    setScratchReward(
+      reward
+    );
+
+    setScratchUnlocked(
+      true
+    );
   };
 
   /* =======================================================
      CUSTOMER VALIDATION
   ======================================================= */
 
-  const validateCheckout = () => {
-    setError("");
+  const validateCheckout =
+    () => {
+      setError("");
 
-    if (!customerName.trim()) {
-      setError(
-        "Please enter your name."
-      );
-
-      return false;
-    }
-
-    if (
-      customerPhone.trim().length < 10
-    ) {
-      setError(
-        "Please enter a valid phone number."
-      );
-
-      return false;
-    }
-
-    if (
-      orderType === "delivery"
-    ) {
-      if (!location) {
+      if (
+        !customerName.trim()
+      ) {
         setError(
-          "Please select your delivery location."
+          "Please enter your name."
         );
 
         return false;
       }
 
       if (
-        !locationConfirmed
+        customerPhone.trim()
+          .length < 10
       ) {
         setError(
-          "Please confirm your delivery location."
+          "Please enter a valid phone number."
         );
 
         return false;
       }
 
       if (
-        deliveryDistance >
-        MAX_DELIVERY_DISTANCE
+        orderType ===
+        "delivery"
+      ) {
+        if (!location) {
+          setError(
+            "Please select your delivery location."
+          );
+
+          return false;
+        }
+
+        if (
+          !locationConfirmed
+        ) {
+          setError(
+            "Please confirm your delivery location."
+          );
+
+          return false;
+        }
+
+        if (
+          deliveryDistance >
+          MAX_DELIVERY_DISTANCE
+        ) {
+          setError(
+            "This location is outside our delivery area."
+          );
+
+          return false;
+        }
+      }
+
+      if (
+        !cartItems.length
       ) {
         setError(
-          "This location is outside our delivery area."
+          "Your cart is empty."
         );
 
         return false;
       }
-    }
 
-    if (!cartItems.length) {
-      setError(
-        "Your cart is empty."
-      );
-
-      return false;
-    }
-
-    return true;
-  };
+      return true;
+    };
 
   /* =======================================================
      BUILD ORDER DATA
   ======================================================= */
 
-  const buildOrderData = () => {
-    const customerId =
-      currentUser?.uid ||
-      localStorage.getItem(
-        "customerId"
-      ) ||
-      customerPhone;
+  const buildOrderData =
+    () => {
+      const customerId =
+        currentUser?.uid ||
+        localStorage.getItem(
+          "customerId"
+        ) ||
+        customerPhone;
 
-    const items = cartItems.map(
-      (item) => ({
-        id:
-          item.id ||
-          item.menuId ||
-          null,
+      /* ---------- CART ITEMS ---------- */
 
-        name:
-          item.name ||
-          item.title ||
-          "Item",
+      const items =
+        cartItems.map(
+          (item) => ({
+            id:
+              item.id ||
+              item.menuId ||
+              null,
 
-        price: Number(
-          item.price ??
-            item.salePrice ??
-            item.amount ??
-            0
-        ),
+            name:
+              item.name ||
+              item.title ||
+              "Item",
 
-        quantity: Number(
-          item.quantity ?? 1
-        ),
+            price: Number(
+              item.price ??
+                item.salePrice ??
+                item.amount ??
+                0
+            ),
 
-        image:
-          item.image ||
-          item.imageUrl ||
-          "",
+            quantity: Number(
+              item.quantity ?? 1
+            ),
 
-        category:
-          item.category || "",
-      })
-    );
+            image:
+              item.image ||
+              item.imageUrl ||
+              "",
 
-    return {
-      customerId,
+            category:
+              item.category ||
+              "",
+          })
+        );
 
-      customer: {
-        name: customerName.trim(),
-        phone: customerPhone.trim(),
-      },
+      /* ===================================================
+         ADD FREE SCRATCH REWARD TO ORDER
+      =================================================== */
 
-      customerName:
-        customerName.trim(),
+      if (
+        scratchReward?.type ===
+          "free" &&
+        scratchReward?.itemName
+      ) {
+        items.push({
+          id: `daily-scratch-${scratchReward.itemName
+            .toLowerCase()
+            .replace(/\s+/g, "-")}`,
 
-      customerPhone:
-        customerPhone.trim(),
+          name: `🎁 FREE ${scratchReward.itemName}`,
 
-      orderType,
+          price: 0,
 
-      address:
-        orderType === "delivery"
-          ? address
-          : "Takeaway",
+          quantity: 1,
 
-      location:
-        orderType === "delivery"
-          ? location
-          : null,
+          image: "",
 
-      latitude:
-        orderType === "delivery"
-          ? location?.lat || null
-          : null,
+          category:
+            "Daily Scratch Reward",
 
-      longitude:
-        orderType === "delivery"
-          ? location?.lng || null
-          : null,
+          isFreeReward: true,
 
-      deliveryDistance:
-        orderType === "delivery"
-          ? Number(
-              deliveryDistance.toFixed(2)
-            )
-          : 0,
+          rewardSource:
+            "Daily Scratch & Win",
+        });
+      }
 
-      items,
+      return {
+        customerId,
 
-      subtotal,
+        customer: {
+          name:
+            customerName.trim(),
 
-      deliveryCharge,
+          phone:
+            customerPhone.trim(),
+        },
 
-      discount: 0,
+        customerName:
+          customerName.trim(),
 
-      gst: 0,
+        customerPhone:
+          customerPhone.trim(),
 
-      total,
+        orderType,
 
-      bill: subtotal,
+        address:
+          orderType ===
+          "delivery"
+            ? address
+            : "Takeaway",
 
-      paymentMethod,
+        location:
+          orderType ===
+          "delivery"
+            ? location
+            : null,
 
-      paymentStatus:
-        paymentMethod ===
-        "Cash on Delivery"
-          ? "Pending"
-          : "Pending",
+        latitude:
+          orderType ===
+          "delivery"
+            ? location?.lat ||
+              null
+            : null,
 
-      status: "Pending",
+        longitude:
+          orderType ===
+          "delivery"
+            ? location?.lng ||
+              null
+            : null,
 
-      specialInstructions:
-        specialNote.trim(),
+        deliveryDistance:
+          orderType ===
+          "delivery"
+            ? Number(
+                deliveryDistance.toFixed(
+                  2
+                )
+              )
+            : 0,
 
-      specialNote:
-        specialNote.trim(),
+        items,
 
-      dailyScratchEligible:
-        scratchEligible,
+        subtotal,
 
-      dailyScratchReward:
-        scratchReward || null,
+        deliveryCharge,
 
-      loyaltyProgress:
-        loyaltyCount,
+        discount: 0,
 
-      createdAt:
-        Timestamp.now(),
+        gst: 0,
 
-      source: "Sugar Cafe Website",
+        total,
+
+        bill: subtotal,
+
+        paymentMethod,
+
+        paymentStatus:
+          paymentMethod ===
+          "Cash on Delivery"
+            ? "Pending"
+            : "Pending",
+
+        status: "Pending",
+
+        specialInstructions:
+          specialNote.trim(),
+
+        specialNote:
+          specialNote.trim(),
+
+        dailyScratchEligible:
+          scratchEligible,
+
+        dailyScratchReward:
+          scratchReward || null,
+
+        loyaltyProgress:
+          loyaltyCount,
+
+        createdAt:
+          Timestamp.now(),
+
+        source:
+          "Sugar Cafe Website",
+      };
     };
-  };
 
   /* =======================================================
      CREATE FIRESTORE ORDER
@@ -954,7 +1147,7 @@ export default function Checkout() {
     };
 
   /* =======================================================
-     RAZORPAY
+     RAZORPAY LOADER
   ======================================================= */
 
   const loadRazorpay =
@@ -965,6 +1158,7 @@ export default function Checkout() {
             window.Razorpay
           ) {
             resolve(true);
+
             return;
           }
 
@@ -1004,12 +1198,6 @@ export default function Checkout() {
         );
       }
 
-      /*
-       * IMPORTANT:
-       * Secret key must NEVER be placed here.
-       * Vercel/backend creates the Razorpay order.
-       */
-
       const createResponse =
         await fetch(
           "/api/payment/create-order",
@@ -1022,9 +1210,11 @@ export default function Checkout() {
             },
 
             body: JSON.stringify({
-              amount: Math.round(
-                total * 100
-              ),
+              amount:
+                Math.round(
+                  total * 100
+                ),
+
               currency: "INR",
             }),
           }
@@ -1044,7 +1234,10 @@ export default function Checkout() {
       }
 
       return new Promise(
-        (resolve, reject) => {
+        (
+          resolve,
+          reject
+        ) => {
           const options = {
             key:
               createData.keyId ||
@@ -1062,7 +1255,8 @@ export default function Checkout() {
               createData.currency ||
               "INR",
 
-            name: "Sugar Cafe",
+            name:
+              "Sugar Cafe",
 
             description:
               "Sugar Cafe Order",
@@ -1188,9 +1382,7 @@ export default function Checkout() {
 
   const handlePlaceOrder =
     async () => {
-      if (
-        placingOrder
-      ) {
+      if (placingOrder) {
         return;
       }
 
@@ -1202,7 +1394,10 @@ export default function Checkout() {
       }
 
       try {
-        setPlacingOrder(true);
+        setPlacingOrder(
+          true
+        );
+
         setError("");
 
         localStorage.setItem(
@@ -1218,9 +1413,9 @@ export default function Checkout() {
         const orderData =
           buildOrderData();
 
-        /* ================================================
+        /* =================================================
            COD
-        ================================================ */
+        ================================================= */
 
         if (
           paymentMethod ===
@@ -1247,9 +1442,9 @@ export default function Checkout() {
           return;
         }
 
-        /* ================================================
+        /* =================================================
            ONLINE PAYMENT
-        ================================================ */
+        ================================================= */
 
         const paymentId =
           await handleOnlinePayment();
@@ -1268,6 +1463,7 @@ export default function Checkout() {
               razorpayPaymentId:
                 paymentId,
             },
+
             paymentId
           );
 
@@ -1294,7 +1490,9 @@ export default function Checkout() {
             "Unable to place order. Please try again."
         );
       } finally {
-        setPlacingOrder(false);
+        setPlacingOrder(
+          false
+        );
       }
     };
 
@@ -1305,13 +1503,19 @@ export default function Checkout() {
   if (!cartItems.length) {
     return (
       <div className="checkout-page">
+
         <div className="checkout-card">
+
           <div
             style={{
-              textAlign: "center",
-              padding: "40px 10px",
+              textAlign:
+                "center",
+
+              padding:
+                "40px 10px",
             }}
           >
+
             <div
               style={{
                 fontSize: 55,
@@ -1342,8 +1546,11 @@ export default function Checkout() {
             >
               Browse Menu
             </button>
+
           </div>
+
         </div>
+
       </div>
     );
   }
@@ -1362,9 +1569,11 @@ export default function Checkout() {
       <div
         style={{
           marginBottom: 22,
-          padding: "4px 4px",
+          padding:
+            "4px 4px",
         }}
       >
+
         <button
           type="button"
           onClick={() =>
@@ -1374,9 +1583,14 @@ export default function Checkout() {
             border: 0,
             background:
               "transparent",
+
             color: "#111",
+
             fontSize: 26,
-            cursor: "pointer",
+
+            cursor:
+              "pointer",
+
             marginBottom: 8,
           }}
         >
@@ -1409,29 +1623,32 @@ export default function Checkout() {
           style={{
             margin:
               "8px 0 0",
+
             color: "#111",
+
             fontSize: 18,
           }}
         >
-          Almost there! Your delicious
-          food is one step away
+          Almost there! Your
+          delicious food is one
+          step away ✨
         </p>
 
         <div
           style={{
             marginTop: 15,
+
             color: "#111",
+
             fontWeight: 700,
           }}
         >
-          ✨
-          <br />
-          ✓
-          <br />
+          ✓{" "}
           <strong>
             100% Secure
           </strong>
         </div>
+
       </div>
 
       {/* ==================================================
@@ -1447,6 +1664,7 @@ export default function Checkout() {
           </div>
 
           <div>
+
             <span className="section-kicker">
               CHOOSE YOUR OPTION
             </span>
@@ -1459,11 +1677,14 @@ export default function Checkout() {
               How would you like to
               receive your order?
             </p>
+
           </div>
 
         </div>
 
         <div className="order-type-options">
+
+          {/* DELIVERY */}
 
           <button
             type="button"
@@ -1485,6 +1706,7 @@ export default function Checkout() {
             </div>
 
             <div className="order-type-content">
+
               <strong>
                 Delivery
               </strong>
@@ -1493,6 +1715,7 @@ export default function Checkout() {
                 We deliver to your
                 location
               </small>
+
             </div>
 
             <div className="order-type-radio">
@@ -1502,6 +1725,8 @@ export default function Checkout() {
             </div>
 
           </button>
+
+          {/* TAKEAWAY */}
 
           <button
             type="button"
@@ -1523,6 +1748,7 @@ export default function Checkout() {
             </div>
 
             <div className="order-type-content">
+
               <strong>
                 Takeaway
               </strong>
@@ -1531,6 +1757,7 @@ export default function Checkout() {
                 Pick up from our
                 cafe
               </small>
+
             </div>
 
             <div className="order-type-radio">
@@ -1542,6 +1769,7 @@ export default function Checkout() {
           </button>
 
         </div>
+
       </section>
 
       {/* ==================================================
@@ -1559,6 +1787,7 @@ export default function Checkout() {
             </div>
 
             <div>
+
               <span className="section-kicker">
                 DELIVERY
               </span>
@@ -1571,6 +1800,7 @@ export default function Checkout() {
                 Your location is detected
                 automatically
               </p>
+
             </div>
 
           </div>
@@ -1596,8 +1826,10 @@ export default function Checkout() {
             <p
               style={{
                 margin: 0,
+
                 color:
                   "rgba(255,255,255,.6)",
+
                 fontSize: 14,
               }}
             >
@@ -1607,12 +1839,19 @@ export default function Checkout() {
 
             <div
               style={{
-                width: "100%",
-                overflow: "hidden",
-                borderRadius: 20,
+                width:
+                  "100%",
+
+                overflow:
+                  "hidden",
+
+                borderRadius:
+                  20,
+
                 marginTop: 4,
               }}
             >
+
               <MapContainer
                 center={
                   location
@@ -1626,7 +1865,9 @@ export default function Checkout() {
                       ]
                 }
                 zoom={14}
-                scrollWheelZoom={true}
+                scrollWheelZoom={
+                  true
+                }
                 style={{
                   height: 280,
                   width: "100%",
@@ -1650,12 +1891,17 @@ export default function Checkout() {
                       location.lat,
                       location.lng,
                     ]}
-                    icon={markerIcon}
+                    icon={
+                      markerIcon
+                    }
                   />
                 )}
 
               </MapContainer>
+
             </div>
+
+            {/* ADDRESS */}
 
             {address && (
               <div className="address-preview">
@@ -1683,14 +1929,17 @@ export default function Checkout() {
               </div>
             )}
 
+            {/* DISTANCE */}
+
             {location && (
               <div className="distance-status">
+
                 📏 Distance:{" "}
+
                 <strong>
                   {deliveryDistance.toFixed(
                     2
-                  )}{" "}
-                  km
+                  )} km
                 </strong>
 
                 {" / "}
@@ -1700,7 +1949,9 @@ export default function Checkout() {
                     style={{
                       color:
                         "#5ee39a",
-                      fontWeight: 700,
+
+                      fontWeight:
+                        700,
                     }}
                   >
                     ✓ Delivery available
@@ -1710,15 +1961,20 @@ export default function Checkout() {
                     style={{
                       color:
                         "#ff765e",
-                      fontWeight: 700,
+
+                      fontWeight:
+                        700,
                     }}
                   >
                     ✕ Outside delivery
                     area
                   </span>
                 )}
+
               </div>
             )}
+
+            {/* CONFIRM */}
 
             <button
               type="button"
@@ -1738,9 +1994,13 @@ export default function Checkout() {
             {locationError && (
               <div
                 style={{
-                  color: "#ff765e",
+                  color:
+                    "#ff765e",
+
                   fontSize: 14,
-                  lineHeight: 1.4,
+
+                  lineHeight:
+                    1.4,
                 }}
               >
                 {locationError}
@@ -1748,6 +2008,7 @@ export default function Checkout() {
             )}
 
           </div>
+
         </section>
       )}
 
@@ -1764,6 +2025,7 @@ export default function Checkout() {
           </div>
 
           <div>
+
             <span className="section-kicker">
               CUSTOMER
             </span>
@@ -1776,6 +2038,7 @@ export default function Checkout() {
               These details will be
               used for your order.
             </p>
+
           </div>
 
         </div>
@@ -1802,39 +2065,52 @@ export default function Checkout() {
 
         </div>
 
-        {/* Hidden fallback inputs for
-            customers without saved details */}
+        {/* FALLBACK INPUTS */}
 
         {(!customerName ||
           !customerPhone) && (
           <div
             style={{
               marginTop: 18,
-              display: "flex",
+
+              display:
+                "flex",
+
               flexDirection:
                 "column",
+
               gap: 10,
             }}
           >
 
             {!customerName && (
               <input
-                value={customerName}
+                value={
+                  customerName
+                }
                 onChange={(e) =>
                   setCustomerName(
-                    e.target.value
+                    e.target
+                      .value
                   )
                 }
                 placeholder="Your name"
                 style={{
-                  width: "100%",
+                  width:
+                    "100%",
+
                   boxSizing:
                     "border-box",
+
                   padding:
                     "13px 15px",
-                  borderRadius: 14,
+
+                  borderRadius:
+                    14,
+
                   border:
                     "1px solid #d1d5db",
+
                   fontSize: 15,
                 }}
               />
@@ -1842,23 +2118,33 @@ export default function Checkout() {
 
             {!customerPhone && (
               <input
-                value={customerPhone}
+                value={
+                  customerPhone
+                }
                 onChange={(e) =>
                   setCustomerPhone(
-                    e.target.value
+                    e.target
+                      .value
                   )
                 }
                 placeholder="Phone number"
                 inputMode="numeric"
                 style={{
-                  width: "100%",
+                  width:
+                    "100%",
+
                   boxSizing:
                     "border-box",
+
                   padding:
                     "13px 15px",
-                  borderRadius: 14,
+
+                  borderRadius:
+                    14,
+
                   border:
                     "1px solid #d1d5db",
+
                   fontSize: 15,
                 }}
               />
@@ -1882,6 +2168,7 @@ export default function Checkout() {
           </div>
 
           <div>
+
             <span className="section-kicker">
               OPTIONAL
             </span>
@@ -1894,12 +2181,15 @@ export default function Checkout() {
               Anything we should know
               about your order?
             </p>
+
           </div>
 
         </div>
 
         <textarea
-          value={specialNote}
+          value={
+            specialNote
+          }
           onChange={(e) =>
             setSpecialNote(
               e.target.value.slice(
@@ -1927,10 +2217,11 @@ export default function Checkout() {
         <div className="section-heading">
 
           <div className="section-icon">
-            ⭐
+            🎁
           </div>
 
           <div>
+
             <span className="section-kicker">
               SUGAR REWARDS
             </span>
@@ -1943,6 +2234,7 @@ export default function Checkout() {
               Orders of ₹500+ count
               toward your reward.
             </p>
+
           </div>
 
         </div>
@@ -1951,22 +2243,24 @@ export default function Checkout() {
 
           {Array.from({
             length: 6,
-          }).map((_, index) => (
-            <div
-              key={index}
-              className={`loyalty-dot ${
-                index <
+          }).map(
+            (_, index) => (
+              <div
+                key={index}
+                className={`loyalty-dot ${
+                  index <
+                  loyaltyCount
+                    ? "active"
+                    : ""
+                }`}
+              >
+                {index <
                 loyaltyCount
-                  ? "active"
-                  : ""
-              }`}
-            >
-              {index <
-              loyaltyCount
-                ? "✓"
-                : index + 1}
-            </div>
-          ))}
+                  ? "✓"
+                  : index + 1}
+              </div>
+            )
+          )}
 
         </div>
 
@@ -1974,31 +2268,44 @@ export default function Checkout() {
 
           {loyaltyLoading ? (
             "Checking your rewards..."
-          ) : loyaltyCount >=
-            LOYALTY_TARGET ? (
-            <>
-              🎉{" "}
-              <strong>
-                Reward unlocked!
-              </strong>
-            </>
           ) : (
             <>
               <strong>
-                {LOYALTY_TARGET -
-                  loyaltyCount}
+                {loyaltyCount}/6
               </strong>{" "}
-              more qualifying
-              order
-              {LOYALTY_TARGET -
-                loyaltyCount !==
-              1
-                ? "s"
-                : ""}{" "}
-              to go
+              qualifying orders
+
+              {loyaltyCount <
+                LOYALTY_TARGET && (
+                <span
+                  style={{
+                    marginLeft: 8,
+                  }}
+                >
+                  (
+                  {LOYALTY_TARGET -
+                    loyaltyCount}{" "}
+                  more to go)
+                </span>
+              )}
             </>
           )}
 
+        </div>
+
+        <div
+          style={{
+            marginTop: 12,
+
+            color:
+              "rgba(255,255,255,.55)",
+
+            fontSize: 13,
+          }}
+        >
+          ₹500+ delivered orders
+          count towards your next
+          Scratch Card.
         </div>
 
       </section>
@@ -2016,8 +2323,9 @@ export default function Checkout() {
           </div>
 
           <div>
+
             <span className="section-kicker">
-              PAYMENT METHOD
+              SECURE CHECKOUT
             </span>
 
             <h2>
@@ -2028,6 +2336,7 @@ export default function Checkout() {
               Choose how you want to
               pay
             </p>
+
           </div>
 
         </div>
@@ -2076,7 +2385,7 @@ export default function Checkout() {
 
           </button>
 
-          {/* ONLINE */}
+          {/* ONLINE PAYMENT */}
 
           <button
             type="button"
@@ -2123,15 +2432,19 @@ export default function Checkout() {
       </section>
 
       {/* ==================================================
-          DAILY SCRATCH
+          DAILY SCRATCH & WIN
       ================================================== */}
 
       <section className="checkout-card scratch-card-section">
 
         <div
           style={{
-            display: "flex",
-            alignItems: "center",
+            display:
+              "flex",
+
+            alignItems:
+              "center",
+
             gap: 18,
           }}
         >
@@ -2141,7 +2454,11 @@ export default function Checkout() {
             style={{
               background:
                 "#fff",
-              color: "#111",
+
+              color:
+                "#111",
+
+              flexShrink: 0,
             }}
           >
             🎁
@@ -2163,23 +2480,27 @@ export default function Checkout() {
                 <h2
                   style={{
                     margin: 0,
-                    color: "#fff",
+
+                    color:
+                      "#fff",
+
                     fontSize: 22,
                   }}
                 >
-                  Scratch unlocked!
+                  Your Daily Reward
                 </h2>
 
                 <p
                   style={{
                     margin:
                       "6px 0 0",
+
                     color:
                       "rgba(255,255,255,.55)",
                   }}
                 >
-                  Reveal today's
-                  reward
+                  One order. One
+                  surprise. Every day.
                 </p>
               </>
             ) : (
@@ -2187,12 +2508,17 @@ export default function Checkout() {
                 <h2
                   style={{
                     margin: 0,
-                    color: "#fff",
+
+                    color:
+                      "#fff",
+
                     fontSize: 22,
                   }}
                 >
                   Add ₹
-                  {amountToUnlockScratch}{" "}
+                  {
+                    amountToUnlockScratch
+                  }{" "}
                   more
                 </h2>
 
@@ -2200,6 +2526,7 @@ export default function Checkout() {
                   style={{
                     margin:
                       "6px 0 0",
+
                     color:
                       "rgba(255,255,255,.55)",
                   }}
@@ -2212,36 +2539,43 @@ export default function Checkout() {
 
           </div>
 
-          {scratchEligible && (
-            <button
-              type="button"
-              onClick={
-                unlockScratch
-              }
-              className="unlock-scratch-btn"
-              style={{
-                width: "auto",
-                minWidth: 95,
-                padding:
-                  "10px 14px",
-              }}
-            >
-              Scratch
-            </button>
-          )}
+          {scratchEligible &&
+            !scratchReward && (
+              <button
+                type="button"
+                onClick={
+                  unlockScratch
+                }
+                className="unlock-scratch-btn"
+                style={{
+                  width:
+                    "auto",
+
+                  minWidth:
+                    95,
+
+                  padding:
+                    "10px 14px",
+
+                  flexShrink:
+                    0,
+                }}
+              >
+                Scratch
+              </button>
+            )}
 
         </div>
+
+        {/* =================================================
+            SCRATCH RESULT
+        ================================================= */}
 
         {scratchUnlocked &&
           scratchReward && (
             <DailyScratchCard
               reward={
                 scratchReward
-              }
-              onClose={() =>
-                setScratchUnlocked(
-                  false
-                )
               }
             />
           )}
@@ -2261,22 +2595,25 @@ export default function Checkout() {
           </div>
 
           <div>
+
             <span className="section-kicker">
-              ORDER SUMMARY
+              YOUR ORDER
             </span>
 
             <h2>
-              Bill Details
+              Order Summary
             </h2>
+
           </div>
 
         </div>
 
         <div className="bill-items">
 
+          {/* CART ITEMS */}
+
           {cartItems.map(
             (item, index) => {
-
               const price =
                 Number(
                   item.price ??
@@ -2298,11 +2635,13 @@ export default function Checkout() {
                     index
                   }
                 >
+
                   <span>
                     {item.name ||
                       item.title ||
                       "Item"}{" "}
-                    × {quantity}
+                    ×{" "}
+                    {quantity}
                   </span>
 
                   <strong>
@@ -2310,14 +2649,19 @@ export default function Checkout() {
                     {(
                       price *
                       quantity
-                    ).toFixed(2)}
+                    ).toFixed(
+                      2
+                    )}
                   </strong>
+
                 </div>
               );
             }
           )}
 
           <div className="bill-divider" />
+
+          {/* SUBTOTAL */}
 
           <div className="bill-line">
 
@@ -2334,12 +2678,14 @@ export default function Checkout() {
 
           </div>
 
+          {/* DELIVERY */}
+
           {orderType ===
             "delivery" && (
             <div className="bill-line">
 
               <span>
-                Delivery charge
+                Delivery
                 {location
                   ? ` (${deliveryDistance.toFixed(
                       1
@@ -2357,12 +2703,64 @@ export default function Checkout() {
             </div>
           )}
 
-          <div className="bill-divider" />
+          {/* GST */}
+
+          <div className="bill-line">
+
+            <span>
+              GST
+            </span>
+
+            <strong>
+              ₹0
+            </strong>
+
+          </div>
+
+          {/* SCRATCH REWARD */}
+
+          {scratchReward && (
+            <div
+              style={{
+                marginTop: 14,
+
+                padding:
+                  "12px 14px",
+
+                borderRadius:
+                  14,
+
+                background:
+                  "rgba(255,190,70,.08)",
+
+                border:
+                  "1px solid rgba(255,190,70,.18)",
+
+                color:
+                  "#ffd36b",
+
+                fontSize: 14,
+
+                fontWeight: 700,
+              }}
+            >
+              🎁 Daily Scratch:{" "}
+              {
+                scratchReward.label
+              }
+            </div>
+          )}
+
+          <div
+            className="bill-divider"
+          />
+
+          {/* TOTAL */}
 
           <div className="bill-line total-line">
 
             <span>
-              Total
+              Total Amount
             </span>
 
             <strong>
@@ -2387,16 +2785,26 @@ export default function Checkout() {
           style={{
             margin:
               "4px 2px 15px",
+
             padding:
               "14px 16px",
-            borderRadius: 15,
+
+            borderRadius:
+              15,
+
             background:
               "rgba(255,80,70,.12)",
+
             border:
               "1px solid rgba(255,100,80,.3)",
-            color: "#ff8a78",
+
+            color:
+              "#ff8a78",
+
             fontSize: 14,
-            lineHeight: 1.45,
+
+            lineHeight:
+              1.45,
           }}
         >
           ⚠️ {error}
@@ -2404,7 +2812,7 @@ export default function Checkout() {
       )}
 
       {/* ==================================================
-          BOTTOM
+          BOTTOM CHECKOUT
       ================================================== */}
 
       <div className="checkout-bottom">
