@@ -2123,3 +2123,175 @@
     line-height: 1.45 !important;
   }
 }
+/* =========================================================
+   SUGAR CAFE — FINAL PLACE ORDER BUTTON
+   BLUE PREMIUM + SLIDE EFFECT
+   KEEP THIS AT THE VERY END OF CHECKOUT.CSS
+========================================================= */
+
+.summary-card .place-order-btn {
+  width: 100% !important;
+  min-height: 72px !important;
+  margin-top: 20px !important;
+  padding: 8px 10px 8px 22px !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+
+  border: 0 !important;
+  border-radius: 22px !important;
+
+  background:
+    linear-gradient(
+      110deg,
+      #1769f5 0%,
+      #2878ff 50%,
+      #1769f5 100%
+    ) !important;
+
+  background-size: 200% 100% !important;
+
+  color: #ffffff !important;
+  font-size: 20px !important;
+  font-weight: 900 !important;
+
+  box-shadow:
+    0 12px 28px rgba(23, 105, 245, 0.30),
+    inset 0 1px 0 rgba(255,255,255,0.18) !important;
+
+  cursor: pointer !important;
+
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    background-position 0.45s ease !important;
+
+  animation: checkoutButtonShine 3s ease-in-out infinite !important;
+}
+
+/* Button text */
+.summary-card .place-order-btn > span:first-child {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+
+  color: #ffffff !important;
+  font-size: 19px !important;
+  font-weight: 900 !important;
+
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+
+  text-align: center !important;
+}
+
+/* Total amount on right */
+.summary-card .place-order-btn .place-order-total {
+  flex: 0 0 auto !important;
+
+  min-width: max-content !important;
+  padding: 10px 14px !important;
+
+  border-left: 1px solid rgba(255,255,255,0.28) !important;
+
+  color: #ffffff !important;
+  font-size: 18px !important;
+  font-weight: 900 !important;
+
+  white-space: nowrap !important;
+}
+
+/* Hover */
+.summary-card .place-order-btn:hover:not(:disabled) {
+  transform: translateY(-2px) !important;
+
+  background-position: 100% 0 !important;
+
+  box-shadow:
+    0 16px 34px rgba(23, 105, 245, 0.40),
+    inset 0 1px 0 rgba(255,255,255,0.20) !important;
+}
+
+/* Press */
+.summary-card .place-order-btn:active:not(:disabled) {
+  transform: scale(0.98) !important;
+}
+
+/* Disabled */
+.summary-card .place-order-btn:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  animation: none !important;
+  box-shadow: none !important;
+}
+
+
+/* =========================================================
+   SLIDE / SHINE EFFECT
+========================================================= */
+
+@keyframes checkoutButtonShine {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 600px) {
+
+  .summary-card .place-order-btn {
+    width: 100% !important;
+    min-height: 64px !important;
+
+    padding: 7px 8px 7px 15px !important;
+
+    border-radius: 19px !important;
+
+    gap: 8px !important;
+  }
+
+  .summary-card .place-order-btn > span:first-child {
+    font-size: 15px !important;
+  }
+
+  .summary-card .place-order-btn .place-order-total {
+    padding: 9px 11px !important;
+    font-size: 16px !important;
+  }
+}
+
+
+/* =========================================================
+   VERY SMALL PHONE
+========================================================= */
+
+@media (max-width: 390px) {
+
+  .summary-card .place-order-btn {
+    min-height: 60px !important;
+    padding-left: 12px !important;
+  }
+
+  .summary-card .place-order-btn > span:first-child {
+    font-size: 14px !important;
+  }
+
+  .summary-card .place-order-btn .place-order-total {
+    font-size: 15px !important;
+    padding: 8px 9px !important;
+  }
+}
