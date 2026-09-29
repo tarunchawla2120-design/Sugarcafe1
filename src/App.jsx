@@ -9,11 +9,10 @@ import {
   Routes,
   Route,
   Navigate,
+  useLocation,
 } from "react-router-dom";
 
-// =========================
 // CUSTOMER PAGES
-// =========================
 
 import Profile from "./pages/Profile";
 import Home from "./pages/Home";
@@ -33,21 +32,30 @@ import AdminMenu from "./pages/AdminMenu";
 import AdminCategories from "./pages/AdminCategories";
 import AdminReviews from "./pages/AdminReviews";
 
-// =========================
-// ADMIN
-// =========================
+
+/* =========================================================
+   STORE STATUS BANNER
+   Hide global banner on Checkout because Checkout
+   already has its own status section.
+========================================================= */
+
+function StoreBannerController() {
+  const location = useLocation();
+
+  if (location.pathname === "/checkout") {
+    return null;
+  }
+
+  return <StoreStatusBanner />;
+}
 
 
-// =========================
-// APP
-// =========================
+/* =========================================================
+   APP
+========================================================= */
 
 function App() {
   const [showSplash, setShowSplash] = useState(true);
-
-  // =========================
-  // SPLASH SCREEN
-  // =========================
 
   if (showSplash) {
     return (
@@ -60,92 +68,129 @@ function App() {
   return (
     <StoreProvider>
       <BrowserRouter>
-        <StoreStatusBanner />
-      <Routes>
 
-        {/* =========================
-            CUSTOMER WEBSITE
-        ========================= */}
+        <StoreBannerController />
 
-        <Route
-          path="/"
-          element={<Home />}
-        />
+        <Routes>
 
-        <Route
-          path="/home"
-          element={<Home />}
-        />
+          {/* CUSTOMER WEBSITE */}
 
-        <Route
-          path="/cart"
-          element={<Cart />}
-        />
+          <Route
+            path="/"
+            element={<Home />}
+          />
 
-        <Route
-          path="/checkout"
-          element={<Checkout />}
-        />
+          <Route
+            path="/home"
+            element={<Home />}
+          />
 
-        <Route
-          path="/success"
-          element={<OrderSuccess />}
-        />
+          <Route
+            path="/cart"
+            element={<Cart />}
+          />
 
-        <Route
-          path="/categories"
-          element={<Categories />}
-        />
+          <Route
+            path="/checkout"
+            element={<Checkout />}
+          />
 
-        <Route
-          path="/menu"
-          element={<Menu />}
-        />
+          <Route
+            path="/success"
+            element={<OrderSuccess />}
+          />
 
-        <Route
-          path="/orders"
-          element={<Orders />}
-        />
+          <Route
+            path="/categories"
+            element={<Categories />}
+          />
 
-        <Route
-          path="/login"
-          element={<Login />}
-        />
+          <Route
+            path="/menu"
+            element={<Menu />}
+          />
 
-        <Route
-          path="/profile"
-          element={<Profile />}
-        />
+          <Route
+            path="/orders"
+            element={<Orders />}
+          />
 
-        {/* =========================
-            ADMIN
-            NO EMAIL
-            NO PASSWORD
-            NO LOGIN
-        ========================= */}
+          <Route
+            path="/login"
+            element={<Login />}
+          />
 
-        <Route path="/admin-login" element={<AdminLogin />} />
-        <Route path="/admin" element={<Dashboard />} />
-        <Route path="/admin/dashboard" element={<Dashboard />} />
-        <Route path="/admin/menu" element={<AdminMenu />} />
-        <Route path="/admin/categories" element={<AdminCategories />} />
-        <Route path="/admin/orders" element={<AdminOrders />} />
-        <Route path="/admin/offers" element={<AdminOffers />} />
-        <Route path="/admin/reviews" element={<AdminReviews />} />
-        <Route path="/admin/settings" element={<StoreSettings />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/settings" element={<StoreSettings />} />
+          <Route
+            path="/profile"
+            element={<Profile />}
+          />
 
-        {/* =========================
-            UNKNOWN URL
-        ========================= */}
+          {/* ADMIN */}
 
-        <Route
-          path="*"
-          element={<Navigate to="/" replace />}
-        />
+          <Route
+            path="/admin-login"
+            element={<AdminLogin />}
+          />
 
-      </Routes>
+          <Route
+            path="/admin"
+            element={<Dashboard />}
+          />
+
+          <Route
+            path="/admin/dashboard"
+            element={<Dashboard />}
+          />
+
+          <Route
+            path="/admin/menu"
+            element={<AdminMenu />}
+          />
+
+          <Route
+            path="/admin/categories"
+            element={<AdminCategories />}
+          />
+
+          <Route
+            path="/admin/orders"
+            element={<AdminOrders />}
+          />
+
+          <Route
+            path="/admin/offers"
+            element={<AdminOffers />}
+          />
+
+          <Route
+            path="/admin/reviews"
+            element={<AdminReviews />}
+          />
+
+          <Route
+            path="/admin/settings"
+            element={<StoreSettings />}
+          />
+
+          <Route
+            path="/dashboard"
+            element={<Dashboard />}
+          />
+
+          <Route
+            path="/settings"
+            element={<StoreSettings />}
+          />
+
+          {/* UNKNOWN URL */}
+
+          <Route
+            path="*"
+            element={<Navigate to="/" replace />}
+          />
+
+        </Routes>
+
       </BrowserRouter>
     </StoreProvider>
   );
