@@ -13,7 +13,6 @@ import {
 } from "react-router-dom";
 
 // CUSTOMER PAGES
-
 import Profile from "./pages/Profile";
 import Home from "./pages/Home";
 import Cart from "./pages/Cart";
@@ -23,6 +22,8 @@ import OrderSuccess from "./pages/OrderSuccess";
 import Categories from "./pages/Categories";
 import Menu from "./pages/Menu";
 import Orders from "./pages/Orders";
+
+// ADMIN
 import AdminLogin from "./pages/AdminLogin";
 import Dashboard from "./pages/Dashboard";
 import StoreSettings from "./pages/StoreSettings";
@@ -34,9 +35,10 @@ import AdminReviews from "./pages/AdminReviews";
 
 
 /* =========================================================
-   STORE STATUS BANNER
-   Hide global banner on Checkout because Checkout
-   already has its own status section.
+   STORE STATUS BANNER CONTROLLER
+
+   Checkout.jsx already contains its own status bar,
+   so the global StoreStatusBanner must be hidden there.
 ========================================================= */
 
 function StoreBannerController() {
@@ -75,55 +77,16 @@ function App() {
 
           {/* CUSTOMER WEBSITE */}
 
-          <Route
-            path="/"
-            element={<Home />}
-          />
-
-          <Route
-            path="/home"
-            element={<Home />}
-          />
-
-          <Route
-            path="/cart"
-            element={<Cart />}
-          />
-
-          <Route
-            path="/checkout"
-            element={<Checkout />}
-          />
-
-          <Route
-            path="/success"
-            element={<OrderSuccess />}
-          />
-
-          <Route
-            path="/categories"
-            element={<Categories />}
-          />
-
-          <Route
-            path="/menu"
-            element={<Menu />}
-          />
-
-          <Route
-            path="/orders"
-            element={<Orders />}
-          />
-
-          <Route
-            path="/login"
-            element={<Login />}
-          />
-
-          <Route
-            path="/profile"
-            element={<Profile />}
-          />
+          <Route path="/" element={<Home />} />
+          <Route path="/home" element={<Home />} />
+          <Route path="/cart" element={<Cart />} />
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/success" element={<OrderSuccess />} />
+          <Route path="/categories" element={<Categories />} />
+          <Route path="/menu" element={<Menu />} />
+          <Route path="/orders" element={<Orders />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/profile" element={<Profile />} />
 
           {/* ADMIN */}
 
