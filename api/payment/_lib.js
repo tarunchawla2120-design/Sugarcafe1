@@ -1,6 +1,10 @@
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
+/* =========================================================
+   FIREBASE SERVICE ACCOUNT
+========================================================= */
+
 function getFirebaseServiceAccount() {
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 
@@ -10,55 +14,33 @@ function getFirebaseServiceAccount() {
     );
   }
 
-  let value = String(raw).trim();
+  const value = String(raw).trim();
+
   let serviceAccount = null;
 
+  // Normal JSON
   try {
     serviceAccount = JSON.parse(value);
-
-    if (typeof serviceAccount === "string") {
-      serviceAccount = JSON.parse(serviceAccount);
-    }
   } catch {
     serviceAccount = null;
   }
 
-  if (!serviceAccount) {
+  // Sometimes environment variable is itself a JSON string
+  if (typeof serviceAccount === "string") {
     try {
-      let unwrapped = value;
-
-      if (
-        unwrapped.startsWith('"') &&
-        unwrapped.endsWith('"')
-      ) {
-        try {
-          unwrapped = JSON.parse(unwrapped);
-        } catch {
-          unwrapped = unwrapped.slice(1, -1);
-        }
-      }
-
-      if (typeof unwrapped === "string") {
-        unwrapped = unwrapped
-          .replace(/\\"/g, '"')
-          .trim();
-      }
-
-      if (
-        unwrapped.startsWith("{") &&
-        unwrapped.endsWith("}")
-      ) {
-        serviceAccount = JSON.parse(unwrapped);
-      }
+      serviceAccount = JSON.parse(serviceAccount);
     } catch {
       serviceAccount = null;
     }
   }
 
+  // Base64 fallback
   if (!serviceAccount) {
     try {
-      const decoded = Buffer
-        .from(value, "base64")
+      const decoded = Buffer.from(
+        value,
+        "base64"
+      )
         .toString("utf8")
         .trim();
 
@@ -95,39 +77,46 @@ function getFirebaseServiceAccount() {
 }
 
 
-// ============================================================
-// FIREBASE
-// ============================================================
+/* =========================================================
+   FIREBASE ADMIN
+========================================================= */
 
 const firebaseApp =
   getApps().length > 0
     ? getApps()[0]
     : initializeApp({
-        credential: cert(getFirebaseServiceAccount()),
+        credential: cert(
+          getFirebaseServiceAccount()
+        ),
       });
 
-export const db = getFirestore(firebaseApp);
+export const db = getFirestore(
+  firebaseApp
+);
 
 
-// ============================================================
-// JSON RESPONSE
-// ============================================================
+/* =========================================================
+   JSON RESPONSE
+========================================================= */
 
 export function json(res, status, data) {
-  res.status(status).json(data);
+  return res.status(status).json(data);
 }
 
 
-// ============================================================
-// RAZORPAY REQUEST
-// ============================================================
+/* =========================================================
+   RAZORPAY REQUEST
+========================================================= */
 
 export async function razorpayRequest(
   path,
   options = {}
 ) {
-  const keyId = process.env.RAZORPAY_KEY_ID;
-  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  const keyId =
+    process.env.RAZORPAY_KEY_ID;
+
+  const keySecret =
+    process.env.RAZORPAY_KEY_SECRET;
 
   if (!keyId || !keySecret) {
     throw new Error(
@@ -135,23 +124,30 @@ export async function razorpayRequest(
     );
   }
 
-  const auth = Buffer
-    .from(`${keyId}:${keySecret}`)
-    .toString("base64");
+  const auth = Buffer.from(
+    `${keyId}:${keySecret}`
+  ).toString("base64");
 
   const response = await fetch(
     `https://api.razorpay.com/v1${path}`,
     {
-      method: options.method || "GET",
+      method:
+        options.method || "GET",
+
       headers: {
         Authorization: `Basic ${auth}`,
-        "Content-Type": "application/json",
+        "Content-Type":
+          "application/json",
+        Accept:
+          "application/json",
       },
+
       body: options.body,
     }
   );
 
-  const text = await response.text();
+  const text =
+    await response.text();
 
   let data;
 
@@ -160,7 +156,9 @@ export async function razorpayRequest(
   } catch {
     data = {
       error: {
-        description: text || "Invalid Razorpay response.",
+        description:
+          text ||
+          "Invalid Razorpay response.",
       },
     };
   }
@@ -168,8 +166,8 @@ export async function razorpayRequest(
   if (!response.ok) {
     throw new Error(
       data?.error?.description ||
-      data?.error?.reason ||
-      `Razorpay request failed with HTTP ${response.status}`
+        data?.error?.reason ||
+        `Razorpay request failed with HTTP ${response.status}`
     );
   }
 
@@ -177,20 +175,30 @@ export async function razorpayRequest(
 }
 
 
-// ============================================================
-// ORDER VALIDATION
-// ============================================================
+/* =========================================================
+   ORDER VALIDATION
+========================================================= */
 
 export async function validateOrderPayload(
   orderData,
   selectedAddress
 ) {
-  if (!orderData || typeof orderData !== "object") {
-    throw new Error("Invalid order data.");
+  if (
+    !orderData ||
+    typeof orderData !== "object"
+  ) {
+    throw new Error(
+      "Invalid order data."
+    );
   }
 
-  if (!selectedAddress || typeof selectedAddress !== "object") {
-    throw new Error("Delivery address is required.");
+  if (
+    !selectedAddress ||
+    typeof selectedAddress !== "object"
+  ) {
+    throw new Error(
+      "Delivery address is required."
+    );
   }
 
   const address = String(
@@ -207,95 +215,197 @@ export async function validateOrderPayload(
 
   const distance = Number(
     selectedAddress.distance ??
-    orderData.distance ??
-    0
+      orderData.distance ??
+      0
   );
 
-  const total = Number(orderData.total);
+  const total = Number(
+    orderData.total
+  );
 
   if (!address) {
-    throw new Error("Delivery address is required.");
+    throw new Error(
+      "Delivery address is required."
+    );
   }
 
   if (
     !Number.isFinite(latitude) ||
     !Number.isFinite(longitude)
   ) {
-    throw new Error("Invalid delivery location.");
+    throw new Error(
+      "Invalid delivery location."
+    );
   }
 
   if (
     !Number.isFinite(distance) ||
     distance < 0
   ) {
-    throw new Error("Invalid delivery distance.");
+    throw new Error(
+      "Invalid delivery distance."
+    );
   }
 
   if (
     !Number.isFinite(total) ||
     total <= 0
   ) {
-    throw new Error("Invalid order total.");
+    throw new Error(
+      "Invalid order total."
+    );
   }
 
-  // Current SugarCafe delivery rules
+
+  /* =======================================================
+     SUGAR CAFE DELIVERY RULES
+  ======================================================= */
+
   const MAX_DELIVERY_DISTANCE = 15;
+
   const DELIVERY_PER_KM = 20;
+
   const MIN_DELIVERY_CHARGE = 20;
+
   const MAX_DELIVERY_CHARGE = 300;
 
-  if (distance > MAX_DELIVERY_DISTANCE) {
+
+  if (
+    distance >
+    MAX_DELIVERY_DISTANCE
+  ) {
     throw new Error(
       `Delivery is available only within ${MAX_DELIVERY_DISTANCE} km.`
     );
   }
 
-  const calculatedDelivery = Math.min(
-    MAX_DELIVERY_CHARGE,
-    Math.max(
-      MIN_DELIVERY_CHARGE,
-      Math.ceil(distance) * DELIVERY_PER_KM
-    )
-  );
+
+  const calculatedDelivery =
+    Math.min(
+      MAX_DELIVERY_CHARGE,
+
+      Math.max(
+        MIN_DELIVERY_CHARGE,
+
+        Math.ceil(distance) *
+          DELIVERY_PER_KM
+      )
+    );
+
+
+  /* =======================================================
+     SUBTOTAL
+  ======================================================= */
 
   const subtotal = Number(
     orderData.subtotal ??
-    Math.max(0, total - Number(orderData.deliveryCharge || calculatedDelivery))
+      Math.max(
+        0,
+        total -
+          Number(
+            orderData.deliveryCharge ||
+              calculatedDelivery
+          )
+      )
   );
 
-  if (!Number.isFinite(subtotal) || subtotal <= 0) {
-    throw new Error("Invalid order subtotal.");
+  if (
+    !Number.isFinite(subtotal) ||
+    subtotal <= 0
+  ) {
+    throw new Error(
+      "Invalid order subtotal."
+    );
   }
+
+
+  /* =======================================================
+     DISCOUNT / GST
+  ======================================================= */
+
+  const gst = Number(
+    orderData.gst || 0
+  );
+
+  const discount = Number(
+    orderData.discount || 0
+  );
+
+
+  if (
+    !Number.isFinite(gst) ||
+    gst < 0
+  ) {
+    throw new Error(
+      "Invalid GST."
+    );
+  }
+
+  if (
+    !Number.isFinite(discount) ||
+    discount < 0
+  ) {
+    throw new Error(
+      "Invalid discount."
+    );
+  }
+
+
+  /* =======================================================
+     SERVER CALCULATED TOTAL
+  ======================================================= */
 
   const calculatedTotal =
     Math.round(
-      (subtotal + calculatedDelivery + Number(orderData.gst || 0) -
-        Number(orderData.discount || 0)) * 100
+      (
+        subtotal +
+        calculatedDelivery +
+        gst -
+        discount
+      ) * 100
     ) / 100;
 
+
   /*
-   * Allow a small difference because frontend totals may
-   * contain decimal rounding.
+   * Small tolerance for frontend decimal rounding.
    */
-  if (Math.abs(calculatedTotal - total) > 1) {
+
+  if (
+    Math.abs(
+      calculatedTotal - total
+    ) > 1
+  ) {
     throw new Error(
       `Order total mismatch. Expected ₹${calculatedTotal}, received ₹${total}.`
     );
   }
 
+
   return {
     total: calculatedTotal,
+
     subtotal,
-    deliveryCharge: calculatedDelivery,
-    gst: Number(orderData.gst || 0),
-    discount: Number(orderData.discount || 0),
+
+    deliveryCharge:
+      calculatedDelivery,
+
+    gst,
+
+    discount,
+
     distance,
+
     selectedAddress: {
       address,
+
       latitude,
+
       longitude,
     },
   };
 }
 
-export { getFirebaseServiceAccount };
+
+export {
+  getFirebaseServiceAccount,
+};
