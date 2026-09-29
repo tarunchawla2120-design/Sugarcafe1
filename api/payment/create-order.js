@@ -10,10 +10,41 @@ import {
    CREATE RAZORPAY ORDER
 ========================================================= */
 
-export default async function handler(
-  req,
-  res
-) {
+export default async function handler(req, res) {
+
+  /* =======================================================
+     CORS
+  ======================================================= */
+
+  res.setHeader(
+    "Access-Control-Allow-Origin",
+    "*"
+  );
+
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "POST, OPTIONS"
+  );
+
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Accept"
+  );
+
+
+  /* =======================================================
+     HANDLE PREFLIGHT REQUEST
+  ======================================================= */
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+
+  /* =======================================================
+     ONLY POST ALLOWED
+  ======================================================= */
+
   if (req.method !== "POST") {
     return json(res, 405, {
       error: "Method not allowed",
@@ -22,6 +53,7 @@ export default async function handler(
 
 
   try {
+
     /* =====================================================
        REQUEST DATA
     ===================================================== */
@@ -73,7 +105,7 @@ export default async function handler(
 
     const receipt = String(
       orderData?.orderNumber ||
-        `SC-${Date.now()}`
+      `SC-${Date.now()}`
     );
 
 
@@ -103,9 +135,7 @@ export default async function handler(
       );
 
 
-    if (
-      !razorpayOrder?.id
-    ) {
+    if (!razorpayOrder?.id) {
       throw new Error(
         "Razorpay order was not created."
       );
@@ -117,6 +147,7 @@ export default async function handler(
     ===================================================== */
 
     const sanitizedOrderData = {
+
       userId: String(
         orderData?.userId || ""
       ),
@@ -142,16 +173,13 @@ export default async function handler(
       ),
 
       address:
-        validated.selectedAddress
-          .address,
+        validated.selectedAddress.address,
 
       latitude:
-        validated.selectedAddress
-          .latitude,
+        validated.selectedAddress.latitude,
 
       longitude:
-        validated.selectedAddress
-          .longitude,
+        validated.selectedAddress.longitude,
 
       distance:
         validated.distance,
@@ -195,6 +223,7 @@ export default async function handler(
       )
       .doc(razorpayOrder.id)
       .set({
+
         razorpayOrderId:
           razorpayOrder.id,
 
@@ -219,6 +248,7 @@ export default async function handler(
     ===================================================== */
 
     return json(res, 200, {
+
       keyId:
         process.env
           .RAZORPAY_KEY_ID,
@@ -239,13 +269,16 @@ export default async function handler(
       finalized:
         false,
     });
+
   } catch (error) {
+
     console.error(
       "CREATE RAZORPAY ORDER ERROR:",
       error
     );
 
     return json(res, 500, {
+
       error:
         error?.message ||
         "Payment service error.",
@@ -258,9 +291,8 @@ export default async function handler(
    SAFE PREPARATION TIME
 ========================================================= */
 
-function safePreparation(
-  value
-) {
+function safePreparation(value) {
+
   const n = Number(value);
 
   return Number.isFinite(n) &&
