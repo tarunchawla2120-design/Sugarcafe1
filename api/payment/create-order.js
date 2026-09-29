@@ -5,16 +5,15 @@ import {
   json,
 } from "./_lib.js";
 
-
 /* =========================================================
    CREATE RAZORPAY ORDER
 ========================================================= */
 
 export default async function handler(req, res) {
 
-  /* =======================================================
+  /* =====================================================
      CORS
-  ======================================================= */
+  ===================================================== */
 
   res.setHeader(
     "Access-Control-Allow-Origin",
@@ -28,22 +27,20 @@ export default async function handler(req, res) {
 
   res.setHeader(
     "Access-Control-Allow-Headers",
-    "Content-Type, Accept"
+    "Content-Type"
   );
 
-
-  /* =======================================================
-     HANDLE PREFLIGHT REQUEST
-  ======================================================= */
+  /* =====================================================
+     PREFLIGHT
+  ===================================================== */
 
   if (req.method === "OPTIONS") {
-    return res.status(200).end();
+    return res.status(204).end();
   }
 
-
-  /* =======================================================
-     ONLY POST ALLOWED
-  ======================================================= */
+  /* =====================================================
+     METHOD
+  ===================================================== */
 
   if (req.method !== "POST") {
     return json(res, 405, {
@@ -51,15 +48,13 @@ export default async function handler(req, res) {
     });
   }
 
-
   try {
 
     /* =====================================================
        REQUEST DATA
     ===================================================== */
 
-    const body =
-      req.body || {};
+    const body = req.body || {};
 
     const orderData =
       body.orderData;
@@ -81,12 +76,12 @@ export default async function handler(req, res) {
 
     /* =====================================================
        RAZORPAY AMOUNT
-       ₹626 => 62600 paise
     ===================================================== */
 
-    const amount = Math.round(
-      validated.total * 100
-    );
+    const amount =
+      Math.round(
+        validated.total * 100
+      );
 
 
     if (
@@ -103,10 +98,11 @@ export default async function handler(req, res) {
        RECEIPT
     ===================================================== */
 
-    const receipt = String(
-      orderData?.orderNumber ||
-      `SC-${Date.now()}`
-    );
+    const receipt =
+      String(
+        orderData?.orderNumber ||
+        `SC-${Date.now()}`
+      );
 
 
     /* =====================================================
@@ -121,9 +117,7 @@ export default async function handler(req, res) {
 
           body: JSON.stringify({
             amount,
-
             currency: "INR",
-
             receipt,
 
             notes: {
@@ -148,29 +142,35 @@ export default async function handler(req, res) {
 
     const sanitizedOrderData = {
 
-      userId: String(
-        orderData?.userId || ""
-      ),
+      userId:
+        String(
+          orderData?.userId || ""
+        ),
 
-      customerId: String(
-        orderData?.customerId || ""
-      ),
+      customerId:
+        String(
+          orderData?.customerId || ""
+        ),
 
-      customerName: String(
-        orderData?.customerName || ""
-      ),
+      customerName:
+        String(
+          orderData?.customerName || ""
+        ),
 
-      phone: String(
-        orderData?.phone || ""
-      ),
+      phone:
+        String(
+          orderData?.phone || ""
+        ),
 
-      email: String(
-        orderData?.email || ""
-      ),
+      email:
+        String(
+          orderData?.email || ""
+        ),
 
-      photoURL: String(
-        orderData?.photoURL || ""
-      ),
+      photoURL:
+        String(
+          orderData?.photoURL || ""
+        ),
 
       address:
         validated.selectedAddress.address,
@@ -193,20 +193,11 @@ export default async function handler(req, res) {
           orderData?.preparationMinutes
         ),
 
-      preparationStartedAt:
-        null,
-
-      preparationEndAt:
-        null,
-
-      foodReadyAt:
-        null,
-
-      dispatchedAt:
-        null,
-
-      deliveredAt:
-        null,
+      preparationStartedAt: null,
+      preparationEndAt: null,
+      foodReadyAt: null,
+      dispatchedAt: null,
+      deliveredAt: null,
 
       orderNumber:
         receipt,
@@ -218,9 +209,7 @@ export default async function handler(req, res) {
     ===================================================== */
 
     await db
-      .collection(
-        "paymentAttempts"
-      )
+      .collection("paymentAttempts")
       .doc(razorpayOrder.id)
       .set({
 
@@ -250,8 +239,7 @@ export default async function handler(req, res) {
     return json(res, 200, {
 
       keyId:
-        process.env
-          .RAZORPAY_KEY_ID,
+        process.env.RAZORPAY_KEY_ID,
 
       orderId:
         razorpayOrder.id,
@@ -278,7 +266,6 @@ export default async function handler(req, res) {
     );
 
     return json(res, 500, {
-
       error:
         error?.message ||
         "Payment service error.",
@@ -295,9 +282,11 @@ function safePreparation(value) {
 
   const n = Number(value);
 
-  return Number.isFinite(n) &&
+  return (
+    Number.isFinite(n) &&
     n >= 1 &&
     n <= 120
+  )
     ? Math.floor(n)
     : 15;
 }
