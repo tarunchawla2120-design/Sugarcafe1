@@ -7,13 +7,14 @@ import {
 
 /* =========================================================
    CREATE RAZORPAY ORDER
+   Production Version
 ========================================================= */
 
 export default async function handler(req, res) {
 
-  /* =====================================================
+  /* =======================================================
      CORS
-  ===================================================== */
+  ======================================================= */
 
   res.setHeader(
     "Access-Control-Allow-Origin",
@@ -30,17 +31,17 @@ export default async function handler(req, res) {
     "Content-Type"
   );
 
-  /* =====================================================
-     PREFLIGHT
-  ===================================================== */
+  /* =======================================================
+     OPTIONS / PREFLIGHT
+  ======================================================= */
 
   if (req.method === "OPTIONS") {
     return res.status(204).end();
   }
 
-  /* =====================================================
-     METHOD
-  ===================================================== */
+  /* =======================================================
+     METHOD CHECK
+  ======================================================= */
 
   if (req.method !== "POST") {
     return json(res, 405, {
@@ -64,7 +65,7 @@ export default async function handler(req, res) {
 
 
     /* =====================================================
-       SERVER-SIDE VALIDATION
+       VALIDATE ORDER
     ===================================================== */
 
     const validated =
@@ -75,12 +76,13 @@ export default async function handler(req, res) {
 
 
     /* =====================================================
-       RAZORPAY AMOUNT
+       FINAL PAYMENT AMOUNT
+       Rupees → Paise
     ===================================================== */
 
     const amount =
       Math.round(
-        validated.total * 100
+        Number(validated.total) * 100
       );
 
 
@@ -116,9 +118,11 @@ export default async function handler(req, res) {
           method: "POST",
 
           body: JSON.stringify({
-            amount,
+            amount: amount,
+
             currency: "INR",
-            receipt,
+
+            receipt: receipt,
 
             notes: {
               sugarcafe_order_number:
@@ -129,7 +133,10 @@ export default async function handler(req, res) {
       );
 
 
-    if (!razorpayOrder?.id) {
+    if (
+      !razorpayOrder ||
+      !razorpayOrder.id
+    ) {
       throw new Error(
         "Razorpay order was not created."
       );
@@ -173,13 +180,19 @@ export default async function handler(req, res) {
         ),
 
       address:
-        validated.selectedAddress.address,
+        validated
+          .selectedAddress
+          .address,
 
       latitude:
-        validated.selectedAddress.latitude,
+        validated
+          .selectedAddress
+          .latitude,
 
       longitude:
-        validated.selectedAddress.longitude,
+        validated
+          .selectedAddress
+          .longitude,
 
       distance:
         validated.distance,
@@ -193,11 +206,20 @@ export default async function handler(req, res) {
           orderData?.preparationMinutes
         ),
 
-      preparationStartedAt: null,
-      preparationEndAt: null,
-      foodReadyAt: null,
-      dispatchedAt: null,
-      deliveredAt: null,
+      preparationStartedAt:
+        null,
+
+      preparationEndAt:
+        null,
+
+      foodReadyAt:
+        null,
+
+      dispatchedAt:
+        null,
+
+      deliveredAt:
+        null,
 
       orderNumber:
         receipt,
@@ -209,8 +231,12 @@ export default async function handler(req, res) {
     ===================================================== */
 
     await db
-      .collection("paymentAttempts")
-      .doc(razorpayOrder.id)
+      .collection(
+        "paymentAttempts"
+      )
+      .doc(
+        razorpayOrder.id
+      )
       .set({
 
         razorpayOrderId:
@@ -219,7 +245,8 @@ export default async function handler(req, res) {
         orderData:
           sanitizedOrderData,
 
-        validated,
+        validated:
+          validated,
 
         expectedAmount:
           amount,
@@ -237,6 +264,9 @@ export default async function handler(req, res) {
     ===================================================== */
 
     return json(res, 200, {
+
+      success:
+        true,
 
       keyId:
         process.env.RAZORPAY_KEY_ID,
@@ -266,6 +296,10 @@ export default async function handler(req, res) {
     );
 
     return json(res, 500, {
+
+      success:
+        false,
+
       error:
         error?.message ||
         "Payment service error.",
@@ -280,13 +314,16 @@ export default async function handler(req, res) {
 
 function safePreparation(value) {
 
-  const n = Number(value);
+  const n =
+    Number(value);
 
-  return (
+  if (
     Number.isFinite(n) &&
     n >= 1 &&
     n <= 120
-  )
-    ? Math.floor(n)
-    : 15;
+  ) {
+    return Math.floor(n);
+  }
+
+  return 15;
 }
