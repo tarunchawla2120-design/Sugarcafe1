@@ -977,161 +977,412 @@ function Checkout() {
   };
 
 
-  /* =====================================================
-     ONLINE PAYMENT
-  ===================================================== */
+ /* =========================================================
+   ONLINE PAYMENT
+========================================================= */
 
-  const startOnlinePayment = async ({
-    customer,
-    orderData,
-    selectedAddress,
-  }) => {
-    const baseUrl =
-      import.meta.env.VITE_PAYMENT_API_URL || "";
+const startOnlinePayment = async ({
+  customer,
+  orderData,
+  selectedAddress,
+}) => {
+  /*
+   * IMPORTANT:
+   * If payment API is inside the same Vercel project,
+   * VITE_PAYMENT_API_URL should be empty.
+   *
+   * This makes the browser call:
+   *
+   * /api/payment/create-order
+   *
+   * on the current Sugar Cafe domain.
+   */
 
-    const gatewayResponse = await fetch(
-      `${baseUrl}/api/payment/create-order`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          orderData,
-          selectedAddress,
-        }),
-      }
+  const configuredBaseUrl =
+    import.meta.env.VITE_PAYMENT_API_URL
+      ?.trim() || "";
+
+  const baseUrl =
+    configuredBaseUrl.replace(
+      /\/+$/,
+      ""
     );
 
-    const gatewayData =
-      await readApiResponse(gatewayResponse);
 
-    if (!gatewayResponse.ok) {
-      throw new Error(
-        gatewayData.error ||
-          "Unable to start online payment."
-      );
-    }
+  const createOrderUrl =
+    `${baseUrl}/api/payment/create-order`;
 
-    const loaded = await loadRazorpay();
 
-    if (!loaded) {
-      throw new Error(
-        "Payment gateway load nahi ho paya. Internet connection check karein."
-      );
-    }
+  console.log(
+    "💳 Payment API:",
+    createOrderUrl
+  );
 
-    await new Promise((resolve, reject) => {
-      const razorpay = new window.Razorpay({
-        key: gatewayData.keyId,
-        amount: gatewayData.amount,
-        currency:
-          gatewayData.currency || "INR",
-        name: "Sugar Cafe",
-        description:
-          `Sugar Cafe Order ${orderData.orderNumber}`,
-        order_id: gatewayData.orderId,
 
-        prefill: {
-          name: customer.customerName || "",
-          email: customer.customerEmail || "",
-          contact: customer.customerPhone || "",
-        },
+  /* =======================================================
+     CREATE RAZORPAY ORDER
+  ======================================================= */
 
-        handler: async (response) => {
-          try {
-            const verifyResponse =
-              await fetch(
-                `${baseUrl}/api/payment/verify`,
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type":
-                      "application/json",
-                  },
-                  body: JSON.stringify({
-                    razorpayOrderId:
-                      response.razorpay_order_id,
-                    razorpayPaymentId:
-                      response.razorpay_payment_id,
-                    razorpaySignature:
-                      response.razorpay_signature,
-                  }),
-                }
-              );
+  let gatewayResponse;
 
-            const verifyData =
-              await readApiResponse(
-                verifyResponse
-              );
+  try {
+    gatewayResponse =
+      await fetch(
+        createOrderUrl,
+        {
+          method: "POST",
 
-            if (
-              !verifyResponse.ok ||
-              !verifyData.verified
-            ) {
-              reject(
-                new Error(
-                  "Payment verification failed."
-                )
-              );
-              return;
-            }
+          headers: {
+            "Content-Type":
+              "application/json",
 
-            if (!verifyData.finalized) {
-              const paidOrder = {
-                ...orderData,
-                paymentMethod:
-                  "Online Payment",
-                paymentStatus: "Paid",
-                paymentNote:
-                  "Paid and verified by Razorpay.",
-                razorpayOrderId:
-                  response.razorpay_order_id,
-                razorpayPaymentId:
-                  response.razorpay_payment_id,
-                razorpaySignature:
-                  response.razorpay_signature,
-              };
+            Accept:
+              "application/json",
+          },
 
-              await saveCompletedOrder(
-                paidOrder,
-                selectedAddress
-              );
-            }
+          body: JSON.stringify({
+            orderData,
 
-            resolve();
-          } catch (error) {
-            reject(error);
-          }
-        },
+            selectedAddress: {
+              ...selectedAddress,
 
-        modal: {
-          ondismiss: () =>
-            reject(
-              new Error(
-                "Payment cancelled."
-              )
-            ),
-        },
-      });
-
-      razorpay.on(
-        "payment.failed",
-        (response) => {
-          reject(
-            new Error(
-              response?.error?.description ||
-                "Payment failed. Please try again."
-            )
-          );
+              distance:
+                Number(
+                  orderData.distance ||
+                    0
+                ),
+            },
+          }),
         }
       );
+  } catch (error) {
+    console.error(
+      "❌ Payment API network error:",
+      error
+    );
 
-      razorpay.open();
-    });
-  };
+    throw new Error(
+      `Payment server se connection nahi ho paya.\n\n${error?.message || "Load failed"}`
+    );
+  }
 
 
+  /* =======================================================
+     READ RESPONSE
+  ======================================================= */
+
+  const gatewayData =
+    await readApiResponse(
+      gatewayResponse
+    );
+
+
+  if (!gatewayResponse.ok) {
+    throw new Error(
+      gatewayData?.error ||
+        gatewayData?.message ||
+        `Payment server error (${gatewayResponse.status}).`
+    );
+  }
+
+
+  /* =======================================================
+     VALIDATE RAZORPAY RESPONSE
+  ======================================================= */
+
+  if (
+    !gatewayData?.keyId ||
+    !gatewayData?.orderId ||
+    !gatewayData?.amount
+  ) {
+    console.error(
+      "❌ Invalid create-order response:",
+      gatewayData
+    );
+
+    throw new Error(
+      "Payment server ne valid Razorpay order nahi diya."
+    );
+  }
+
+
+  console.log(
+    "✅ Razorpay order created:",
+    {
+      orderId:
+        gatewayData.orderId,
+
+      amount:
+        gatewayData.amount,
+
+      currency:
+        gatewayData.currency,
+    }
+  );
+
+
+  /* =======================================================
+     LOAD RAZORPAY CHECKOUT
+  ======================================================= */
+
+  const loaded =
+    await loadRazorpay();
+
+
+  if (!loaded) {
+    throw new Error(
+      "Razorpay checkout load nahi ho paya. Internet connection check karein."
+    );
+  }
+
+
+  /* =======================================================
+     OPEN RAZORPAY
+  ======================================================= */
+
+  await new Promise(
+    (resolve, reject) => {
+      let settled = false;
+
+
+      const finishResolve = () => {
+        if (settled) return;
+
+        settled = true;
+
+        resolve();
+      };
+
+
+      const finishReject = (
+        error
+      ) => {
+        if (settled) return;
+
+        settled = true;
+
+        reject(error);
+      };
+
+
+      const razorpay =
+        new window.Razorpay({
+          key:
+            gatewayData.keyId,
+
+          amount:
+            Number(
+              gatewayData.amount
+            ),
+
+          currency:
+            gatewayData.currency ||
+            "INR",
+
+          name:
+            "Sugar Cafe",
+
+          description:
+            `Sugar Cafe Order ${orderData.orderNumber}`,
+
+          order_id:
+            gatewayData.orderId,
+
+
+          /* =================================================
+             PREFILL
+          ================================================= */
+
+          prefill: {
+            name:
+              customer.customerName ||
+              "",
+
+            email:
+              customer.customerEmail ||
+              "",
+
+            contact:
+              customer.customerPhone ||
+              "",
+          },
+
+
+          /* =================================================
+             PAYMENT SUCCESS
+          ================================================= */
+
+          handler:
+            async (response) => {
+              try {
+                console.log(
+                  "✅ Razorpay payment response:",
+                  response
+                );
+
+
+                const verifyResponse =
+                  await fetch(
+                    `${baseUrl}/api/payment/verify`,
+                    {
+                      method: "POST",
+
+                      headers: {
+                        "Content-Type":
+                          "application/json",
+
+                        Accept:
+                          "application/json",
+                      },
+
+                      body:
+                        JSON.stringify({
+                          razorpayOrderId:
+                            response.razorpay_order_id,
+
+                          razorpayPaymentId:
+                            response.razorpay_payment_id,
+
+                          razorpaySignature:
+                            response.razorpay_signature,
+                        }),
+                    }
+                  );
+
+
+                const verifyData =
+                  await readApiResponse(
+                    verifyResponse
+                  );
+
+
+                if (
+                  !verifyResponse.ok ||
+                  !verifyData.verified
+                ) {
+                  finishReject(
+                    new Error(
+                      verifyData?.error ||
+                        "Payment verification failed."
+                    )
+                  );
+
+                  return;
+                }
+
+
+                console.log(
+                  "✅ Payment verified:",
+                  verifyData
+                );
+
+
+                /* =========================================
+                   SAVE ORDER ONLY IF NOT ALREADY FINALIZED
+                ========================================= */
+
+                if (
+                  !verifyData.finalized
+                ) {
+                  const paidOrder = {
+                    ...orderData,
+
+                    paymentMethod:
+                      "Online Payment",
+
+                    paymentStatus:
+                      "Paid",
+
+                    paymentNote:
+                      "Paid and verified by Razorpay.",
+
+                    razorpayOrderId:
+                      response.razorpay_order_id,
+
+                    razorpayPaymentId:
+                      response.razorpay_payment_id,
+
+                    razorpaySignature:
+                      response.razorpay_signature,
+                  };
+
+
+                  await saveCompletedOrder(
+                    paidOrder,
+                    selectedAddress
+                  );
+                }
+
+
+                finishResolve();
+              } catch (error) {
+                console.error(
+                  "❌ Payment verification error:",
+                  error
+                );
+
+                finishReject(error);
+              }
+            },
+
+
+          /* =================================================
+             MODAL DISMISSED
+          ================================================= */
+
+          modal: {
+            ondismiss: () => {
+              finishReject(
+                new Error(
+                  "Payment cancelled."
+                )
+              );
+            },
+          },
+        });
+
+
+        /* ===================================================
+           PAYMENT FAILED
+        =================================================== */
+
+        razorpay.on(
+          "payment.failed",
+          (response) => {
+            console.error(
+              "❌ Razorpay payment failed:",
+              response
+            );
+
+
+            finishReject(
+              new Error(
+                response?.error
+                  ?.description ||
+                  "Payment failed. Please try again."
+              )
+            );
+          }
+        );
+
+
+        /* ===================================================
+           OPEN
+        =================================================== */
+
+        try {
+          razorpay.open();
+        } catch (error) {
+          console.error(
+            "❌ Razorpay open error:",
+            error
+          );
+
+          finishReject(error);
+        }
+      }
+    );
+};
   /* =====================================================
      PLACE ORDER
   ===================================================== */
