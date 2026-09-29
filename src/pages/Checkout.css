@@ -2295,3 +2295,58 @@
     padding: 8px 9px !important;
   }
 }
+/* =========================================================
+   FIX — ORDER SUMMARY AMOUNTS VISIBILITY
+========================================================= */
+
+.summary-card .summary-row {
+  color: #333 !important;
+  opacity: 1 !important;
+}
+
+.summary-card .summary-row span {
+  color: #555 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.summary-card .summary-row strong {
+  display: block !important;
+  color: #111827 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+}
+
+.summary-card .discount-row strong {
+  color: #16a34a !important;
+}
+
+.summary-card .grand-total {
+  color: #111827 !important;
+  opacity: 1 !important;
+}
+
+.summary-card .grand-total span {
+  color: #374151 !important;
+  opacity: 1 !important;
+}
+
+.summary-card .grand-total strong {
+  color: #111827 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  font-size: 24px !important;
+  font-weight: 800 !important;
+}
+
+/* Make sure summary card content is above any overlay */
+.summary-card {
+  position: relative;
+  z-index: 2;
+}
+
+.summary-card * {
+  text-shadow: none;
+}
