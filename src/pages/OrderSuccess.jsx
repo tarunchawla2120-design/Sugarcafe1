@@ -1,12 +1,26 @@
-import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import {
   doc,
+  getDoc,
   onSnapshot,
+  Timestamp,
+  updateDoc,
 } from "firebase/firestore";
+import { useNavigate } from "react-router-dom";
 
 import { db } from "../firebase";
 import "./OrderSuccess.css";
+
+const LOYALTY_REWARDS = [
+  "Classic Cold Coffee",
+  "Cheese Aloo Tikki Burger",
+  "Aloo Cheese Puff",
+  "Paneer Cheese Sandwich",
+  "Diet Coke",
+  "Salted French Fries",
+  "Hot Chocolate Brownie",
+  "Hot Chocolava",
+];
 
 function OrderSuccess() {
   const navigate = useNavigate();
@@ -17,6 +31,26 @@ function OrderSuccess() {
   const [loading, setLoading] = useState(true);
   const [orderExists, setOrderExists] = useState(false);
 
+  // ============================================
+  // SAME 6TH ORDER SUGAR REWARD
+  // ============================================
+
+  const [loyaltyRewardPending, setLoyaltyRewardPending] =
+    useState(false);
+
+  const [loyaltyReward, setLoyaltyReward] =
+    useState("");
+
+  const [loyaltyRewardClaimed, setLoyaltyRewardClaimed] =
+    useState(false);
+
+  const [redeemingReward, setRedeemingReward] =
+    useState(false);
+
+  // ============================================
+  // REALTIME ORDER
+  // ============================================
+
   useEffect(() => {
     const savedOrderId =
       localStorage.getItem("lastOrderId") || "";
@@ -25,25 +59,15 @@ function OrderSuccess() {
       localStorage.getItem("lastOrderNumber") || "";
 
     const savedPaymentStatus =
-      localStorage.getItem(
-        "lastOrderPaymentStatus"
-      ) || "";
+      localStorage.getItem("lastOrderPaymentStatus") || "";
 
     setOrderNumber(savedOrderNumber);
     setPaymentStatus(savedPaymentStatus);
-
-    // -----------------------------------------
-    // No order ID
-    // -----------------------------------------
 
     if (!savedOrderId) {
       setLoading(false);
       return;
     }
-
-    // -----------------------------------------
-    // REALTIME ORDER LISTENER
-    // -----------------------------------------
 
     const orderRef = doc(
       db,
@@ -80,6 +104,24 @@ function OrderSuccess() {
         setOrderStatus(
           data.status || "New"
         );
+
+        // ========================================
+        // SUGAR REWARD STATE
+        // ========================================
+
+        setLoyaltyRewardPending(
+          data.loyaltyRewardPending === true
+        );
+
+        setLoyaltyReward(
+          data.loyaltyReward ||
+            data.loyaltyRewardItem ||
+            ""
+        );
+
+        setLoyaltyRewardClaimed(
+          data.loyaltyRewardClaimed === true
+        );
       },
       (error) => {
         console.error(
@@ -95,7 +137,162 @@ function OrderSuccess() {
   }, []);
 
   // ============================================
-  // STATUS HELPERS
+  // REVEAL SUGAR REWARD
+  // ADD FREE ITEM TO SAME 6TH ORDER
+  // ============================================
+
+  const revealLoyaltyReward = async () => {
+    const savedOrderId =
+      localStorage.getItem("lastOrderId") || "";
+
+    if (
+      !savedOrderId ||
+      !loyaltyRewardPending ||
+      loyaltyRewardClaimed ||
+      redeemingReward
+    ) {
+      return;
+    }
+
+    setRedeemingReward(true);
+
+    try {
+      const orderRef = doc(
+        db,
+        "orders",
+        savedOrderId
+      );
+
+      // Re-read order before update
+      const orderSnap = await getDoc(orderRef);
+
+      if (!orderSnap.exists()) {
+        throw new Error("Order not found.");
+      }
+
+      const orderData = orderSnap.data();
+
+      // Prevent duplicate reward
+      if (
+        orderData.loyaltyRewardClaimed === true ||
+        orderData.loyaltyRewardPending === false
+      ) {
+        setLoyaltyReward(
+          orderData.loyaltyReward ||
+            orderData.loyaltyRewardItem ||
+            ""
+        );
+
+        setLoyaltyRewardClaimed(true);
+        setLoyaltyRewardPending(false);
+
+        return;
+      }
+
+      // ========================================
+      // RANDOM FREE REWARD
+      // ========================================
+
+      const reward =
+        LOYALTY_REWARDS[
+          Math.floor(
+            Math.random() * LOYALTY_REWARDS.length
+          )
+        ];
+
+      const existingItems =
+        Array.isArray(orderData.items)
+          ? orderData.items
+          : [];
+
+      // Safety check
+      const alreadyAdded = existingItems.some(
+        (item) =>
+          item?.reward === true &&
+          item?.rewardType === "loyalty"
+      );
+
+      if (alreadyAdded) {
+        setLoyaltyReward(
+          orderData.loyaltyReward ||
+            reward
+        );
+
+        setLoyaltyRewardClaimed(true);
+        setLoyaltyRewardPending(false);
+
+        return;
+      }
+
+      // ========================================
+      // FREE ITEM
+      // ========================================
+
+      const rewardItem = {
+        id: `loyalty-reward-${Date.now()}`,
+
+        name: `🎁 FREE ${reward}`,
+
+        price: 0,
+
+        qty: 1,
+
+        image: "",
+
+        category: "Sugar Rewards",
+
+        reward: true,
+
+        rewardType: "loyalty",
+      };
+
+      // ========================================
+      // UPDATE SAME 6TH ORDER
+      // ========================================
+
+      await updateDoc(orderRef, {
+        items: [
+          ...existingItems,
+          rewardItem,
+        ],
+
+        loyaltyReward: reward,
+
+        loyaltyRewardItem: reward,
+
+        loyaltyRewardClaimed: true,
+
+        loyaltyRewardRedeemed: true,
+
+        loyaltyRewardPending: false,
+
+        loyaltyRewardClaimedAt:
+          Timestamp.now(),
+
+        loyaltyRewardPrice: 0,
+      });
+
+      setLoyaltyReward(reward);
+
+      setLoyaltyRewardClaimed(true);
+
+      setLoyaltyRewardPending(false);
+    } catch (error) {
+      console.error(
+        "Loyalty reward error:",
+        error
+      );
+
+      alert(
+        "Reward reveal nahi ho paya. Please try again."
+      );
+    } finally {
+      setRedeemingReward(false);
+    }
+  };
+
+  // ============================================
+  // STATUS
   // ============================================
 
   const isWaiting =
@@ -112,6 +309,87 @@ function OrderSuccess() {
 
   const isRejected =
     orderStatus === "Rejected";
+
+  // ============================================
+  // REWARD UI
+  // ============================================
+
+  const renderSugarReward = () => {
+    if (
+      loyaltyRewardPending &&
+      !loyaltyRewardClaimed
+    ) {
+      return (
+        <div className="loyalty-success-card">
+          <div className="loyalty-success-icon">
+            🎁
+          </div>
+
+          <span className="loyalty-success-label">
+            6TH ORDER REWARD
+          </span>
+
+          <h3>
+            You unlocked a Sugar Reward!
+          </h3>
+
+          <p>
+            Your 6th ₹500+ qualifying order
+            is complete.
+            <br />
+            Reveal your FREE reward now.
+          </p>
+
+          <button
+            type="button"
+            className="loyalty-scratch-button"
+            onClick={revealLoyaltyReward}
+            disabled={redeemingReward}
+          >
+            {redeemingReward
+              ? "REVEALING..."
+              : "🎁 SCRATCH & REVEAL"}
+          </button>
+        </div>
+      );
+    }
+
+    if (
+      loyaltyRewardClaimed &&
+      loyaltyReward
+    ) {
+      return (
+        <div className="loyalty-success-card reward-revealed">
+          <div className="reward-confetti">
+            ✨ 🎉 ✨
+          </div>
+
+          <div className="loyalty-success-icon">
+            🎁
+          </div>
+
+          <span className="loyalty-success-label">
+            CONGRATULATIONS!
+          </span>
+
+          <h3>
+            FREE {loyaltyReward}
+          </h3>
+
+          <p>
+            Your Sugar Reward has been added
+            FREE to this same 6th order.
+          </p>
+
+          <div className="reward-added-badge">
+            ✓ ₹0 REWARD ADDED
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
 
   // ============================================
   // WAITING
@@ -197,6 +475,8 @@ function OrderSuccess() {
         </div>
       )}
 
+      {renderSugarReward()}
+
       <p
         style={{
           fontSize: "12px",
@@ -210,7 +490,7 @@ function OrderSuccess() {
   );
 
   // ============================================
-  // ACCEPTED / PREPARING
+  // ACCEPTED
   // ============================================
 
   const renderAccepted = () => (
@@ -234,11 +514,9 @@ function OrderSuccess() {
         <br />
 
         {orderStatus === "Preparing" ? (
-          <>
-            <strong>
-              Your food is now being prepared.
-            </strong>
-          </>
+          <strong>
+            Your food is now being prepared.
+          </strong>
         ) : (
           <>
             Your order is moving through the
@@ -301,6 +579,8 @@ function OrderSuccess() {
           </strong>
         </div>
       )}
+
+      {renderSugarReward()}
     </>
   );
 
@@ -449,8 +729,6 @@ function OrderSuccess() {
           renderWaiting()
         )}
 
-        {/* TRACK ORDER */}
-
         <button
           className="home-btn"
           onClick={() =>
@@ -460,16 +738,13 @@ function OrderSuccess() {
           📦 Track My Order
         </button>
 
-        {/* HOME */}
-
         <button
           className="home-btn"
           style={{
             marginTop: "10px",
             background: "#fff",
             color: "#ff6b35",
-            border:
-              "1px solid #ff6b35",
+            border: "1px solid #ff6b35",
           }}
           onClick={() =>
             navigate("/home")
