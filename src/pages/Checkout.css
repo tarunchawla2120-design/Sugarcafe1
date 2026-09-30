@@ -2350,3 +2350,11 @@
 .summary-card * {
   text-shadow: none;
 }
+/* Add these styles to Checkout.css if not already present. Existing styles can remain. */
+.loyalty-redeem-box{margin-top:16px;padding:16px;border-radius:18px;background:rgba(255,193,7,.10);border:1px solid rgba(255,193,7,.35)}
+.loyalty-redeem-title{font-weight:800;font-size:15px}
+.loyalty-redeem-box p{margin:7px 0 12px;color:#666;font-size:13px}
+.loyalty-redeem-box select{width:100%;padding:13px 14px;border:1px solid #ddd;border-radius:12px;background:#fff;font-size:14px;font-weight:600;outline:none}
+.selected-loyalty-reward{margin-top:10px;padding:10px 12px;border-radius:10px;background:#eaf8ee;color:#16733a;font-size:13px;font-weight:700}
+.loyalty-card.reward-unlocked{border:1.5px solid #f2b300}
+.loyalty-summary{background:#fff6d8!important;color:#8a5a00!important}
