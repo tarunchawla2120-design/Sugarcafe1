@@ -3138,3 +3138,62 @@ img {
 /* =========================================================
    END — FINAL CHECKOUT CSS
 ========================================================= */
+/* =========================================================
+   FINAL MOBILE INPUT / KEYBOARD FIX
+========================================================= */
+
+.checkout-page input,
+.checkout-page textarea,
+.checkout-page select {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+
+  -webkit-touch-callout: default !important;
+
+  pointer-events: auto !important;
+
+  opacity: 1 !important;
+}
+
+/* Address input */
+.checkout-page .manual-address-box input {
+  position: relative !important;
+  z-index: 10 !important;
+
+  width: 100% !important;
+
+  min-height: 55px !important;
+
+  background: #071d31 !important;
+  color: #ffffff !important;
+
+  -webkit-appearance: none !important;
+  appearance: none !important;
+
+  pointer-events: auto !important;
+}
+
+/* Prevent decorative/map elements from blocking input */
+.checkout-page .map-center-pin,
+.checkout-page .live-location-badge {
+  pointer-events: none !important;
+}
+
+/* Mobile keyboard-friendly inputs */
+@media (max-width: 600px) {
+  .checkout-page input,
+  .checkout-page textarea,
+  .checkout-page select {
+    font-size: 16px !important;
+  }
+
+  .checkout-page .manual-address-box input {
+    min-height: 56px !important;
+    padding: 14px 16px !important;
+    font-size: 16px !important;
+  }
+
+  .checkout-page .special-note-wrapper textarea {
+    font-size: 16px !important;
+  }
+}
