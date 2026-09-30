@@ -14,12 +14,13 @@ import {
 
 import { db } from "../firebase";
 import SugarCafeRewardCard from "../components/SugarCafeRewardCard";
+
 import {
   enableOrderNotifications,
   getPushStatus,
 } from "../pushNotifications";
-import "./Orders.css";
 
+import "./Orders.css";
 
 /* =========================================================
    HELPERS
@@ -45,12 +46,11 @@ const toMillis = (value) => {
   return Number.isNaN(parsed) ? 0 : parsed;
 };
 
-
 const getItemQuantity = (item) => {
   const quantity = Number(
     item?.qty ??
-    item?.quantity ??
-    1
+      item?.quantity ??
+      1
   );
 
   return Number.isFinite(quantity) && quantity > 0
@@ -58,18 +58,16 @@ const getItemQuantity = (item) => {
     : 1;
 };
 
-
 const getItemPrice = (item) => {
   const price = Number(
     item?.price ??
-    item?.salePrice ??
-    item?.amount ??
-    0
+      item?.salePrice ??
+      item?.amount ??
+      0
   );
 
   return Number.isFinite(price) ? price : 0;
 };
-
 
 /* =========================================================
    CUSTOMER ID
@@ -105,7 +103,9 @@ const getStoredCustomerId = () => {
         JSON.parse(savedUser);
 
       if (user?.customerId) {
-        return String(user.customerId);
+        return String(
+          user.customerId
+        );
       }
     }
   } catch (error) {
@@ -117,7 +117,6 @@ const getStoredCustomerId = () => {
 
   return "";
 };
-
 
 /* =========================================================
    SAFE REWARD CARD
@@ -204,7 +203,6 @@ class RewardCardErrorBoundary extends Component {
   }
 }
 
-
 /* =========================================================
    NOTIFICATION CARD
 ========================================================= */
@@ -242,11 +240,6 @@ function OrderNotificationCard({
     setPushError,
   ] = useState("");
 
-
-  /* =======================================================
-     CHECK CURRENT PUSH STATUS
-  ======================================================= */
-
   useEffect(() => {
     let active = true;
 
@@ -258,15 +251,16 @@ function OrderNotificationCard({
         if (!active) return;
 
         setPushSupported(
-          Boolean(status.supported)
+          Boolean(status?.supported)
         );
 
         setPushEnabled(
-          Boolean(status.subscribed)
+          Boolean(status?.subscribed)
         );
 
         setPushPermission(
-          status.permission || "default"
+          status?.permission ||
+            "default"
         );
       } catch (error) {
         console.error(
@@ -282,11 +276,6 @@ function OrderNotificationCard({
       active = false;
     };
   }, []);
-
-
-  /* =======================================================
-     ENABLE
-  ======================================================= */
 
   const handleEnableNotifications =
     async () => {
@@ -352,7 +341,7 @@ function OrderNotificationCard({
 
         setPushError(
           result?.error ||
-          "Unable to enable notifications. Please try again."
+            "Unable to enable notifications. Please try again."
         );
       } catch (error) {
         console.error(
@@ -362,26 +351,16 @@ function OrderNotificationCard({
 
         setPushError(
           error?.message ||
-          "Unable to enable notifications."
+            "Unable to enable notifications."
         );
       } finally {
         setPushLoading(false);
       }
     };
 
-
-  /* =======================================================
-     UNSUPPORTED
-  ======================================================= */
-
   if (!pushSupported) {
     return null;
   }
-
-
-  /* =======================================================
-     ENABLED
-  ======================================================= */
 
   if (
     pushEnabled &&
@@ -454,11 +433,6 @@ function OrderNotificationCard({
     );
   }
 
-
-  /* =======================================================
-     BLOCKED
-  ======================================================= */
-
   if (
     pushPermission === "denied"
   ) {
@@ -500,8 +474,7 @@ function OrderNotificationCard({
 
             <p
               style={{
-                margin:
-                  "5px 0 0",
+                margin: "5px 0 0",
                 color: "#78716c",
                 fontSize: "12px",
                 lineHeight: "1.5",
@@ -516,11 +489,6 @@ function OrderNotificationCard({
       </div>
     );
   }
-
-
-  /* =======================================================
-     DEFAULT
-  ======================================================= */
 
   return (
     <div
@@ -577,8 +545,7 @@ function OrderNotificationCard({
 
           <p
             style={{
-              margin:
-                "4px 0 0",
+              margin: "4px 0 0",
               fontSize: "12px",
               color: "#78716c",
               lineHeight: "1.45",
@@ -650,7 +617,6 @@ function OrderNotificationCard({
   );
 }
 
-
 /* =========================================================
    ORDERS PAGE
 ========================================================= */
@@ -671,30 +637,24 @@ export default function Orders() {
     setCustomerId,
   ] = useState("");
 
-
   /* =======================================================
      CUSTOMER ID
   ======================================================= */
 
   useEffect(() => {
-    const loadCustomerId = () => {
-      const id =
-        getStoredCustomerId();
+    const id =
+      getStoredCustomerId();
 
-      console.log(
-        "SugarCafe Orders customerId:",
-        id
-      );
+    console.log(
+      "SugarCafe Orders customerId:",
+      id
+    );
 
-      setCustomerId(id);
-    };
-
-    loadCustomerId();
+    setCustomerId(id);
   }, []);
 
-
   /* =======================================================
-     FIRESTORE ORDERS LISTENER
+     FIRESTORE LISTENER
   ======================================================= */
 
   useEffect(() => {
@@ -708,10 +668,7 @@ export default function Orders() {
 
     const ordersQuery =
       query(
-        collection(
-          db,
-          "orders"
-        ),
+        collection(db, "orders"),
         where(
           "customerId",
           "==",
@@ -722,14 +679,11 @@ export default function Orders() {
     const unsubscribe =
       onSnapshot(
         ordersQuery,
-
         (snapshot) => {
           const orders =
             snapshot.docs.map(
               (docSnap) => ({
-                id:
-                  docSnap.id,
-
+                id: docSnap.id,
                 ...docSnap.data(),
               })
             );
@@ -738,21 +692,17 @@ export default function Orders() {
             (a, b) =>
               toMillis(
                 b.createdAt ||
-                b.timestamp
+                  b.timestamp
               ) -
               toMillis(
                 a.createdAt ||
-                a.timestamp
+                  a.timestamp
               )
           );
 
-          setOrderList(
-            orders
-          );
-
+          setOrderList(orders);
           setLoading(false);
         },
-
         (error) => {
           console.error(
             "Orders listener error:",
@@ -768,18 +718,14 @@ export default function Orders() {
       unsubscribe();
   }, [customerId]);
 
-
   /* =======================================================
      STATUS
   ======================================================= */
 
-  const getStatusKey = (
-    order
-  ) => {
+  const getStatusKey = (order) => {
     const status =
       String(
-        order?.status ||
-        "New"
+        order?.status || "New"
       )
         .trim()
         .toLowerCase();
@@ -818,19 +764,23 @@ export default function Orders() {
     return "new";
   };
 
-
   /* =======================================================
      6+1 LOYALTY
+     
+     RULE:
+     - Delivered only
+     - ₹500+ bill
+     - Every 6 qualifying orders = 1 reward
+     - Reward source order is marked with cycle
   ======================================================= */
 
   const qualifyingLoyaltyOrders =
     useMemo(() => {
-      return orderList.filter(
-        (order) => {
+      return orderList
+        .filter((order) => {
           const status =
             String(
-              order?.status ||
-              ""
+              order?.status || ""
             )
               .trim()
               .toLowerCase();
@@ -838,177 +788,193 @@ export default function Orders() {
           const billAmount =
             Number(
               order?.subtotal ??
-              order?.total ??
-              0
+                order?.total ??
+                0
             );
 
           return (
-            status ===
-              "delivered" &&
+            status === "delivered" &&
             Number.isFinite(
               billAmount
             ) &&
             billAmount >= 500
           );
-        }
-      );
+        })
+        .sort(
+          (a, b) =>
+            toMillis(
+              a?.createdAt ||
+                a?.timestamp
+            ) -
+            toMillis(
+              b?.createdAt ||
+                b?.timestamp
+            )
+        );
     }, [orderList]);
 
+  /* =======================================================
+     REWARD ORDERS
+     
+     A reward order is the order that contains
+     loyaltyReward.cycle.
+  ======================================================= */
+
+  const rewardOrders =
+    useMemo(() => {
+      return orderList
+        .filter((order) => {
+          const reward =
+            order?.loyaltyReward;
+
+          const cycle =
+            Number(
+              reward?.cycle
+            );
+
+          return (
+            reward &&
+            Number.isFinite(cycle) &&
+            cycle > 0
+          );
+        })
+        .sort(
+          (a, b) =>
+            Number(
+              a?.loyaltyReward?.cycle ||
+                0
+            ) -
+            Number(
+              b?.loyaltyReward?.cycle ||
+                0
+            )
+        );
+    }, [orderList]);
 
   /* =======================================================
-     COMPLETED LOYALTY CYCLES
+     COMPLETED CYCLES
   ======================================================= */
 
   const loyaltyCycleData =
     useMemo(() => {
-      const rewardOrders =
-        orderList.filter(
-          (order) => {
-            const cycle =
-              Number(
-                order
-                  ?.loyaltyReward
-                  ?.cycle
-              );
-
-            return (
+      const completedCycles =
+        rewardOrders
+          .map((order) =>
+            Number(
+              order
+                ?.loyaltyReward
+                ?.cycle
+            )
+          )
+          .filter(
+            (cycle) =>
               Number.isFinite(
                 cycle
               ) &&
               cycle > 0
-            );
-          }
-        );
+          );
 
       const maxCompletedCycle =
-        rewardOrders.length > 0
+        completedCycles.length
           ? Math.max(
-              ...rewardOrders.map(
-                (order) =>
-                  Number(
-                    order
-                      .loyaltyReward
-                      .cycle
-                  )
-              )
+              ...completedCycles
             )
           : 0;
 
-      const nextCycle =
-        maxCompletedCycle + 1;
+      /*
+        Count qualifying orders that have
+        not already been consumed by
+        completed 6-order cycles.
+      */
 
-      const requiredQualifyingOrders =
-        maxCompletedCycle * 6 +
-        6;
-
-      let progress =
-        qualifyingLoyaltyOrders.length -
+      const consumedOrders =
         maxCompletedCycle * 6;
 
-      progress =
+      const progress =
         Math.max(
           0,
           Math.min(
-            progress,
+            qualifyingLoyaltyOrders.length -
+              consumedOrders,
             6
           )
         );
 
       return {
         maxCompletedCycle,
-        nextCycle,
-        requiredQualifyingOrders,
+        nextCycle:
+          maxCompletedCycle + 1,
         progress,
       };
     }, [
-      orderList,
+      rewardOrders,
       qualifyingLoyaltyOrders,
     ]);
 
-
   const loyaltyCycle =
-    loyaltyCycleData
-      .maxCompletedCycle;
+    loyaltyCycleData.maxCompletedCycle;
 
   const loyaltyProgress =
-    loyaltyCycleData
-      .progress;
-
+    loyaltyCycleData.progress;
 
   /* =======================================================
      ACTIVE SCRATCH REWARD
+     
+     IMPORTANT:
+     - scratch_pending = show scratch card
+     - available = show revealed reward
+     - applied/redeemed = don't show as active
   ======================================================= */
 
   const activeLoyaltyReward =
     useMemo(() => {
-      const alreadyUsedSourceIds =
-        new Set(
-          orderList
-            .map(
-              (order) =>
-                order
-                  ?.loyaltyReward
-                  ?.sourceOrderId
-            )
-            .filter(Boolean)
-        );
-
-      const sourceOrders =
+      const candidates =
         orderList
-          .filter(
-            (order) => {
-              const reward =
-                order
-                  ?.loyaltyReward;
+          .filter((order) => {
+            const status =
+              order
+                ?.loyaltyReward
+                ?.status;
 
-              if (!reward) {
-                return false;
-              }
-
-              return (
-                reward.status ===
-                  "scratch_pending" ||
-                reward.status ===
-                  "available"
-              );
-            }
-          )
+            return (
+              status ===
+                "scratch_pending" ||
+              status ===
+                "available"
+            );
+          })
           .sort(
             (a, b) =>
               toMillis(
                 b
                   ?.loyaltyReward
-                  ?.createdAt ||
-                b?.createdAt
+                  ?.revealedAt ||
+                  b
+                    ?.loyaltyReward
+                    ?.createdAt ||
+                  b?.createdAt
               ) -
               toMillis(
                 a
                   ?.loyaltyReward
-                  ?.createdAt ||
-                a?.createdAt
+                  ?.revealedAt ||
+                  a
+                    ?.loyaltyReward
+                    ?.createdAt ||
+                  a?.createdAt
               )
           );
 
-      const active =
-        sourceOrders.find(
-          (order) =>
-            !alreadyUsedSourceIds.has(
-              order.id
-            )
-        );
-
-      return active || null;
+      return candidates[0] || null;
     }, [orderList]);
-
 
   const scratchCardUnlocked =
     Boolean(
       activeLoyaltyReward
     );
 
-
   /* =======================================================
-     ORDER COUNTS
+     COUNTS
   ======================================================= */
 
   const totalOrders =
@@ -1017,18 +983,15 @@ export default function Orders() {
   const deliveredOrders =
     orderList.filter(
       (order) =>
-        getStatusKey(
-          order
-        ) === "delivered"
+        getStatusKey(order) ===
+        "delivered"
     ).length;
 
   const activeOrders =
     orderList.filter(
       (order) => {
         const key =
-          getStatusKey(
-            order
-          );
+          getStatusKey(order);
 
         return (
           key === "new" ||
@@ -1038,7 +1001,6 @@ export default function Orders() {
       }
     ).length;
 
-
   /* =======================================================
      TOTAL SPENT
   ======================================================= */
@@ -1046,58 +1008,42 @@ export default function Orders() {
   const totalSpent =
     useMemo(() => {
       return orderList
-        .filter(
-          (order) => {
-            const status =
-              String(
-                order?.status ||
-                ""
-              )
-                .trim()
-                .toLowerCase();
+        .filter((order) => {
+          const status =
+            String(
+              order?.status || ""
+            )
+              .trim()
+              .toLowerCase();
 
-            return (
-              status ===
-                "delivered" ||
-              status ===
-                "completed"
-            );
-          }
-        )
+          return (
+            status === "delivered" ||
+            status === "completed"
+          );
+        })
         .reduce(
-          (
-            sum,
-            order
-          ) => {
+          (sum, order) => {
             const total =
               Number(
-                order?.total ??
-                0
+                order?.total ?? 0
               );
 
             return (
               sum +
-              (
-                Number.isFinite(
-                  total
-                )
-                  ? total
-                  : 0
-              )
+              (Number.isFinite(total)
+                ? total
+                : 0)
             );
           },
           0
         );
     }, [orderList]);
 
-
   /* =======================================================
      DATE
   ======================================================= */
 
-  const formatDate = (
-    value
-  ) => {
+  const formatDate = (value) => {
     const millis =
       toMillis(value);
 
@@ -1119,20 +1065,14 @@ export default function Orders() {
     );
   };
 
-
   /* =======================================================
      STATUS LABEL
   ======================================================= */
 
-  const getStatusLabel = (
-    order
-  ) => {
-    const key =
-      getStatusKey(
-        order
-      );
-
-    switch (key) {
+  const getStatusLabel = (order) => {
+    switch (
+      getStatusKey(order)
+    ) {
       case "new":
         return "New";
 
@@ -1150,25 +1090,16 @@ export default function Orders() {
 
       default:
         return (
-          order?.status ||
-          "New"
+          order?.status || "New"
         );
     }
   };
 
-
-  /* =======================================================
-     STATUS CLASS
-  ======================================================= */
-
-  const getStatusClass = (
-    order
-  ) => {
+  const getStatusClass = (order) => {
     return `order-status ${getStatusKey(
       order
     )}`;
   };
-
 
   /* =======================================================
      LOGIN
@@ -1198,7 +1129,6 @@ export default function Orders() {
     );
   }
 
-
   /* =======================================================
      LOADING
   ======================================================= */
@@ -1217,7 +1147,6 @@ export default function Orders() {
     );
   }
 
-
   /* =======================================================
      SPLIT ORDERS
   ======================================================= */
@@ -1226,9 +1155,7 @@ export default function Orders() {
     orderList.filter(
       (order) => {
         const key =
-          getStatusKey(
-            order
-          );
+          getStatusKey(order);
 
         return (
           key === "new" ||
@@ -1238,24 +1165,19 @@ export default function Orders() {
       }
     );
 
-
   const deliveredOrderList =
     orderList.filter(
       (order) =>
-        getStatusKey(
-          order
-        ) === "delivered"
+        getStatusKey(order) ===
+        "delivered"
     );
-
 
   const cancelledOrderList =
     orderList.filter(
       (order) =>
-        getStatusKey(
-          order
-        ) === "cancelled"
+        getStatusKey(order) ===
+        "cancelled"
     );
-
 
   /* =======================================================
      RENDER
@@ -1263,12 +1185,9 @@ export default function Orders() {
 
   return (
     <div className="orders-page">
-
       <div className="orders-container">
 
-        {/* =================================================
-            HEADER
-        ================================================= */}
+        {/* HEADER */}
 
         <div className="orders-header">
           <div>
@@ -1282,10 +1201,7 @@ export default function Orders() {
           </div>
         </div>
 
-
-        {/* =================================================
-            ORDER NOTIFICATIONS
-        ================================================= */}
+        {/* NOTIFICATIONS */}
 
         <OrderNotificationCard
           customerId={
@@ -1293,9 +1209,8 @@ export default function Orders() {
           }
         />
 
-
         {/* =================================================
-            6+1 SCRATCH CARD
+            6+1 REWARD CARD
         ================================================= */}
 
         <RewardCardErrorBoundary>
@@ -1303,45 +1218,34 @@ export default function Orders() {
             orders={
               orderList
             }
-
             customerId={
               customerId
             }
-
             qualifyingOrders={
               qualifyingLoyaltyOrders
             }
-
             qualifyingCount={
               qualifyingLoyaltyOrders.length
             }
-
             loyaltyProgress={
               loyaltyProgress
             }
-
             loyaltyCycle={
               loyaltyCycle
             }
-
             nextCycle={
               loyaltyCycleData.nextCycle
             }
-
             scratchCardUnlocked={
               scratchCardUnlocked
             }
-
             activeRewardOrder={
               activeLoyaltyReward
             }
           />
         </RewardCardErrorBoundary>
 
-
-        {/* =================================================
-            SUMMARY
-        ================================================= */}
+        {/* SUMMARY */}
 
         <div className="orders-summary">
 
@@ -1361,7 +1265,6 @@ export default function Orders() {
             </div>
           </div>
 
-
           <div className="summary-card">
             <span className="summary-icon">
               🔥
@@ -1378,7 +1281,6 @@ export default function Orders() {
             </div>
           </div>
 
-
           <div className="summary-card">
             <span className="summary-icon">
               ✅
@@ -1394,7 +1296,6 @@ export default function Orders() {
               </span>
             </div>
           </div>
-
 
           <div className="summary-card">
             <span className="summary-icon">
@@ -1417,9 +1318,8 @@ export default function Orders() {
 
         </div>
 
-
         {/* =================================================
-            MINI LOYALTY PROGRESS
+            MINI LOYALTY
         ================================================= */}
 
         <div className="loyalty-mini-card">
@@ -1439,26 +1339,19 @@ export default function Orders() {
                 </h3>
 
                 <p>
-
                   {activeLoyaltyReward
-
                     ? activeLoyaltyReward
                         ?.loyaltyReward
                         ?.status ===
                       "scratch_pending"
-
                       ? "Scratch your card to reveal your reward."
-
                       : "Your reward is ready for your next order."
-
                     : `${loyaltyProgress}/6 qualifying orders`}
-
                 </p>
 
               </div>
 
             </div>
-
 
             <strong>
               {loyaltyProgress}/6
@@ -1466,24 +1359,20 @@ export default function Orders() {
 
           </div>
 
-
           <div className="loyalty-progress-track">
 
             <div
               className="loyalty-progress-fill"
               style={{
                 width: `${
-                  (
-                    loyaltyProgress /
-                    6
-                  ) *
+                  (loyaltyProgress /
+                    6) *
                   100
                 }%`,
               }}
             />
 
           </div>
-
 
           <div className="loyalty-mini-footer">
 
@@ -1500,10 +1389,7 @@ export default function Orders() {
 
         </div>
 
-
-        {/* =================================================
-            EMPTY STATE
-        ================================================= */}
+        {/* EMPTY */}
 
         {orderList.length === 0 && (
           <div className="orders-empty">
@@ -1524,10 +1410,7 @@ export default function Orders() {
           </div>
         )}
 
-
-        {/* =================================================
-            RUNNING ORDERS
-        ================================================= */}
+        {/* RUNNING */}
 
         {runningOrders.length > 0 && (
           <section className="orders-section">
@@ -1535,7 +1418,6 @@ export default function Orders() {
             <div className="section-heading">
 
               <div>
-
                 <h2>
                   Running Orders
                 </h2>
@@ -1543,15 +1425,15 @@ export default function Orders() {
                 <p>
                   Your current orders
                 </p>
-
               </div>
 
               <span>
-                {runningOrders.length}
+                {
+                  runningOrders.length
+                }
               </span>
 
             </div>
-
 
             <div className="orders-list">
 
@@ -1561,19 +1443,15 @@ export default function Orders() {
                     key={
                       order.id
                     }
-
                     order={
                       order
                     }
-
                     formatDate={
                       formatDate
                     }
-
                     getStatusLabel={
                       getStatusLabel
                     }
-
                     getStatusClass={
                       getStatusClass
                     }
@@ -1586,18 +1464,15 @@ export default function Orders() {
           </section>
         )}
 
+        {/* DELIVERED */}
 
-        {/* =================================================
-            DELIVERED ORDERS
-        ================================================= */}
-
-        {deliveredOrderList.length > 0 && (
+        {deliveredOrderList.length >
+          0 && (
           <section className="orders-section">
 
             <div className="section-heading">
 
               <div>
-
                 <h2>
                   Delivered Orders
                 </h2>
@@ -1605,7 +1480,6 @@ export default function Orders() {
                 <p>
                   Your completed orders
                 </p>
-
               </div>
 
               <span>
@@ -1616,7 +1490,6 @@ export default function Orders() {
 
             </div>
 
-
             <div className="orders-list">
 
               {deliveredOrderList.map(
@@ -1625,19 +1498,15 @@ export default function Orders() {
                     key={
                       order.id
                     }
-
                     order={
                       order
                     }
-
                     formatDate={
                       formatDate
                     }
-
                     getStatusLabel={
                       getStatusLabel
                     }
-
                     getStatusClass={
                       getStatusClass
                     }
@@ -1650,18 +1519,15 @@ export default function Orders() {
           </section>
         )}
 
+        {/* CANCELLED */}
 
-        {/* =================================================
-            CANCELLED ORDERS
-        ================================================= */}
-
-        {cancelledOrderList.length > 0 && (
+        {cancelledOrderList.length >
+          0 && (
           <section className="orders-section">
 
             <div className="section-heading">
 
               <div>
-
                 <h2>
                   Cancelled Orders
                 </h2>
@@ -1669,7 +1535,6 @@ export default function Orders() {
                 <p>
                   Cancelled or rejected orders
                 </p>
-
               </div>
 
               <span>
@@ -1680,7 +1545,6 @@ export default function Orders() {
 
             </div>
 
-
             <div className="orders-list">
 
               {cancelledOrderList.map(
@@ -1689,19 +1553,15 @@ export default function Orders() {
                     key={
                       order.id
                     }
-
                     order={
                       order
                     }
-
                     formatDate={
                       formatDate
                     }
-
                     getStatusLabel={
                       getStatusLabel
                     }
-
                     getStatusClass={
                       getStatusClass
                     }
@@ -1715,11 +1575,9 @@ export default function Orders() {
         )}
 
       </div>
-
     </div>
   );
 }
-
 
 /* =========================================================
    ORDER CARD
@@ -1732,9 +1590,7 @@ function OrderCard({
   getStatusClass,
 }) {
   const items =
-    Array.isArray(
-      order?.items
-    )
+    Array.isArray(order?.items)
       ? order.items
       : [];
 
@@ -1743,15 +1599,7 @@ function OrderCard({
     null;
 
   const rewardStatus =
-    reward?.status ||
-    "";
-
-  const showRewardBadge =
-    Boolean(
-      reward &&
-      rewardStatus !==
-        "scratch_pending"
-    );
+    reward?.status || "";
 
   const isScratchPending =
     rewardStatus ===
@@ -1765,13 +1613,17 @@ function OrderCard({
     rewardStatus ===
     "applied";
 
+  const showRewardBadge =
+    Boolean(
+      reward &&
+        rewardStatus !==
+          "scratch_pending"
+    );
 
   return (
     <article className="order-card">
 
-      {/* =================================================
-          ORDER HEADER
-      ================================================= */}
+      {/* HEADER */}
 
       <div className="order-card-header">
 
@@ -1794,7 +1646,6 @@ function OrderCard({
 
         </div>
 
-
         <span
           className={
             getStatusClass(
@@ -1811,10 +1662,7 @@ function OrderCard({
 
       </div>
 
-
-      {/* =================================================
-          REWARD BADGE
-      ================================================= */}
+      {/* REWARD BADGE */}
 
       {showRewardBadge && (
         <div className="order-reward-badge">
@@ -1826,36 +1674,26 @@ function OrderCard({
           <div>
 
             <strong>
-
               {reward.type ===
               "discount"
-
-                ? "5% Discount Reward"
-
+                ? `${
+                    reward.discountPercent ||
+                    5
+                  }% Discount Reward`
                 : reward.itemName
                   ? `FREE ${reward.itemName}`
                   : "Reward"}
-
             </strong>
 
-
             <small>
-
               {isRewardAvailable
-
                 ? "✨ Scratch completed — reward available for your next order"
-
                 : isRewardApplied
-
                   ? "🎉 Reward applied to this order"
-
                   : rewardStatus ===
-                    "redeemed"
-
+                      "redeemed"
                     ? "Reward redeemed"
-
                     : "Reward unlocked"}
-
             </small>
 
           </div>
@@ -1863,10 +1701,7 @@ function OrderCard({
         </div>
       )}
 
-
-      {/* =================================================
-          SCRATCH PENDING
-      ================================================= */}
+      {/* SCRATCH PENDING */}
 
       {isScratchPending && (
         <div className="order-scratch-pending">
@@ -1892,10 +1727,7 @@ function OrderCard({
         </div>
       )}
 
-
-      {/* =================================================
-          SPECIAL NOTE
-      ================================================= */}
+      {/* SPECIAL NOTE */}
 
       {order?.specialNote && (
         <div className="order-special-note">
@@ -1913,10 +1745,7 @@ function OrderCard({
         </div>
       )}
 
-
-      {/* =================================================
-          ITEMS
-      ================================================= */}
+      {/* ITEMS */}
 
       <div className="order-items">
 
@@ -1925,7 +1754,6 @@ function OrderCard({
             item,
             index
           ) => {
-
             const quantity =
               getItemQuantity(
                 item
@@ -1959,16 +1787,9 @@ function OrderCard({
 
                 {image ? (
                   <img
-                    src={
-                      image
-                    }
-
-                    alt={
-                      itemName
-                    }
-
+                    src={image}
+                    alt={itemName}
                     className="order-item-image"
-
                     onError={(
                       event
                     ) => {
@@ -1982,27 +1803,20 @@ function OrderCard({
                   </div>
                 )}
 
-
                 <div className="order-item-info">
 
                   <strong>
-                    {
-                      itemName
-                    }
+                    {itemName}
                   </strong>
 
                   <span>
                     Qty:{" "}
-                    {
-                      quantity
-                    }
+                    {quantity}
                   </span>
 
                 </div>
 
-
                 <strong className="order-item-price">
-
                   ₹
                   {(
                     price *
@@ -2010,7 +1824,6 @@ function OrderCard({
                   ).toLocaleString(
                     "en-IN"
                   )}
-
                 </strong>
 
               </div>
@@ -2020,10 +1833,7 @@ function OrderCard({
 
       </div>
 
-
-      {/* =================================================
-          ORDER TOTAL
-      ================================================= */}
+      {/* TOTAL */}
 
       <div className="order-card-footer">
 
@@ -2036,15 +1846,13 @@ function OrderCard({
           <strong>
             ₹
             {Number(
-              order?.total ||
-              0
+              order?.total || 0
             ).toLocaleString(
               "en-IN"
             )}
           </strong>
 
         </div>
-
 
         {order?.paymentMethod && (
           <span className="payment-method">
