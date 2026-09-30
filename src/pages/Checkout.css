@@ -1,6 +1,10 @@
 /* =========================================================
    SUGAR CAFE — CHECKOUT FINAL CSS
-   MATCHES THE PROVIDED Checkout.jsx
+   DELIVERY + TAKEAWAY
+   MAP + AREA INFORMATION
+   PAYMENT
+   LOYALTY
+   DAILY SCRATCH
    MOBILE + DESKTOP
 ========================================================= */
 
@@ -30,8 +34,7 @@
 }
 
 /* =========================================================
-   RESET — IMPORTANT
-   Prevent global button/input CSS from breaking Checkout
+   RESET
 ========================================================= */
 
 .checkout-page,
@@ -586,6 +589,12 @@
   background: rgba(255, 255, 255, 0.035) !important;
 
   color: #fff !important;
+
+  transition: 0.2s ease;
+}
+
+.saved-address-btn:hover {
+  border-color: var(--checkout-border-strong) !important;
 }
 
 .saved-address-text {
@@ -726,9 +735,23 @@
   height: 100%;
 }
 
+/* Make Leaflet stay inside map */
 .checkout-map .leaflet-control-container {
   z-index: 20;
 }
+
+.checkout-map .leaflet-pane {
+  z-index: 1;
+}
+
+.checkout-map .leaflet-top,
+.checkout-map .leaflet-bottom {
+  z-index: 400;
+}
+
+/* =========================================================
+   MAP RECENTER
+========================================================= */
 
 .map-recenter-control {
   width: 42px !important;
@@ -749,6 +772,10 @@
 
   font-size: 23px;
 }
+
+/* =========================================================
+   CENTER PIN
+========================================================= */
 
 .map-center-pin {
   position: absolute;
@@ -818,6 +845,10 @@
   filter: blur(2px);
 }
 
+/* =========================================================
+   LIVE LOCATION
+========================================================= */
+
 .live-location-badge {
   position: absolute;
 
@@ -841,6 +872,9 @@
 
   font-size: 11px;
   font-weight: 600;
+
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .live-location-badge > span {
@@ -850,7 +884,13 @@
   border-radius: 50%;
 
   background: var(--checkout-green);
+
+  box-shadow: 0 0 8px rgba(67, 214, 155, 0.8);
 }
+
+/* =========================================================
+   MAP INSTRUCTION
+========================================================= */
 
 .map-instruction {
   display: flex;
@@ -897,6 +937,19 @@
 }
 
 .selected-address-icon {
+  width: 40px;
+  height: 40px;
+
+  flex: 0 0 40px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 12px;
+
+  background: rgba(255, 112, 107, 0.09);
+
   font-size: 22px;
 }
 
@@ -931,8 +984,14 @@
 }
 
 .selected-address-content small {
+  overflow: hidden;
+
   color: var(--checkout-muted);
+
   font-size: 11px;
+
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .distance-status {
@@ -944,6 +1003,8 @@
 
   font-size: 10px;
   font-weight: 800;
+
+  white-space: nowrap;
 }
 
 .distance-status.available {
@@ -955,6 +1016,157 @@
   background: rgba(255, 98, 98, 0.1);
   color: var(--checkout-danger);
 }
+
+/* =========================================================
+   MAP AREA INFORMATION
+   Area + Distance + Delivery Status
+========================================================= */
+
+.map-area-info {
+  width: 100%;
+
+  margin-top: 12px;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+
+  gap: 12px;
+
+  padding: 14px;
+
+  border: 1px solid var(--checkout-border);
+  border-radius: 16px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.045),
+      rgba(255, 255, 255, 0.02)
+    );
+}
+
+.map-area-main {
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 4px;
+}
+
+.map-area-label {
+  color: var(--checkout-accent);
+
+  font-size: 9px;
+  font-weight: 800;
+
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.map-area-name {
+  overflow: hidden;
+
+  color: #fff;
+
+  font-size: 14px;
+  font-weight: 750;
+
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.map-area-address {
+  overflow: hidden;
+
+  color: var(--checkout-muted);
+
+  font-size: 11px;
+  line-height: 1.45;
+
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.map-area-meta {
+  display: flex;
+  flex-direction: column;
+
+  align-items: flex-end;
+  justify-content: center;
+
+  gap: 6px;
+}
+
+.map-distance {
+  color: #fff;
+
+  font-size: 13px;
+  font-weight: 800;
+
+  white-space: nowrap;
+}
+
+.map-delivery-status {
+  padding: 6px 9px;
+
+  border-radius: 9px;
+
+  font-size: 9px;
+  font-weight: 800;
+
+  white-space: nowrap;
+}
+
+.map-delivery-status.available {
+  background: rgba(67, 214, 155, 0.1);
+  color: var(--checkout-green);
+}
+
+.map-delivery-status.unavailable {
+  background: rgba(255, 98, 98, 0.1);
+  color: var(--checkout-danger);
+}
+
+/* =========================================================
+   DELIVERY CHARGE
+========================================================= */
+
+.map-delivery-charge {
+  width: 100%;
+
+  margin-top: 10px;
+
+  padding: 11px 13px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 10px;
+
+  border-radius: 13px;
+
+  background: rgba(67, 214, 155, 0.06);
+}
+
+.map-delivery-charge span {
+  color: var(--checkout-muted);
+
+  font-size: 11px;
+}
+
+.map-delivery-charge strong {
+  color: var(--checkout-green);
+
+  font-size: 13px;
+  font-weight: 800;
+}
+
+/* =========================================================
+   DELIVERY WARNING
+========================================================= */
 
 .delivery-warning {
   display: flex;
@@ -1118,6 +1330,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+
   gap: 10px;
 }
 
@@ -1206,7 +1419,9 @@
 
 .loyalty-reward-grid {
   display: grid;
+
   grid-template-columns: repeat(4, minmax(0, 1fr));
+
   gap: 10px;
 }
 
@@ -1219,6 +1434,7 @@
 
   display: flex !important;
   flex-direction: column;
+
   align-items: center;
   justify-content: center;
 
@@ -1232,6 +1448,12 @@
   color: #fff !important;
 
   text-align: center;
+
+  transition: 0.2s ease;
+}
+
+.loyalty-reward-option:hover {
+  border-color: var(--checkout-border-strong) !important;
 }
 
 .loyalty-reward-option.selected {
@@ -1281,6 +1503,7 @@
 
   font-size: 9px;
   font-weight: 800;
+
   letter-spacing: 1px;
 }
 
@@ -1325,6 +1548,7 @@
 .scratch-result {
   display: flex;
   flex-direction: column;
+
   align-items: center;
 
   padding: 25px;
@@ -1357,7 +1581,6 @@
 
 /* =========================================================
    SPECIAL INSTRUCTIONS
-   IMPORTANT FIX FOR SCREENSHOT
 ========================================================= */
 
 .checkout-note-input {
@@ -1394,7 +1617,8 @@
 
   background: rgba(255, 255, 255, 0.065) !important;
 
-  box-shadow: 0 0 0 3px rgba(255, 112, 107, 0.08) !important;
+  box-shadow:
+    0 0 0 3px rgba(255, 112, 107, 0.08) !important;
 }
 
 .note-counter {
@@ -1408,7 +1632,7 @@
 }
 
 /* =========================================================
-   PAYMENT — IMPORTANT FIX
+   PAYMENT
 ========================================================= */
 
 .payment-card {
@@ -1522,6 +1746,7 @@
 
   display: flex;
   align-items: center;
+
   gap: 7px;
 }
 
@@ -1573,8 +1798,11 @@
 
 .payment-mini-info {
   display: flex;
+
   align-items: center;
+
   flex-wrap: wrap;
+
   gap: 6px;
 
   margin-top: 10px;
@@ -1582,6 +1810,7 @@
 
 .payment-mini-info span {
   display: inline-flex;
+
   align-items: center;
 
   padding: 4px 7px;
@@ -1594,6 +1823,7 @@
   color: #b9cddd;
 
   font-size: 9px;
+
   line-height: 1;
 }
 
@@ -1625,7 +1855,7 @@
 }
 
 /* =========================================================
-   BILL DETAILS — IMPORTANT FIX
+   BILL DETAILS
 ========================================================= */
 
 .bill-summary-card {
@@ -1655,8 +1885,10 @@
   width: 100%;
 
   display: flex;
+
   align-items: center;
   justify-content: space-between;
+
   gap: 15px;
 
   color: #c8d7e5;
@@ -1697,8 +1929,10 @@
   width: 100%;
 
   display: flex;
+
   align-items: center;
   justify-content: space-between;
+
   gap: 15px;
 
   padding-top: 2px;
@@ -1747,6 +1981,7 @@
   min-height: 62px !important;
 
   display: flex !important;
+
   align-items: center;
   justify-content: center;
 
@@ -1825,10 +2060,44 @@
   z-index: 500;
 }
 
+.checkout-map-wrapper .leaflet-control-zoom {
+  overflow: hidden;
+
+  border: 1px solid rgba(255, 255, 255, 0.12);
+
+  border-radius: 11px;
+}
+
 .checkout-map-wrapper .leaflet-control-zoom a {
+  width: 34px;
+  height: 34px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
   background: #071e34 !important;
+
   color: #fff !important;
+
   border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.checkout-map-wrapper .leaflet-control-zoom a:hover {
+  background: #0d2943 !important;
+}
+
+.checkout-map-wrapper .leaflet-control-attribution {
+  background: rgba(3, 21, 37, 0.78) !important;
+
+  color: #b5c7d8 !important;
+
+  font-size: 8px !important;
+}
+
+.checkout-map-wrapper .leaflet-control-attribution a {
+  color: #dbeeff !important;
 }
 
 /* =========================================================
@@ -1874,6 +2143,7 @@
 
   .checkout-header {
     grid-template-columns: 42px minmax(0, 1fr);
+
     gap: 10px;
 
     margin-bottom: 14px;
@@ -1972,21 +2242,112 @@
 
   .location-status {
     padding: 5px 7px;
+
     font-size: 9px;
   }
 
+  /* MAP */
   .checkout-map-wrapper {
     height: 290px;
+
+    border-radius: 17px;
   }
 
+  .map-center-pin {
+    transform: translate(-50%, -100%) scale(0.92);
+  }
+
+  .live-location-badge {
+    top: 9px;
+    left: 9px;
+
+    padding: 6px 8px;
+
+    font-size: 10px;
+  }
+
+  .map-recenter-control {
+    width: 38px !important;
+    height: 38px !important;
+  }
+
+  /* SELECTED ADDRESS */
   .selected-address-box {
     align-items: flex-start;
+
+    padding: 12px;
+  }
+
+  .selected-address-icon {
+    width: 36px;
+    height: 36px;
+
+    flex-basis: 36px;
+
+    font-size: 19px;
+  }
+
+  .selected-address-content strong {
+    font-size: 12px;
+  }
+
+  .selected-address-content small {
+    font-size: 10px;
   }
 
   .distance-status {
     font-size: 9px;
   }
 
+  /* AREA INFORMATION */
+  .map-area-info {
+    grid-template-columns: minmax(0, 1fr);
+
+    gap: 10px;
+
+    padding: 12px;
+  }
+
+  .map-area-name {
+    font-size: 13px;
+  }
+
+  .map-area-address {
+    font-size: 10px;
+  }
+
+  .map-area-meta {
+    width: 100%;
+
+    flex-direction: row;
+
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .map-distance {
+    font-size: 12px;
+  }
+
+  .map-delivery-status {
+    font-size: 8px;
+  }
+
+  .map-delivery-charge {
+    margin-top: 8px;
+
+    padding: 10px 11px;
+  }
+
+  .map-delivery-charge span {
+    font-size: 10px;
+  }
+
+  .map-delivery-charge strong {
+    font-size: 12px;
+  }
+
+  /* ITEMS */
   .checkout-item-image {
     width: 48px;
     height: 48px;
@@ -2002,19 +2363,20 @@
     font-size: 12px;
   }
 
-  /* -----------------------------------------
-     PAYMENT MOBILE
-  ----------------------------------------- */
-
+  /* PAYMENT */
   .payment-method-grid {
     grid-template-columns: 1fr;
+
     gap: 10px;
   }
 
   .payment-method-option {
     min-height: 108px !important;
 
-    grid-template-columns: 47px minmax(0, 1fr) 22px;
+    grid-template-columns:
+      47px
+      minmax(0, 1fr)
+      22px;
 
     gap: 10px;
 
@@ -2044,11 +2406,13 @@
 
   .payment-mini-info {
     margin-top: 7px;
+
     gap: 4px;
   }
 
   .payment-mini-info span {
     padding: 4px 6px;
+
     font-size: 8px;
   }
 
@@ -2064,10 +2428,7 @@
     height: 9px;
   }
 
-  /* -----------------------------------------
-     BILL MOBILE
-  ----------------------------------------- */
-
+  /* BILL */
   .bill-summary-card .section-heading {
     align-items: center;
   }
@@ -2094,10 +2455,7 @@
     font-size: 21px;
   }
 
-  /* -----------------------------------------
-     SPECIAL NOTE
-  ----------------------------------------- */
-
+  /* NOTE */
   .checkout-note-input {
     min-height: 105px !important;
 
@@ -2106,12 +2464,11 @@
     font-size: 14px !important;
   }
 
-  /* -----------------------------------------
-     LOYALTY
-  ----------------------------------------- */
-
+  /* LOYALTY */
   .loyalty-reward-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+
     gap: 8px;
   }
 
@@ -2125,10 +2482,7 @@
     font-size: 10px;
   }
 
-  /* -----------------------------------------
-     BOTTOM BUTTON
-  ----------------------------------------- */
-
+  /* BOTTOM */
   .checkout-bottom {
     position: relative;
   }
@@ -2161,7 +2515,10 @@
   }
 
   .payment-method-option {
-    grid-template-columns: 42px minmax(0, 1fr) 20px;
+    grid-template-columns:
+      42px
+      minmax(0, 1fr)
+      20px;
 
     padding: 11px !important;
   }
@@ -2179,5 +2536,17 @@
 
   .payment-mini-info span {
     font-size: 7px;
+  }
+
+  .map-area-info {
+    padding: 10px;
+  }
+
+  .map-area-name {
+    font-size: 12px;
+  }
+
+  .map-distance {
+    font-size: 11px;
   }
 }
