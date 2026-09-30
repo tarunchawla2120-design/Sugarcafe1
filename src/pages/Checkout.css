@@ -1,10 +1,8 @@
 /* =========================================================
    SUGAR CAFE — CHECKOUT FINAL CSS
    PREMIUM DARK UI
-   MOBILE RESPONSIVE
-   ORDER SUMMARY FIXED
-   PLACE ORDER BUTTON FIXED
-   LOYALTY REWARD UI
+   MOBILE + DESKTOP
+   PAYMENT / SUMMARY / BUTTON FIXED
 ========================================================= */
 
 :root {
@@ -24,7 +22,6 @@
 
   --checkout-blue: #2463ef;
   --checkout-green: #29d889;
-  --checkout-green-bg: rgba(25, 199, 128, 0.12);
 
   --checkout-radius: 28px;
   --checkout-shadow: 0 18px 45px rgba(0, 0, 0, 0.22);
@@ -47,6 +44,10 @@ body {
   overflow-x: hidden;
 }
 
+body {
+  background: var(--checkout-bg);
+}
+
 button,
 input,
 textarea,
@@ -54,9 +55,9 @@ select {
   font-family: inherit;
 }
 
-button {
-  -webkit-tap-highlight-color: transparent;
-}
+/* =========================================================
+   MAIN CHECKOUT
+========================================================= */
 
 .checkout-page {
   width: 100%;
@@ -64,6 +65,7 @@ button {
   min-height: 100vh;
 
   margin: 0 auto;
+
   padding: 0 16px 150px;
 
   color: var(--checkout-text);
@@ -100,6 +102,7 @@ button {
   margin-left: -16px;
 
   min-height: 56px;
+
   padding: 14px 18px;
 
   display: flex;
@@ -142,9 +145,11 @@ button {
   position: relative;
 
   display: grid;
-  grid-template-columns: 76px 1fr auto;
+
+  grid-template-columns: 76px minmax(0, 1fr) auto;
 
   gap: 16px;
+
   align-items: center;
 
   padding: 48px 4px 34px;
@@ -159,7 +164,7 @@ button {
 
   background: rgba(16, 42, 67, 0.55);
 
-  color: white;
+  color: #fff;
 
   font-size: 34px;
   line-height: 1;
@@ -167,12 +172,15 @@ button {
   cursor: pointer;
 
   transition: 0.2s ease;
+
+  appearance: none;
 }
 
 .checkout-back-btn:hover {
   transform: translateX(-2px);
 
-  border-color: rgba(255, 103, 87, 0.5);
+  border-color:
+    rgba(255, 103, 87, 0.5);
 }
 
 .checkout-header-content {
@@ -198,6 +206,7 @@ button {
   color: #fff;
 
   font-size: clamp(38px, 7vw, 56px);
+
   line-height: 1;
   font-weight: 800;
 
@@ -228,9 +237,11 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
+
   gap: 9px;
 
   border: 1px solid rgba(42, 214, 141, 0.35);
+
   border-radius: 22px;
 
   background: rgba(24, 194, 127, 0.1);
@@ -239,6 +250,8 @@ button {
 .secure-badge > span {
   width: 44px;
   height: 44px;
+
+  flex: 0 0 auto;
 
   display: grid;
   place-items: center;
@@ -278,6 +291,7 @@ button {
   padding: 28px;
 
   border: 1px solid var(--checkout-border);
+
   border-radius: var(--checkout-radius);
 
   background:
@@ -292,14 +306,19 @@ button {
   overflow: hidden;
 }
 
+/* =========================================================
+   SECTION HEADINGS
+========================================================= */
+
 .section-heading,
 .summary-heading,
 .scratch-heading {
   display: flex;
   align-items: flex-start;
+
   gap: 16px;
 
-  width: 100%;
+  min-width: 0;
 }
 
 .section-icon,
@@ -314,6 +333,7 @@ button {
   place-items: center;
 
   border: 1px solid rgba(79, 145, 214, 0.2);
+
   border-radius: 20px;
 
   background: rgba(36, 72, 111, 0.34);
@@ -329,10 +349,10 @@ button {
   color: white;
 
   font-size: 29px;
-  line-height: 1.1;
-  font-weight: 800;
 
-  writing-mode: horizontal-tb;
+  line-height: 1.1;
+
+  font-weight: 800;
 }
 
 .section-heading p,
@@ -342,11 +362,14 @@ button {
   color: #8da4ba;
 
   font-size: 16px;
+
   line-height: 1.45;
 }
 
 .optional-badge {
   margin-left: auto;
+
+  flex: 0 0 auto;
 
   padding: 7px 11px;
 
@@ -357,6 +380,7 @@ button {
   color: #91a4b8;
 
   font-size: 10px;
+
   font-weight: 800;
 
   letter-spacing: 1px;
@@ -368,6 +392,7 @@ button {
 
 .order-type-grid {
   display: grid;
+
   grid-template-columns: 1fr 1fr;
 
   gap: 16px;
@@ -376,11 +401,14 @@ button {
 }
 
 .order-type-option {
+  width: 100%;
+
   min-height: 180px;
 
   padding: 20px;
 
   border: 1px solid rgba(105, 147, 185, 0.22);
+
   border-radius: 27px;
 
   background: rgba(13, 37, 60, 0.62);
@@ -392,6 +420,8 @@ button {
   cursor: pointer;
 
   transition: 0.2s ease;
+
+  appearance: none;
 }
 
 .order-type-option.active {
@@ -411,7 +441,9 @@ button {
 
 .option-top {
   display: flex;
+
   align-items: flex-start;
+
   justify-content: space-between;
 }
 
@@ -437,6 +469,7 @@ button {
   place-items: center;
 
   border: 3px solid #607891;
+
   border-radius: 50%;
 
   color: white;
@@ -459,6 +492,8 @@ button {
 
   margin-top: 17px;
 
+  color: white;
+
   font-size: 24px;
 }
 
@@ -470,6 +505,7 @@ button {
   color: #91a5b8;
 
   font-size: 14px;
+
   line-height: 1.4;
 }
 
@@ -483,11 +519,13 @@ button {
   padding: 17px;
 
   display: flex;
+
   align-items: center;
 
   gap: 14px;
 
   border: 1px solid rgba(96, 146, 192, 0.2);
+
   border-radius: 24px;
 
   background: rgba(7, 29, 49, 0.7);
@@ -529,15 +567,19 @@ button {
 
 .customer-info strong {
   color: white;
+
   font-size: 21px;
 }
 
 .customer-info span {
   color: #93a7ba;
+
   font-size: 14px;
 
   overflow: hidden;
+
   text-overflow: ellipsis;
+
   white-space: nowrap;
 }
 
@@ -546,6 +588,8 @@ button {
 
   width: 40px;
   height: 40px;
+
+  flex: 0 0 auto;
 
   display: grid;
   place-items: center;
@@ -557,6 +601,7 @@ button {
   color: #16a85f;
 
   font-size: 23px;
+
   font-weight: 900;
 }
 
@@ -570,7 +615,9 @@ button {
 
 .saved-heading {
   display: flex;
+
   align-items: center;
+
   justify-content: space-between;
 
   margin-bottom: 11px;
@@ -578,16 +625,19 @@ button {
 
 .saved-heading strong {
   color: #9eb0c1;
+
   font-size: 15px;
 }
 
 .saved-heading span {
   color: #98aabd;
+
   font-size: 13px;
 }
 
 .saved-address-list {
   display: grid;
+
   gap: 10px;
 }
 
@@ -597,11 +647,13 @@ button {
   padding: 14px;
 
   display: flex;
+
   align-items: center;
 
   gap: 12px;
 
   border: 1px solid rgba(95, 141, 180, 0.17);
+
   border-radius: 18px;
 
   background: rgba(8, 30, 50, 0.65);
@@ -611,6 +663,8 @@ button {
   text-align: left;
 
   cursor: pointer;
+
+  appearance: none;
 }
 
 .saved-pin {
@@ -629,9 +683,11 @@ button {
 
 .saved-address-text {
   min-width: 0;
+
   flex: 1;
 
   display: flex;
+
   flex-direction: column;
 
   gap: 4px;
@@ -645,12 +701,15 @@ button {
   color: #7f96ab;
 
   font-size: 12px;
+
   line-height: 1.35;
 
   overflow: hidden;
 
   display: -webkit-box;
+
   -webkit-line-clamp: 2;
+
   -webkit-box-orient: vertical;
 }
 
@@ -664,6 +723,7 @@ button {
   padding: 20px;
 
   border: 1px dashed rgba(117, 155, 191, 0.25);
+
   border-radius: 23px;
 
   background: rgba(4, 24, 42, 0.45);
@@ -677,16 +737,19 @@ button {
   color: #c1cfdb;
 
   font-size: 15px;
+
   font-weight: 700;
 }
 
 .manual-address-box input {
   width: 100%;
+
   min-height: 55px;
 
   padding: 14px 16px;
 
   border: 1px solid rgba(94, 140, 180, 0.25);
+
   border-radius: 17px;
 
   outline: none;
@@ -704,11 +767,13 @@ button {
 
 .manual-address-btn {
   width: 100%;
+
   min-height: 53px;
 
   margin-top: 12px;
 
   border: 0;
+
   border-radius: 16px;
 
   background: #193b5e;
@@ -716,9 +781,12 @@ button {
   color: white;
 
   font-size: 15px;
+
   font-weight: 800;
 
   cursor: pointer;
+
+  appearance: none;
 }
 
 .manual-address-btn:disabled {
@@ -726,24 +794,28 @@ button {
 }
 
 /* =========================================================
-   CURRENT LOCATION
+   LOCATION BUTTON
 ========================================================= */
 
 .current-location-btn {
   width: 100%;
+
   min-height: 64px;
 
   margin-top: 17px;
+
   padding: 12px 18px;
 
   display: grid;
-  grid-template-columns: 52px 1fr 30px;
+
+  grid-template-columns: 52px minmax(0, 1fr) 30px;
 
   align-items: center;
 
   gap: 10px;
 
   border: 0;
+
   border-radius: 20px;
 
   background:
@@ -756,6 +828,7 @@ button {
   color: white;
 
   font-size: 17px;
+
   font-weight: 800;
 
   text-align: left;
@@ -764,6 +837,8 @@ button {
     0 14px 28px rgba(25, 86, 220, 0.25);
 
   cursor: pointer;
+
+  appearance: none;
 }
 
 .current-location-icon {
@@ -794,6 +869,7 @@ button {
   overflow: hidden;
 
   border: 1px solid rgba(255, 255, 255, 0.13);
+
   border-radius: 28px;
 
   background: #c7c7c7;
@@ -836,6 +912,7 @@ button {
   place-items: center;
 
   border: 6px solid white;
+
   border-radius: 50% 50% 50% 0;
 
   background: var(--checkout-accent);
@@ -882,6 +959,7 @@ button {
   padding: 9px 14px;
 
   display: flex;
+
   align-items: center;
 
   gap: 8px;
@@ -893,6 +971,7 @@ button {
   color: #47515b;
 
   font-size: 13px;
+
   font-weight: 800;
 
   box-shadow:
@@ -923,6 +1002,7 @@ button {
   height: 54px;
 
   border: 0;
+
   border-radius: 50%;
 
   background: #123758;
@@ -935,16 +1015,19 @@ button {
 
   box-shadow:
     0 8px 22px rgba(0, 0, 0, 0.3);
+
+  appearance: none;
 }
 
 /* =========================================================
-   MAP INSTRUCTION
+   MAP ADDRESS
 ========================================================= */
 
 .map-instruction {
   margin: 17px 0;
 
   display: flex;
+
   align-items: center;
 
   gap: 14px;
@@ -968,6 +1051,7 @@ button {
 
 .map-instruction strong {
   display: block;
+
   font-size: 22px;
 }
 
@@ -979,21 +1063,19 @@ button {
   font-size: 14px;
 }
 
-/* =========================================================
-   SELECTED ADDRESS
-========================================================= */
-
 .selected-address-card {
   padding: 16px;
 
   display: grid;
-  grid-template-columns: 58px 1fr 55px;
+
+  grid-template-columns: 58px minmax(0, 1fr) 55px;
 
   gap: 13px;
 
   align-items: center;
 
   border: 1px solid rgba(93, 150, 204, 0.25);
+
   border-radius: 24px;
 
   background:
@@ -1028,6 +1110,7 @@ button {
   color: #8ca4b9;
 
   font-size: 10px;
+
   font-weight: 800;
 
   letter-spacing: 2px;
@@ -1041,11 +1124,13 @@ button {
   color: white;
 
   font-size: 17px;
+
   line-height: 1.3;
 
   overflow: hidden;
 
   -webkit-line-clamp: 2;
+
   -webkit-box-orient: vertical;
 }
 
@@ -1074,6 +1159,8 @@ button {
   font-size: 23px;
 
   cursor: pointer;
+
+  appearance: none;
 }
 
 /* =========================================================
@@ -1096,11 +1183,13 @@ button {
   padding: 13px;
 
   display: flex;
+
   align-items: center;
 
   gap: 12px;
 
   border: 1px solid rgba(98, 144, 181, 0.18);
+
   border-radius: 20px;
 
   background: rgba(9, 31, 51, 0.72);
@@ -1109,6 +1198,8 @@ button {
 .stat-icon {
   width: 50px;
   height: 50px;
+
+  flex: 0 0 auto;
 
   display: grid;
   place-items: center;
@@ -1148,6 +1239,7 @@ button {
   padding: 16px;
 
   display: flex;
+
   align-items: center;
 
   gap: 12px;
@@ -1183,6 +1275,7 @@ button {
   color: white;
 
   font-size: 22px;
+
   font-weight: 900;
 }
 
@@ -1216,11 +1309,13 @@ button {
   padding: 22px;
 
   display: flex;
+
   align-items: center;
 
   gap: 16px;
 
   border: 1px solid rgba(91, 142, 189, 0.2);
+
   border-radius: 22px;
 
   background: rgba(5, 26, 44, 0.6);
@@ -1229,6 +1324,8 @@ button {
 .takeaway-box > span {
   width: 64px;
   height: 64px;
+
+  flex: 0 0 auto;
 
   display: grid;
   place-items: center;
@@ -1241,6 +1338,8 @@ button {
 }
 
 .takeaway-box strong {
+  color: white;
+
   font-size: 21px;
 }
 
@@ -1253,7 +1352,7 @@ button {
 }
 
 /* =========================================================
-   SPECIAL NOTE
+   SPECIAL INSTRUCTIONS
 ========================================================= */
 
 .special-note-wrapper {
@@ -1263,7 +1362,10 @@ button {
 }
 
 .special-note-wrapper textarea {
+  display: block;
+
   width: 100%;
+
   min-height: 150px;
 
   padding: 19px 48px 19px 18px;
@@ -1273,6 +1375,7 @@ button {
   outline: none;
 
   border: 1px solid rgba(100, 145, 183, 0.18);
+
   border-radius: 22px;
 
   background: #061d31;
@@ -1282,7 +1385,10 @@ button {
   font-family: inherit;
 
   font-size: 16px;
+
   line-height: 1.5;
+
+  appearance: none;
 }
 
 .special-note-wrapper textarea::placeholder {
@@ -1298,6 +1404,8 @@ button {
   color: #8097aa;
 
   font-size: 22px;
+
+  pointer-events: none;
 }
 
 .note-footer {
@@ -1340,6 +1448,7 @@ button {
 
 .scratch-gift-icon {
   background: white;
+
   font-size: 34px;
 }
 
@@ -1348,9 +1457,11 @@ button {
   width: 100%;
 
   margin-top: 22px;
+
   padding: 30px 20px;
 
   border: 1px solid rgba(39, 210, 145, 0.23);
+
   border-radius: 25px;
 
   background: #082b36;
@@ -1441,6 +1552,7 @@ button {
   color: #36e196;
 
   font-size: 14px;
+
   font-weight: 900;
 
   letter-spacing: 4px;
@@ -1476,10 +1588,6 @@ button {
   font-size: 55px;
 }
 
-.scratch-won {
-  margin-top: 3px !important;
-}
-
 /* =========================================================
    LOYALTY
 ========================================================= */
@@ -1497,6 +1605,7 @@ button {
   display: flex;
 
   align-items: flex-start;
+
   justify-content: space-between;
 
   gap: 15px;
@@ -1508,6 +1617,8 @@ button {
 
 .loyalty-number {
   margin-top: 5px;
+
+  color: white;
 
   font-size: 43px;
 
@@ -1605,9 +1716,13 @@ button {
   background: rgba(255, 193, 7, 0.10);
 
   border: 1px solid rgba(255, 193, 7, 0.35);
+
+  color: white;
 }
 
 .loyalty-redeem-title {
+  color: white;
+
   font-weight: 800;
 
   font-size: 15px;
@@ -1616,7 +1731,7 @@ button {
 .loyalty-redeem-box p {
   margin: 7px 0 12px;
 
-  color: #8da2b4;
+  color: #9db0c0;
 
   font-size: 13px;
 }
@@ -1626,17 +1741,21 @@ button {
 
   padding: 13px 14px;
 
-  border: 1px solid #ddd;
+  border: 1px solid #36526c;
+
   border-radius: 12px;
 
-  background: #fff;
+  background: #071d31;
 
-  color: #222;
+  color: white;
 
   font-size: 14px;
+
   font-weight: 600;
 
   outline: none;
+
+  appearance: auto;
 }
 
 .selected-loyalty-reward {
@@ -1646,11 +1765,12 @@ button {
 
   border-radius: 10px;
 
-  background: #eaf8ee;
+  background: rgba(30, 203, 125, 0.12);
 
-  color: #16733a;
+  color: #57e6a2;
 
   font-size: 13px;
+
   font-weight: 700;
 }
 
@@ -1659,43 +1779,71 @@ button {
 }
 
 .loyalty-summary {
-  background: #fff6d8 !important;
+  background: rgba(255, 246, 216, 0.12) !important;
 
-  color: #8a5a00 !important;
+  color: #f2c86b !important;
 }
 
 /* =========================================================
-   PAYMENT
+   PAYMENT — IMPORTANT FIX
 ========================================================= */
 
 .payment-option {
-  min-height: 86px;
+  width: 100%;
+
+  min-height: 88px;
 
   margin-top: 13px;
 
-  padding: 13px 15px;
+  padding: 12px 14px;
 
-  display: grid;
+  display: flex !important;
 
-  grid-template-columns: 58px 1fr 44px;
+  flex-direction: row !important;
 
-  align-items: center;
+  align-items: center !important;
 
   gap: 14px;
 
-  border: 1px solid rgba(103, 146, 184, 0.2);
+  border: 1px solid rgba(103, 146, 184, 0.25) !important;
 
-  border-radius: 24px;
+  border-radius: 22px !important;
 
-  background: rgba(8, 31, 51, 0.65);
+  background:
+    linear-gradient(
+      145deg,
+      rgba(13, 42, 67, 0.96),
+      rgba(7, 29, 49, 0.96)
+    ) !important;
+
+  color: white !important;
+
+  text-align: left;
 
   cursor: pointer;
 
-  transition: 0.2s ease;
+  appearance: none !important;
+
+  -webkit-appearance: none !important;
+
+  box-shadow: none;
+
+  overflow: hidden;
+}
+
+.payment-option:hover {
+  border-color: rgba(255, 103, 87, 0.45) !important;
 }
 
 .payment-option.active {
-  border: 2px solid var(--checkout-accent);
+  border: 2px solid var(--checkout-accent) !important;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(61, 42, 52, 0.95),
+      rgba(8, 31, 51, 0.98)
+    ) !important;
 }
 
 .payment-option.disabled {
@@ -1704,42 +1852,97 @@ button {
   cursor: not-allowed;
 }
 
+/* PAYMENT ICON */
+
 .payment-icon {
   width: 58px;
   height: 58px;
 
+  flex: 0 0 58px;
+
   display: grid;
+
   place-items: center;
 
-  border-radius: 18px;
+  border-radius: 17px;
 
-  background: rgba(51, 77, 110, 0.42);
+  background: rgba(51, 77, 110, 0.42) !important;
+
+  color: white !important;
 
   font-size: 27px;
+
+  overflow: hidden;
+}
+
+/* PAYMENT TEXT */
+
+.payment-text {
+  min-width: 0;
+
+  flex: 1 1 auto;
+
+  display: flex;
+
+  flex-direction: column;
+
+  justify-content: center;
+
+  gap: 4px;
+
+  overflow: hidden;
 }
 
 .payment-text strong {
   display: block;
 
-  font-size: 19px;
+  margin: 0;
+
+  color: #ffffff !important;
+
+  font-size: 18px !important;
+
+  line-height: 1.2;
+
+  font-weight: 800;
+
+  white-space: normal;
+
+  overflow: visible;
 }
 
 .payment-text small {
   display: block;
 
-  margin-top: 4px;
+  margin: 0;
 
-  color: #8197ab;
+  color: #9eb2c5 !important;
 
-  font-size: 13px;
+  font-size: 13px !important;
+
+  line-height: 1.35;
+
+  white-space: normal;
+
+  overflow: visible;
 }
+
+/* PAYMENT RADIO */
 
 .payment-option input {
-  width: 35px;
-  height: 35px;
+  width: 30px !important;
+  height: 30px !important;
+
+  flex: 0 0 30px;
+
+  margin: 0 !important;
 
   accent-color: var(--checkout-accent);
+
+  cursor: pointer;
 }
+
+/* UPI BOX */
 
 .upi-payment-box {
   margin-top: 14px;
@@ -1751,9 +1954,13 @@ button {
   border-radius: 19px;
 
   background: rgba(17, 120, 82, 0.1);
+
+  color: white;
 }
 
 .upi-payment-box strong {
+  color: white;
+
   font-size: 15px;
 }
 
@@ -1773,7 +1980,7 @@ button {
 }
 
 /* =========================================================
-   ORDER SUMMARY — IMPORTANT
+   ORDER SUMMARY
 ========================================================= */
 
 .summary-card {
@@ -1781,148 +1988,125 @@ button {
 
   z-index: 2;
 
-  display: block;
+  width: 100% !important;
 
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
+  max-width: 100% !important;
 
-  padding-bottom: 24px;
+  min-width: 0 !important;
+
+  padding-bottom: 25px;
 
   overflow: hidden;
-
-  box-sizing: border-box;
 }
 
-/* Heading */
-
-.summary-card .summary-heading {
+.summary-heading {
   width: 100%;
 
-  display: flex;
+  display: flex !important;
 
-  flex-direction: row;
+  flex-direction: row !important;
 
-  align-items: center;
+  align-items: center !important;
 
   gap: 14px;
 
   margin-bottom: 22px;
-
-  box-sizing: border-box;
-
-  writing-mode: horizontal-tb;
 }
 
-.summary-card .summary-heading > * {
-  writing-mode: horizontal-tb;
-
-  transform: none;
+.summary-heading > div {
+  min-width: 0;
 }
 
-.summary-card .summary-heading h3 {
-  margin: 4px 0 5px;
+.summary-receipt-icon {
+  width: 66px;
+  height: 66px;
 
-  writing-mode: horizontal-tb;
+  flex: 0 0 66px;
 
-  white-space: normal;
+  background: #fff8f5;
 
-  color: white;
+  font-size: 29px;
+}
+
+.summary-heading h3 {
+  color: white !important;
 
   font-size: 29px;
 
-  line-height: 1.1;
+  white-space: normal;
 }
 
-/* Rows */
+/* SUMMARY ROW */
 
-.summary-card .summary-row {
+.summary-row {
   width: 100%;
 
   min-height: 48px;
 
-  display: flex;
+  padding: 4px 0;
 
-  flex-direction: row;
+  display: flex !important;
 
-  align-items: center;
+  flex-direction: row !important;
 
-  justify-content: space-between;
+  align-items: center !important;
+
+  justify-content: space-between !important;
 
   gap: 15px;
 
-  box-sizing: border-box;
-
-  writing-mode: horizontal-tb;
-
-  color: #9cafc1;
+  color: #b8c7d6 !important;
 
   font-size: 17px;
 
-  opacity: 1;
+  line-height: 1.4;
+
+  writing-mode: horizontal-tb !important;
 }
 
-.summary-card .summary-row span {
-  display: block;
+.summary-row span {
+  min-width: 0;
 
   flex: 1 1 auto;
 
-  min-width: 0;
-
-  color: #9cafc1;
-
-  writing-mode: horizontal-tb;
+  color: #b8c7d6 !important;
 
   white-space: normal;
 
-  word-break: normal;
+  overflow-wrap: anywhere;
 
-  overflow-wrap: break-word;
-
-  opacity: 1;
-
-  visibility: visible;
+  writing-mode: horizontal-tb !important;
 }
 
-.summary-card .summary-row strong {
-  display: block;
-
+.summary-row strong {
   flex: 0 0 auto;
-
-  width: auto;
 
   min-width: max-content;
 
-  color: #ffffff;
+  display: block;
+
+  color: #ffffff !important;
 
   font-size: 17px;
 
-  font-weight: 700;
-
-  writing-mode: horizontal-tb;
+  font-weight: 800;
 
   white-space: nowrap;
 
-  opacity: 1;
-
-  visibility: visible;
+  writing-mode: horizontal-tb !important;
 }
 
-/* Discount */
-
-.summary-card .discount-row span,
-.summary-card .discount-row strong {
-  color: #4be09d;
+.discount-row span,
+.discount-row strong {
+  color: #4be09d !important;
 }
 
-/* Reward */
+/* REWARD SUMMARY */
 
-.summary-card .reward-summary {
-  display: block;
-
+.reward-summary {
   width: 100%;
 
-  margin-top: 7px;
+  margin: 8px 0;
 
   padding: 12px 14px;
 
@@ -1932,28 +2116,18 @@ button {
 
   background: rgba(255, 192, 72, 0.07);
 
-  color: #f3c66d;
+  color: #f3c66d !important;
 
   font-size: 13px;
 
   line-height: 1.4;
 
-  box-sizing: border-box;
-
-  writing-mode: horizontal-tb;
-
-  white-space: normal;
-
-  word-break: normal;
-
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
 }
 
-/* Divider */
+/* DIVIDER */
 
-.summary-card .summary-divider {
-  display: block;
-
+.summary-divider {
   width: 100%;
 
   height: 1px;
@@ -1961,68 +2135,56 @@ button {
   margin: 12px 0 20px;
 
   background: rgba(135, 163, 189, 0.15);
-
-  box-sizing: border-box;
 }
 
-/* Grand total */
+/* GRAND TOTAL */
 
-.summary-card .grand-total {
+.grand-total {
   width: 100%;
 
-  display: flex;
+  display: flex !important;
 
-  flex-direction: row;
+  flex-direction: row !important;
 
-  align-items: center;
+  align-items: center !important;
 
-  justify-content: space-between;
+  justify-content: space-between !important;
 
   gap: 15px;
 
-  box-sizing: border-box;
+  padding: 5px 0;
 
-  writing-mode: horizontal-tb;
+  writing-mode: horizontal-tb !important;
 }
 
-.summary-card .grand-total span {
-  flex: 1 1 auto;
-
+.grand-total span {
   min-width: 0;
 
-  color: #8ea2b6;
+  flex: 1 1 auto;
+
+  color: #a9bac9 !important;
 
   font-size: 19px;
 
   font-weight: 700;
 
-  writing-mode: horizontal-tb;
-
   white-space: normal;
 }
 
-.summary-card .grand-total strong {
+.grand-total strong {
   flex: 0 0 auto;
-
-  width: auto;
 
   min-width: max-content;
 
-  color: #ffffff;
+  color: #ffffff !important;
 
-  font-size: 36px;
+  font-size: clamp(32px, 8vw, 48px);
 
   line-height: 1;
 
   font-weight: 900;
 
-  writing-mode: horizontal-tb;
-
   white-space: nowrap;
-
-  opacity: 1;
-
-  visibility: visible;
 }
 
 /* =========================================================
@@ -2030,29 +2192,29 @@ button {
 ========================================================= */
 
 .summary-card .place-order-btn {
-  width: 100%;
+  width: 100% !important;
 
-  min-width: 0;
+  min-width: 0 !important;
 
-  min-height: 72px;
+  min-height: 72px !important;
 
-  margin-top: 20px;
+  margin-top: 22px !important;
 
-  padding: 8px 10px 8px 22px;
+  padding: 8px 10px 8px 20px !important;
 
-  display: flex;
+  display: flex !important;
 
-  flex-direction: row;
+  flex-direction: row !important;
 
-  align-items: center;
+  align-items: center !important;
 
-  justify-content: space-between;
+  justify-content: space-between !important;
 
-  gap: 12px;
+  gap: 12px !important;
 
-  border: 0;
+  border: 0 !important;
 
-  border-radius: 22px;
+  border-radius: 22px !important;
 
   background:
     linear-gradient(
@@ -2060,49 +2222,51 @@ button {
       #1769f5 0%,
       #2878ff 50%,
       #1769f5 100%
-    );
+    ) !important;
 
-  background-size: 200% 100%;
+  background-size: 200% 100% !important;
 
-  color: #ffffff;
+  color: #ffffff !important;
 
-  font-size: 20px;
+  font-size: 20px !important;
 
-  font-weight: 900;
+  font-weight: 900 !important;
 
   box-shadow:
     0 12px 28px rgba(23, 105, 245, 0.30),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    inset 0 1px 0 rgba(255,255,255,0.18) !important;
 
-  cursor: pointer;
+  cursor: pointer !important;
+
+  appearance: none !important;
+
+  -webkit-appearance: none !important;
 
   transition:
     transform 0.25s ease,
     box-shadow 0.25s ease,
-    background-position 0.45s ease;
+    background-position 0.45s ease !important;
 
   animation:
-    checkoutButtonShine 3s ease-in-out infinite;
+    checkoutButtonShine 3s ease-in-out infinite !important;
 
-  box-sizing: border-box;
-
-  writing-mode: horizontal-tb;
+  overflow: hidden;
 }
 
-.summary-card .place-order-btn > span {
-  writing-mode: horizontal-tb;
-}
+/* BUTTON MAIN TEXT */
 
 .summary-card .place-order-btn > span:first-child {
-  flex: 1 1 auto;
-
   min-width: 0;
 
-  color: #ffffff;
+  flex: 1 1 auto;
 
-  font-size: 19px;
+  color: white !important;
 
-  font-weight: 900;
+  font-size: 19px !important;
+
+  font-weight: 900 !important;
+
+  line-height: 1.2;
 
   text-align: center;
 
@@ -2113,27 +2277,27 @@ button {
   text-overflow: ellipsis;
 }
 
-.summary-card .place-order-btn .place-order-total {
-  flex: 0 0 auto;
+/* BUTTON TOTAL */
 
-  width: auto;
+.summary-card .place-order-total {
+  flex: 0 0 auto;
 
   min-width: max-content;
 
   padding: 10px 14px;
 
-  border-left: 1px solid rgba(255, 255, 255, 0.28);
+  border-left: 1px solid rgba(255,255,255,0.28);
 
-  color: #ffffff;
+  color: white !important;
 
-  font-size: 18px;
+  font-size: 18px !important;
 
-  font-weight: 900;
+  font-weight: 900 !important;
 
   white-space: nowrap;
-
-  writing-mode: horizontal-tb;
 }
+
+/* BUTTON HOVER */
 
 .summary-card .place-order-btn:hover:not(:disabled) {
   transform: translateY(-2px);
@@ -2142,21 +2306,25 @@ button {
 
   box-shadow:
     0 16px 34px rgba(23, 105, 245, 0.40),
-    inset 0 1px 0 rgba(255, 255, 255, 0.20);
+    inset 0 1px 0 rgba(255,255,255,0.20) !important;
 }
+
+/* BUTTON PRESS */
 
 .summary-card .place-order-btn:active:not(:disabled) {
   transform: scale(0.98);
 }
 
+/* BUTTON DISABLED */
+
 .summary-card .place-order-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.5 !important;
 
-  cursor: not-allowed;
+  cursor: not-allowed !important;
 
-  animation: none;
+  animation: none !important;
 
-  box-shadow: none;
+  box-shadow: none !important;
 }
 
 /* =========================================================
@@ -2164,6 +2332,7 @@ button {
 ========================================================= */
 
 @keyframes checkoutButtonShine {
+
   0% {
     background-position: 0% 50%;
   }
@@ -2181,33 +2350,25 @@ button {
    SECURE NOTE
 ========================================================= */
 
-.summary-card .checkout-secure-note {
-  display: block;
-
+.checkout-secure-note {
   width: 100%;
 
   margin-top: 14px;
 
-  color: #647d93;
+  color: #8196a9;
 
-  font-size: 11px;
+  font-size: 12px;
 
   line-height: 1.45;
 
   text-align: center;
-
-  box-sizing: border-box;
-
-  writing-mode: horizontal-tb;
-
-  white-space: normal;
 }
 
 /* =========================================================
-   MOBILE
+   MOBILE — 600px
 ========================================================= */
 
-@media (max-width: 620px) {
+@media (max-width: 600px) {
 
   .checkout-page {
     width: 100%;
@@ -2220,6 +2381,8 @@ button {
     overflow-x: hidden;
   }
 
+  /* STATUS */
+
   .checkout-store-status {
     width: calc(100% + 24px);
 
@@ -2228,13 +2391,15 @@ button {
     font-size: 13px;
   }
 
+  /* HEADER */
+
   .checkout-header {
-    grid-template-columns: 58px 1fr;
+    grid-template-columns:
+      58px minmax(0, 1fr);
 
     gap: 13px;
 
-    padding:
-      28px 2px 25px;
+    padding: 28px 2px 25px;
   }
 
   .checkout-back-btn {
@@ -2251,6 +2416,7 @@ button {
     top: 30px;
 
     min-width: 88px;
+
     min-height: 62px;
 
     padding: 7px 9px;
@@ -2291,17 +2457,21 @@ button {
     font-size: 15px;
   }
 
+  /* CARDS */
+
   .checkout-card {
     width: 100%;
 
     max-width: 100%;
 
-    padding: 20px 18px;
-
-    margin-bottom: 17px;
+    padding: 20px 16px;
 
     border-radius: 25px;
+
+    margin-bottom: 17px;
   }
+
+  /* HEADINGS */
 
   .section-icon,
   .summary-receipt-icon,
@@ -2314,7 +2484,9 @@ button {
     font-size: 27px;
   }
 
-  .section-heading {
+  .section-heading,
+  .summary-heading,
+  .scratch-heading {
     gap: 12px;
   }
 
@@ -2328,6 +2500,8 @@ button {
   .scratch-heading p {
     font-size: 14px;
   }
+
+  /* ORDER TYPE */
 
   .order-type-grid {
     gap: 10px;
@@ -2365,6 +2539,8 @@ button {
     font-size: 12px;
   }
 
+  /* CUSTOMER */
+
   .checkout-customer-box {
     padding: 13px;
   }
@@ -2389,6 +2565,8 @@ button {
     font-size: 18px;
   }
 
+  /* MAP */
+
   .checkout-map-wrapper {
     height: 355px;
 
@@ -2407,7 +2585,7 @@ button {
 
   .selected-address-card {
     grid-template-columns:
-      49px 1fr 44px;
+      49px minmax(0, 1fr) 44px;
 
     padding: 12px;
   }
@@ -2427,6 +2605,8 @@ button {
     width: 42px;
     height: 42px;
   }
+
+  /* DELIVERY */
 
   .delivery-stat-card {
     padding: 10px;
@@ -2449,6 +2629,20 @@ button {
     font-size: 10px;
   }
 
+  /* SPECIAL NOTE */
+
+  .special-note-wrapper textarea {
+    min-height: 120px;
+
+    padding: 15px;
+
+    font-size: 15px;
+
+    border-radius: 18px;
+  }
+
+  /* LOYALTY */
+
   .loyalty-number {
     font-size: 37px;
   }
@@ -2459,52 +2653,95 @@ button {
     padding: 7px 9px;
   }
 
+  /* =======================================================
+     PAYMENT MOBILE — IMPORTANT
+  ======================================================= */
+
   .payment-option {
-    grid-template-columns:
-      51px 1fr 36px;
+    width: 100% !important;
 
-    min-height: 76px;
+    min-height: 78px !important;
 
-    padding: 10px;
+    padding: 10px 12px !important;
+
+    display: flex !important;
+
+    flex-direction: row !important;
+
+    align-items: center !important;
+
+    gap: 10px !important;
+
+    border-radius: 18px !important;
+
+    background:
+      linear-gradient(
+        145deg,
+        rgba(13, 42, 67, 0.98),
+        rgba(7, 29, 49, 0.98)
+      ) !important;
+
+    color: white !important;
   }
 
   .payment-icon {
-    width: 51px;
-    height: 51px;
+    width: 48px !important;
+    height: 48px !important;
+
+    flex: 0 0 48px !important;
+
+    border-radius: 14px !important;
+
+    font-size: 23px !important;
+  }
+
+  .payment-text {
+    min-width: 0 !important;
+
+    flex: 1 1 auto !important;
+
+    gap: 3px !important;
   }
 
   .payment-text strong {
-    font-size: 16px;
+    color: white !important;
+
+    font-size: 15px !important;
+
+    line-height: 1.2 !important;
+
+    white-space: normal !important;
   }
 
   .payment-text small {
-    font-size: 11px;
+    color: #9eb2c5 !important;
+
+    font-size: 11px !important;
+
+    line-height: 1.25 !important;
   }
 
   .payment-option input {
-    width: 29px;
-    height: 29px;
+    width: 25px !important;
+    height: 25px !important;
+
+    flex: 0 0 25px !important;
   }
 
-  /* =======================================================
-     MOBILE SUMMARY
-  ======================================================= */
+  /* SUMMARY */
 
   .summary-card {
     width: 100% !important;
 
     max-width: 100% !important;
 
-    min-width: 0 !important;
-
-    padding: 20px 16px !important;
+    padding:
+      20px 16px !important;
 
     border-radius: 24px !important;
-
-    overflow: hidden !important;
   }
 
-  .summary-card .summary-heading {
+  .summary-heading {
     width: 100% !important;
 
     display: flex !important;
@@ -2516,31 +2753,22 @@ button {
     gap: 12px !important;
 
     margin-bottom: 18px !important;
-
-    writing-mode: horizontal-tb !important;
   }
 
-  .summary-card .summary-heading h3 {
+  .summary-receipt-icon {
+    width: 58px !important;
+    height: 58px !important;
+
+    flex: 0 0 58px !important;
+  }
+
+  .summary-heading h3 {
     font-size: 24px !important;
 
     line-height: 1.15 !important;
-
-    writing-mode: horizontal-tb !important;
-
-    white-space: normal !important;
   }
 
-  .summary-card .summary-receipt-icon {
-    flex:
-      0 0 58px !important;
-
-    width: 58px !important;
-    height: 58px !important;
-  }
-
-  .summary-card .summary-row {
-    width: 100% !important;
-
+  .summary-row {
     min-height: 42px !important;
 
     padding: 5px 0 !important;
@@ -2553,60 +2781,44 @@ button {
 
     justify-content: space-between !important;
 
-    gap: 12px !important;
+    gap: 10px !important;
 
-    writing-mode: horizontal-tb !important;
+    font-size: 15px !important;
   }
 
-  .summary-card .summary-row span {
+  .summary-row span {
     flex: 1 1 auto !important;
 
     min-width: 0 !important;
 
+    color: #b8c7d6 !important;
+
     font-size: 15px !important;
 
     line-height: 1.35 !important;
-
-    color: #9cafc1 !important;
-
-    writing-mode: horizontal-tb !important;
-
-    white-space: normal !important;
-
-    overflow-wrap: break-word !important;
   }
 
-  .summary-card .summary-row strong {
+  .summary-row strong {
     flex: 0 0 auto !important;
 
     min-width: max-content !important;
 
+    color: white !important;
+
     font-size: 15px !important;
-
-    color: #ffffff !important;
-
-    white-space: nowrap !important;
-
-    writing-mode: horizontal-tb !important;
   }
 
-  .summary-card .reward-summary {
-    width: 100% !important;
-
+  .reward-summary {
     margin: 9px 0 !important;
 
     padding: 11px 12px !important;
 
-    border-radius: 12px !important;
-
     font-size: 13px !important;
 
     line-height: 1.4 !important;
-
-    overflow-wrap: break-word !important;
   }
 
-  .summary-card .grand-total {
+  .grand-total {
     width: 100% !important;
 
     display: flex !important;
@@ -2617,47 +2829,37 @@ button {
 
     justify-content: space-between !important;
 
-    gap: 12px !important;
+    gap: 10px !important;
 
     padding: 15px 0 !important;
-
-    writing-mode: horizontal-tb !important;
   }
 
-  .summary-card .grand-total span {
+  .grand-total span {
     flex: 1 1 auto !important;
 
     min-width: 0 !important;
 
+    color: #a9bac9 !important;
+
     font-size: 17px !important;
-
-    color: #8ea2b6 !important;
-
-    writing-mode: horizontal-tb !important;
   }
 
-  .summary-card .grand-total strong {
+  .grand-total strong {
     flex: 0 0 auto !important;
 
     min-width: max-content !important;
 
+    color: white !important;
+
     font-size: 27px !important;
-
-    color: #ffffff !important;
-
-    white-space: nowrap !important;
-
-    writing-mode: horizontal-tb !important;
   }
 
   /* =======================================================
-     MOBILE PLACE ORDER
+     PLACE ORDER MOBILE
   ======================================================= */
 
   .summary-card .place-order-btn {
     width: 100% !important;
-
-    min-width: 0 !important;
 
     min-height: 64px !important;
 
@@ -2677,8 +2879,6 @@ button {
     gap: 8px !important;
 
     border-radius: 19px !important;
-
-    writing-mode: horizontal-tb !important;
   }
 
   .summary-card .place-order-btn > span:first-child {
@@ -2688,16 +2888,16 @@ button {
 
     font-size: 15px !important;
 
+    text-align: center !important;
+
     white-space: nowrap !important;
 
     overflow: hidden !important;
 
     text-overflow: ellipsis !important;
-
-    text-align: center !important;
   }
 
-  .summary-card .place-order-btn .place-order-total {
+  .summary-card .place-order-total {
     flex: 0 0 auto !important;
 
     min-width: max-content !important;
@@ -2710,17 +2910,13 @@ button {
     white-space: nowrap !important;
   }
 
-  .summary-card .checkout-secure-note {
-    width: 100% !important;
-
+  .checkout-secure-note {
     padding:
       11px 3px 2px !important;
 
     font-size: 11px !important;
 
     line-height: 1.45 !important;
-
-    text-align: center !important;
   }
 }
 
@@ -2732,7 +2928,12 @@ button {
 
   .checkout-page {
     padding-left: 10px;
+
     padding-right: 10px;
+  }
+
+  .checkout-card {
+    padding: 17px 14px;
   }
 
   .checkout-header-content {
@@ -2745,8 +2946,6 @@ button {
 
   .secure-badge {
     transform: scale(0.75);
-
-    transform-origin: right top;
   }
 
   .order-type-option {
@@ -2761,46 +2960,91 @@ button {
     font-size: 11px;
   }
 
-  .checkout-card {
-    padding: 17px 14px;
-  }
-
   .checkout-map-wrapper {
     height: 320px;
   }
 
-  .summary-card {
-    padding:
-      18px 13px !important;
+  /* PAYMENT */
+
+  .payment-option {
+    min-height: 74px !important;
+
+    padding: 9px 10px !important;
+
+    gap: 8px !important;
   }
 
-  .summary-card .summary-heading h3 {
+  .payment-icon {
+    width: 44px !important;
+    height: 44px !important;
+
+    flex-basis: 44px !important;
+
+    font-size: 21px !important;
+  }
+
+  .payment-text strong {
+    font-size: 14px !important;
+  }
+
+  .payment-text small {
+    font-size: 10px !important;
+  }
+
+  .payment-option input {
+    width: 23px !important;
+    height: 23px !important;
+
+    flex-basis: 23px !important;
+  }
+
+  /* SUMMARY */
+
+  .summary-card {
+    padding:
+      17px 14px !important;
+  }
+
+  .summary-heading h3 {
     font-size: 22px !important;
   }
 
-  .summary-card .summary-row span {
+  .summary-receipt-icon {
+    width: 52px !important;
+    height: 52px !important;
+
+    flex-basis: 52px !important;
+  }
+
+  .summary-row span {
     font-size: 14px !important;
   }
 
-  .summary-card .summary-row strong {
+  .summary-row strong {
     font-size: 14px !important;
   }
 
-  .summary-card .grand-total strong {
-    font-size: 24px !important;
+  .grand-total span {
+    font-size: 16px !important;
+  }
+
+  .grand-total strong {
+    font-size: 25px !important;
   }
 
   .summary-card .place-order-btn {
     min-height: 60px !important;
 
     padding-left: 12px !important;
+
+    border-radius: 18px !important;
   }
 
   .summary-card .place-order-btn > span:first-child {
     font-size: 14px !important;
   }
 
-  .summary-card .place-order-btn .place-order-total {
+  .summary-card .place-order-total {
     font-size: 15px !important;
 
     padding:
@@ -2809,36 +3053,38 @@ button {
 }
 
 /* =========================================================
-   EXTRA SAFETY — PREVENT SUMMARY TEXT ROTATION
+   EXTRA SAFETY — PREVENT WHITE BUTTONS
 ========================================================= */
 
-.summary-card,
-.summary-card *,
-.summary-card span,
-.summary-card strong,
-.summary-card h3,
-.summary-card p,
-.summary-card button {
-  writing-mode: horizontal-tb !important;
+.checkout-page button {
+  -webkit-tap-highlight-color: transparent;
+}
 
-  text-orientation: mixed !important;
+.checkout-page .payment-option,
+.checkout-page .order-type-option,
+.checkout-page .saved-address-btn,
+.checkout-page .manual-address-btn,
+.checkout-page .current-location-btn,
+.checkout-page .map-recenter-control,
+.checkout-page .address-recenter-btn,
+.checkout-page .place-order-btn {
+  font-family: inherit;
+
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Prevent browser default white button styles */
+
+.checkout-page .payment-option {
+  background-color: #0b2942 !important;
+}
+
+.checkout-page .payment-option *,
+.checkout-page .payment-option strong,
+.checkout-page .payment-option small {
+  box-sizing: border-box;
 }
 
 /* =========================================================
-   EXTRA SAFETY — PREVENT HORIZONTAL OVERFLOW
-========================================================= */
-
-.summary-card,
-.summary-card .summary-heading,
-.summary-card .summary-row,
-.summary-card .grand-total,
-.summary-card .place-order-btn,
-.summary-card .reward-summary {
-  max-width: 100% !important;
-
-  overflow-x: hidden !important;
-}
-
-/* =========================================================
-   END OF CHECKOUT CSS
+   END
 ========================================================= */
