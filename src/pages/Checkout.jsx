@@ -3581,128 +3581,166 @@ export default function Checkout() {
         </div>
 
       </section>
+{/* =================================================
+    PAYMENT
+================================================= */}
 
-      {/* =================================================
-          PAYMENT
-      ================================================= */}
+<section className="checkout-card payment-card">
 
-      <section className="checkout-card">
+  <div className="section-heading payment-heading">
 
-        <div className="section-heading">
+    <div className="section-icon payment-main-icon">
+      💳
+    </div>
 
-          <div className="section-icon">
-            💳
+    <div>
+      <span className="section-label">
+        PAYMENT
+      </span>
+
+      <h3>
+        Choose Payment Method
+      </h3>
+
+      <p>
+        Select how you want to pay for your order.
+      </p>
+    </div>
+
+  </div>
+
+  <div className="payment-method-grid">
+
+    {/* CASH ON DELIVERY */}
+    {store.codEnabled !== false && (
+      <button
+        type="button"
+        className={`payment-method-option ${
+          paymentMethod === "Cash on Delivery"
+            ? "active"
+            : ""
+        }`}
+        onClick={() =>
+          setPaymentMethod("Cash on Delivery")
+        }
+      >
+
+        <div className="payment-option-icon cod-icon">
+          💵
+        </div>
+
+        <div className="payment-option-content">
+
+          <div className="payment-option-title-row">
+
+            <strong>
+              Cash on Delivery
+            </strong>
+
+            {paymentMethod ===
+              "Cash on Delivery" && (
+              <span className="payment-selected-check">
+                ✓
+              </span>
+            )}
+
           </div>
 
-          <div>
+          <small>
+            Pay when your order arrives
+          </small>
 
-            <span className="section-label">
-              PAYMENT
-            </span>
-
-            <h3>
-              Choose Payment Method
-            </h3>
-
-            <p>
-              Select how you want to pay.
-            </p>
-
+          <div className="payment-mini-info">
+            <span>🛡️ Secure</span>
+            <span>🚚 Pay on delivery</span>
           </div>
 
         </div>
 
-        <div className="payment-method-grid">
+        <span
+          className={`payment-radio ${
+            paymentMethod ===
+            "Cash on Delivery"
+              ? "selected"
+              : ""
+          }`}
+        >
+          {paymentMethod ===
+          "Cash on Delivery" ? (
+            <span className="radio-inner" />
+          ) : null}
+        </span>
 
-          {store.codEnabled !==
-            false && (
-            <button
-              type="button"
-              className={`payment-method-option ${
-                paymentMethod ===
-                "Cash on Delivery"
-                  ? "active"
-                  : ""
-              }`}
-              onClick={() =>
-                setPaymentMethod(
-                  "Cash on Delivery"
-                )
-              }
-            >
+      </button>
+    )}
 
-              <div className="payment-method-icon">
-                💵
-              </div>
+    {/* ONLINE PAYMENT */}
+    {store.upiEnabled && (
+      <button
+        type="button"
+        className={`payment-method-option ${
+          paymentMethod === "Online Payment"
+            ? "active"
+            : ""
+        }`}
+        onClick={() =>
+          setPaymentMethod("Online Payment")
+        }
+      >
 
-              <div>
+        <div className="payment-option-icon online-icon">
+          💳
+        </div>
 
-                <strong>
-                  Cash on Delivery
-                </strong>
+        <div className="payment-option-content">
 
-                <small>
-                  Pay when your order arrives
-                </small>
+          <div className="payment-option-title-row">
 
-              </div>
+            <strong>
+              Online Payment
+            </strong>
 
-              <span>
-                {paymentMethod ===
-                "Cash on Delivery"
-                  ? "✓"
-                  : ""}
+            {paymentMethod ===
+              "Online Payment" && (
+              <span className="payment-selected-check">
+                ✓
               </span>
+            )}
 
-            </button>
-          )}
+          </div>
 
-          {store.upiEnabled && (
-            <button
-              type="button"
-              className={`payment-method-option ${
-                paymentMethod ===
-                "Online Payment"
-                  ? "active"
-                  : ""
-              }`}
-              onClick={() =>
-                setPaymentMethod(
-                  "Online Payment"
-                )
-              }
-            >
+          <small>
+            UPI / Card / Net Banking
+          </small>
 
-              <div className="payment-method-icon">
-                💳
-              </div>
-
-              <div>
-
-                <strong>
-                  Online Payment
-                </strong>
-
-                <small>
-                  UPI / Card / Net Banking
-                </small>
-
-              </div>
-
-              <span>
-                {paymentMethod ===
-                "Online Payment"
-                  ? "✓"
-                  : ""}
-              </span>
-
-            </button>
-          )}
+          <div className="payment-mini-info payment-methods">
+            <span>UPI</span>
+            <span>Cards</span>
+            <span>Net Banking</span>
+          </div>
 
         </div>
 
-      </section>
+        <span
+          className={`payment-radio ${
+            paymentMethod ===
+            "Online Payment"
+              ? "selected"
+              : ""
+          }`}
+        >
+          {paymentMethod ===
+          "Online Payment" ? (
+            <span className="radio-inner" />
+          ) : null}
+        </span>
 
+      </button>
+    )}
+
+  </div>
+
+</section>
       {/* =================================================
           BILL
       ================================================= */}
