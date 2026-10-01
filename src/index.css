@@ -1,31 +1,142 @@
-*{
-  margin:0;
-  padding:0;
-  box-sizing:border-box;
-  font-family:Arial, Helvetica, sans-serif;
-}
+/* =========================================================
+   SUGAR CAFE — GLOBAL NEON BORDER
+   Blue → Purple → Pink
+   Subtle Premium Glow
+========================================================= */
 
-html,body{
-  width:100%;
-  min-height:100vh;
-  overflow-x:hidden;
-  background:#f5f5f5;
-}
-
-#root{
-  width:100%;
-  min-height:100vh;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: Arial, Helvetica, sans-serif;
 }
 
 html,
-body,
+body {
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background: #f5f5f5;
+}
+
 #root {
-  margin: 0;
-  padding: 0;
   width: 100%;
   min-height: 100vh;
 }
 
-* {
-  box-sizing: border-box;
+/* =========================================================
+   NEON BORDER — MAIN LIGHT
+========================================================= */
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 4px;
+  z-index: 99999;
+  pointer-events: none;
+
+  background: conic-gradient(
+    from 0deg,
+    #00c8ff,
+    #3478ff,
+    #8a4dff,
+    #d946ef,
+    #ff3b9d,
+    #8a4dff,
+    #3478ff,
+    #00c8ff
+  );
+
+  padding: 2px;
+
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+
+  -webkit-mask-composite: xor;
+
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+
+  mask-composite: exclude;
+
+  border-radius: 12px;
+
+  opacity: 0.9;
+
+  animation: sugarNeonRotate 8s linear infinite;
+}
+
+/* =========================================================
+   NEON GLOW
+========================================================= */
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 3px;
+  z-index: 99998;
+  pointer-events: none;
+
+  border-radius: 14px;
+
+  box-shadow:
+    0 0 6px rgba(0, 200, 255, 0.55),
+    0 0 14px rgba(82, 94, 255, 0.4),
+    0 0 25px rgba(168, 70, 255, 0.3),
+    0 0 38px rgba(255, 50, 160, 0.18);
+
+  opacity: 0.8;
+
+  animation: sugarNeonPulse 3.5s ease-in-out infinite;
+}
+
+/* =========================================================
+   VERY SUBTLE ANIMATION
+========================================================= */
+
+@keyframes sugarNeonRotate {
+  from {
+    filter: hue-rotate(0deg);
+  }
+
+  to {
+    filter: hue-rotate(360deg);
+  }
+}
+
+@keyframes sugarNeonPulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+
+  50% {
+    opacity: 0.95;
+  }
+}
+
+/* =========================================================
+   MOBILE — SLIGHTLY SOFTER
+========================================================= */
+
+@media (max-width: 600px) {
+  body::before {
+    inset: 3px;
+    padding: 2px;
+    border-radius: 10px;
+    opacity: 0.85;
+  }
+
+  body::after {
+    inset: 2px;
+
+    box-shadow:
+      0 0 5px rgba(0, 200, 255, 0.5),
+      0 0 12px rgba(100, 80, 255, 0.35),
+      0 0 22px rgba(200, 60, 255, 0.25);
+
+    opacity: 0.7;
+  }
 }
