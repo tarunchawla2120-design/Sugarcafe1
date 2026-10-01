@@ -1,15 +1,69 @@
+/* =========================================================
+   SUGAR CAFE — APP LAYOUT
+   PREMIUM NEON BORDER
+   MOBILE + DESKTOP
+========================================================= */
+
 .app {
+  position: relative;
+
   width: 100%;
   max-width: 430px;
   min-height: 100vh;
+
   margin: 0 auto;
+
   background: #fff;
 
   overflow-x: hidden;
+
   box-sizing: border-box;
 
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.08);
+  /* Premium neon border */
+  border: 2px solid rgba(255, 45, 75, 0.85);
+
+  /* Neon glow outside the website */
+  box-shadow:
+    0 0 4px rgba(255, 45, 75, 0.95),
+    0 0 10px rgba(255, 45, 75, 0.75),
+    0 0 22px rgba(255, 45, 75, 0.50),
+    0 0 45px rgba(255, 45, 75, 0.25);
+
+  animation: sugarCafeNeon 2.8s ease-in-out infinite;
 }
+
+
+/* =========================================================
+   SOFT NEON PULSE
+========================================================= */
+
+@keyframes sugarCafeNeon {
+  0%,
+  100% {
+    border-color: rgba(255, 45, 75, 0.75);
+
+    box-shadow:
+      0 0 4px rgba(255, 45, 75, 0.85),
+      0 0 10px rgba(255, 45, 75, 0.65),
+      0 0 22px rgba(255, 45, 75, 0.42),
+      0 0 45px rgba(255, 45, 75, 0.20);
+  }
+
+  50% {
+    border-color: rgba(255, 55, 85, 1);
+
+    box-shadow:
+      0 0 5px rgba(255, 55, 85, 1),
+      0 0 14px rgba(255, 55, 85, 0.90),
+      0 0 30px rgba(255, 55, 85, 0.65),
+      0 0 55px rgba(255, 55, 85, 0.32);
+  }
+}
+
+
+/* =========================================================
+   KEEP ALL CHILDREN INSIDE THE APP
+========================================================= */
 
 .app *,
 .app *::before,
@@ -17,6 +71,29 @@
   box-sizing: border-box;
 }
 
+
+/* =========================================================
+   IMAGES
+========================================================= */
+
 .app img {
   max-width: 100%;
+  display: block;
+}
+
+
+/* =========================================================
+   MOBILE — CLEANER NEON
+========================================================= */
+
+@media (max-width: 430px) {
+  .app {
+    border-width: 2px;
+
+    box-shadow:
+      0 0 4px rgba(255, 45, 75, 0.90),
+      0 0 10px rgba(255, 45, 75, 0.65),
+      0 0 20px rgba(255, 45, 75, 0.40),
+      0 0 35px rgba(255, 45, 75, 0.18);
+  }
 }
