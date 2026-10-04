@@ -43,17 +43,17 @@ async function sendOrderStatusNotification(order, status) {
 
           orderNumber: String(
             order.orderNumber ||
-            order.orderNo ||
-            order.orderId ||
-            order.id ||
-            ""
+              order.orderNo ||
+              order.orderId ||
+              order.id ||
+              ""
           ),
 
           status: String(status),
 
           orderType: String(
             order.orderType ||
-            "Delivery"
+              "Delivery"
           )
         })
       }
@@ -87,7 +87,6 @@ async function sendOrderStatusNotification(order, status) {
   }
 }
 
-
 const STATUS = [
   "All",
   "New",
@@ -119,11 +118,15 @@ function toMillis(value) {
 
   const parsed = new Date(value).getTime();
 
-  return Number.isNaN(parsed) ? null : parsed;
+  return Number.isNaN(parsed)
+    ? null
+    : parsed;
 }
 
 function money(value) {
-  return `₹${Number(value || 0).toLocaleString("en-IN")}`;
+  return `₹${Number(
+    value || 0
+  ).toLocaleString("en-IN")}`;
 }
 
 function label(order) {
@@ -207,10 +210,9 @@ function getDailyScratchRewardText(order) {
     reward.type === "discount" ||
     Number(reward.discountPercent) === 5
   ) {
-    const amount =
-      Number(
-        reward.appliedDiscount || 0
-      );
+    const amount = Number(
+      reward.appliedDiscount || 0
+    );
 
     return amount > 0
       ? `5% OFF · ${money(
@@ -392,6 +394,7 @@ function KOTModal({
         <div className="sc-kot-head">
           <div>
             <b>☕ SUGAR CAFE</b>
+
             <span>
               KITCHEN ORDER TICKET
             </span>
@@ -668,8 +671,8 @@ function AdminOrders() {
     useRef(null);
 
   /* =======================================================
-     BELL
-  ======================================================= */
+     ORDER RINGTONE
+======================================================= */
 
   const playBell = () => {
     if (
@@ -682,8 +685,16 @@ function AdminOrders() {
       if (!alarmRef.current) {
         alarmRef.current =
           new Audio(
-            "/alarm_bell.mp3"
+            "/order-ringtone.mp3"
           );
+
+        /*
+         * IMPORTANT:
+         * New order ke time ringtone continuously
+         * repeat hogi jab tak stopBell() call na ho.
+         */
+        alarmRef.current.loop = true;
+        alarmRef.current.preload = "auto";
       }
 
       alarmRef.current.currentTime = 0;
@@ -693,11 +704,34 @@ function AdminOrders() {
         alarmRef.current.play();
 
       if (promise?.catch) {
-        promise.catch(() => {});
+        promise.catch((error) => {
+          console.warn(
+            "Order ringtone could not play:",
+            error
+          );
+        });
       }
     } catch (error) {
       console.error(
-        "Bell error:",
+        "Ringtone error:",
+        error
+      );
+    }
+  };
+
+  /* =======================================================
+     STOP ORDER RINGTONE
+======================================================= */
+
+  const stopBell = () => {
+    try {
+      if (alarmRef.current) {
+        alarmRef.current.pause();
+        alarmRef.current.currentTime = 0;
+      }
+    } catch (error) {
+      console.error(
+        "Stop ringtone error:",
         error
       );
     }
@@ -705,7 +739,7 @@ function AdminOrders() {
 
   /* =======================================================
      FIREBASE ORDERS
-  ======================================================= */
+======================================================= */
 
   useEffect(() => {
     const unsub =
@@ -790,7 +824,7 @@ function AdminOrders() {
 
   /* =======================================================
      CLOCK
-  ======================================================= */
+======================================================= */
 
   useEffect(() => {
     const id =
@@ -808,7 +842,7 @@ function AdminOrders() {
 
   /* =======================================================
      PREPARATION TIMER BELL
-  ======================================================= */
+======================================================= */
 
   useEffect(() => {
     if (
@@ -858,12 +892,13 @@ function AdminOrders() {
 
   /* =======================================================
      CLEANUP AUDIO
-  ======================================================= */
+======================================================= */
 
   useEffect(() => {
     return () => {
       if (alarmRef.current) {
         alarmRef.current.pause();
+        alarmRef.current.currentTime = 0;
         alarmRef.current = null;
       }
     };
@@ -871,7 +906,7 @@ function AdminOrders() {
 
   /* =======================================================
      UPDATE ORDER + PUSH NOTIFICATION
-  ======================================================= */
+======================================================= */
 
   const updateOrder = async (
     order,
@@ -887,9 +922,14 @@ function AdminOrders() {
         updates
       );
 
+      /*
+       * Agar popup wala order update hua,
+       * ringtone bhi turant stop karo.
+       */
       if (
         newOrder?.id === order.id
       ) {
+        stopBell();
         setNewOrder(null);
       }
 
@@ -908,14 +948,6 @@ function AdminOrders() {
           updates.status
         ).trim()
       ) {
-        /*
-         * Don't await this.
-         *
-         * If notification server has a temporary
-         * problem, the order update is already
-         * successfully saved in Firestore.
-         */
-
         sendOrderStatusNotification(
           order,
           updates.status
@@ -944,7 +976,7 @@ function AdminOrders() {
 
   /* =======================================================
      PRINT KOT
-  ======================================================= */
+======================================================= */
 
   const printKOT = async (
     order
@@ -1028,11 +1060,17 @@ function AdminOrders() {
 
   /* =======================================================
      ACCEPT ORDER
-  ======================================================= */
+======================================================= */
 
   const accept = async (
     order
   ) => {
+    /*
+     * Ringtone stop immediately when
+     * staff accepts the order.
+     */
+    stopBell();
+
     const minutes =
       Number(
         order.preparationMinutes ??
@@ -1150,76 +1188,89 @@ function AdminOrders() {
       );
     }
   };
-  
+
   /* =======================================================
-   REJECT ORDER - FIXED
+     REJECT ORDER
 ======================================================= */
 
-const reject = async (order) => {
-  if (!order?.id) {
-    console.error(
-      "Reject failed: Order ID missing",
-      order
-    );
+  const reject = async (order) => {
+    if (!order?.id) {
+      console.error(
+        "Reject failed: Order ID missing",
+        order
+      );
 
-    alert("Order ID nahi mila.");
-    return false;
-  }
+      alert(
+        "Order ID nahi mila."
+      );
 
-  try {
-    console.log(
-      "Rejecting order:",
-      order.id
-    );
+      return false;
+    }
 
-    const success = await updateOrder(
-      order,
-      {
-        status: "Rejected",
-
-        rejectionReason:
-          "Order rejected by staff",
-
-        rejectedAt:
-          Timestamp.now()
-      }
-    );
-
-    if (success) {
+    try {
       console.log(
-        "Order rejected successfully:",
+        "Rejecting order:",
         order.id
       );
 
-      // New order popup close
-      if (
-        newOrder?.id === order.id
-      ) {
-        setNewOrder(null);
+      /*
+       * Stop ringtone immediately.
+       */
+      stopBell();
+
+      const success =
+        await updateOrder(
+          order,
+          {
+            status:
+              "Rejected",
+
+            rejectionReason:
+              "Order rejected by staff",
+
+            rejectedAt:
+              Timestamp.now()
+          }
+        );
+
+      if (success) {
+        console.log(
+          "Order rejected successfully:",
+          order.id
+        );
+
+        if (
+          newOrder?.id === order.id
+        ) {
+          stopBell();
+          setNewOrder(null);
+        }
+
+        return true;
       }
 
-      return true;
+      return false;
+    } catch (error) {
+      console.error(
+        "Reject order error:",
+        error
+      );
+
+      alert(
+        "Order reject nahi ho paya.\n\n" +
+        (
+          error?.message ||
+          "Unknown error"
+        )
+      );
+
+      return false;
     }
-
-    return false;
-  } catch (error) {
-    console.error(
-      "Reject order error:",
-      error
-    );
-
-    alert(
-      "Order reject nahi ho paya.\n\n" +
-      (error?.message || "Unknown error")
-    );
-
-    return false;
-  }
-};
+  };
 
   /* =======================================================
      EXTRA TIME
-  ======================================================= */
+======================================================= */
 
   const extra = (
     order
@@ -1252,12 +1303,18 @@ const reject = async (order) => {
 
   /* =======================================================
      READY
-  ======================================================= */
+======================================================= */
 
-  const ready = (
+  const ready = async (
     order
-  ) =>
-    updateOrder(
+  ) => {
+    /*
+     * If preparation alarm is currently
+     * ringing, stop it.
+     */
+    stopBell();
+
+    return updateOrder(
       order,
       {
         status:
@@ -1267,10 +1324,11 @@ const reject = async (order) => {
           Timestamp.now()
       }
     );
+  };
 
   /* =======================================================
      DISPATCH
-  ======================================================= */
+======================================================= */
 
   const dispatch = (
     order
@@ -1288,7 +1346,7 @@ const reject = async (order) => {
 
   /* =======================================================
      DELIVERED
-  ======================================================= */
+======================================================= */
 
   const delivered = (
     order
@@ -1306,7 +1364,7 @@ const reject = async (order) => {
 
   /* =======================================================
      UPI
-  ======================================================= */
+======================================================= */
 
   const verifyUpi = (
     order
@@ -1324,7 +1382,7 @@ const reject = async (order) => {
 
   /* =======================================================
      COUNTS
-  ======================================================= */
+======================================================= */
 
   const counts =
     useMemo(
@@ -1351,7 +1409,7 @@ const reject = async (order) => {
 
   /* =======================================================
      FILTER
-  ======================================================= */
+======================================================= */
 
   const filtered =
     useMemo(
@@ -1401,7 +1459,7 @@ const reject = async (order) => {
 
   /* =======================================================
      PREPARATION TIMER
-  ======================================================= */
+======================================================= */
 
   const remaining = (
     order
@@ -1432,7 +1490,7 @@ const reject = async (order) => {
 
   /* =======================================================
      ACCEPT TIMER
-  ======================================================= */
+======================================================= */
 
   const acceptRemaining = (
     order
@@ -1445,7 +1503,7 @@ const reject = async (order) => {
       ) +
       Number(
         order.acceptanceSeconds ||
-        60
+          60
       ) *
         1000;
 
@@ -1466,7 +1524,7 @@ const reject = async (order) => {
 
   /* =======================================================
      UI
-  ======================================================= */
+======================================================= */
 
   return (
     <div className="sc-orders-shell">
@@ -1886,17 +1944,17 @@ const reject = async (order) => {
 
                     <div className="action-block">
 
-                     <button
-  type="button"
-  className="action reject"
-  onClick={(e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    reject(order);
-  }}
->
-  ✕ Reject
-</button> 
+                      <button
+                        type="button"
+                        className="action reject"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          reject(order);
+                        }}
+                      >
+                        ✕ Reject
+                      </button>
 
                       {status ===
                         "Preparing" && (
@@ -2032,9 +2090,10 @@ const reject = async (order) => {
 
             <button
               className="alert-close"
-              onClick={() =>
-                setNewOrder(null)
-              }
+              onClick={() => {
+                stopBell();
+                setNewOrder(null);
+              }}
             >
               ×
             </button>
@@ -2123,6 +2182,8 @@ const reject = async (order) => {
               <button
                 className="action outline big"
                 onClick={() => {
+                  stopBell();
+
                   setKotOrder(
                     newOrder
                   );
