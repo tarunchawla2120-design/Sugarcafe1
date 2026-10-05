@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   collection,
   doc,
@@ -20,9 +20,7 @@ const PAYMENT_API_URL =
   import.meta.env.VITE_PAYMENT_API_URL || "";
 
 async function sendOrderStatusNotification(order, status) {
-  if (!order?.customerId || !status) {
-    return;
-  }
+  if (!order?.customerId || !status) return;
 
   try {
     const response = await fetch(
@@ -33,14 +31,8 @@ async function sendOrderStatusNotification(order, status) {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          customerId: String(
-            order.customerId
-          ),
-
-          orderId: String(
-            order.id || ""
-          ),
-
+          customerId: String(order.customerId),
+          orderId: String(order.id || ""),
           orderNumber: String(
             order.orderNumber ||
               order.orderNo ||
@@ -48,13 +40,8 @@ async function sendOrderStatusNotification(order, status) {
               order.id ||
               ""
           ),
-
           status: String(status),
-
-          orderType: String(
-            order.orderType ||
-              "Delivery"
-          )
+          orderType: String(order.orderType || "Delivery")
         })
       }
     );
@@ -66,7 +53,6 @@ async function sendOrderStatusNotification(order, status) {
         "Order push notification failed:",
         data?.error || "Unknown error"
       );
-
       return;
     }
 
@@ -75,17 +61,16 @@ async function sendOrderStatusNotification(order, status) {
       data
     );
   } catch (error) {
-    /*
-      Notification failure should NEVER stop
-      the actual order status update.
-    */
-
     console.error(
       "Order push notification error:",
       error
     );
   }
 }
+
+/* =========================================================
+   STATUS
+========================================================= */
 
 const STATUS = [
   "All",
@@ -118,15 +103,11 @@ function toMillis(value) {
 
   const parsed = new Date(value).getTime();
 
-  return Number.isNaN(parsed)
-    ? null
-    : parsed;
+  return Number.isNaN(parsed) ? null : parsed;
 }
 
 function money(value) {
-  return `₹${Number(
-    value || 0
-  ).toLocaleString("en-IN")}`;
+  return `₹${Number(value || 0).toLocaleString("en-IN")}`;
 }
 
 function label(order) {
@@ -184,7 +165,7 @@ function addressFor(order) {
 }
 
 /* =========================================================
-   DAILY SCRATCH HELPERS
+   DAILY SCRATCH
 ========================================================= */
 
 function isDailyScratchItem(item) {
@@ -199,12 +180,9 @@ function getDailyScratchReward(order) {
 }
 
 function getDailyScratchRewardText(order) {
-  const reward =
-    getDailyScratchReward(order);
+  const reward = getDailyScratchReward(order);
 
-  if (!reward?.enabled) {
-    return "";
-  }
+  if (!reward?.enabled) return "";
 
   if (
     reward.type === "discount" ||
@@ -215,9 +193,7 @@ function getDailyScratchRewardText(order) {
     );
 
     return amount > 0
-      ? `5% OFF · ${money(
-          amount
-        )} discount`
+      ? `5% OFF · ${money(amount)} discount`
       : "5% OFF";
   }
 
@@ -232,10 +208,7 @@ function getDailyScratchRewardText(order) {
     }`;
   }
 
-  return (
-    reward.title ||
-    "Scratch & Win Reward"
-  );
+  return reward.title || "Scratch & Win Reward";
 }
 
 /* =========================================================
@@ -247,8 +220,7 @@ function getElectronPrinter() {
     if (
       typeof window !== "undefined" &&
       window.electronAPI &&
-      typeof window.electronAPI.printKOT ===
-        "function"
+      typeof window.electronAPI.printKOT === "function"
     ) {
       return window.electronAPI;
     }
@@ -256,8 +228,7 @@ function getElectronPrinter() {
     if (
       typeof window !== "undefined" &&
       window.sugarCafeDesktop &&
-      typeof window.sugarCafeDesktop.printKOT ===
-        "function"
+      typeof window.sugarCafeDesktop.printKOT === "function"
     ) {
       return window.sugarCafeDesktop;
     }
@@ -276,12 +247,9 @@ function getElectronPrinter() {
 ========================================================= */
 
 function DailyScratchBadge({ order }) {
-  const reward =
-    getDailyScratchReward(order);
+  const reward = getDailyScratchReward(order);
 
-  if (!reward?.enabled) {
-    return null;
-  }
+  if (!reward?.enabled) return null;
 
   const isDiscount =
     reward.type === "discount" ||
@@ -332,15 +300,11 @@ function DailyScratchBadge({ order }) {
         </strong>
 
         <span>
-          {getDailyScratchRewardText(
-            order
-          )}
+          {getDailyScratchRewardText(order)}
         </span>
 
         {isDiscount &&
-          Number(
-            reward.appliedDiscount || 0
-          ) > 0 && (
+          Number(reward.appliedDiscount || 0) > 0 && (
             <small
               style={{
                 display: "block",
@@ -406,34 +370,24 @@ function KOTModal({
         </div>
 
         <div className="sc-kot-meta">
-          <b>
-            #{label(order)}
-          </b>
+          <b>#{label(order)}</b>
 
           <span>
-            {date.toLocaleDateString(
-              "en-IN"
-            )}{" "}
+            {date.toLocaleDateString("en-IN")}{" "}
             ·{" "}
-            {date.toLocaleTimeString(
-              "en-IN",
-              {
-                hour: "2-digit",
-                minute: "2-digit"
-              }
-            )}
+            {date.toLocaleTimeString("en-IN", {
+              hour: "2-digit",
+              minute: "2-digit"
+            })}
           </span>
 
           <em>
-            {order.orderType ||
-              "Delivery"}
+            {order.orderType || "Delivery"}
           </em>
         </div>
 
         <section>
-          <small>
-            CUSTOMER
-          </small>
+          <small>CUSTOMER</small>
 
           <strong>
             {order.customerName ||
@@ -459,8 +413,7 @@ function KOTModal({
               padding: 12,
               borderRadius: 10,
               background: "#fff7ed",
-              border:
-                "1px solid #fed7aa"
+              border: "1px solid #fed7aa"
             }}
           >
             <small
@@ -479,21 +432,17 @@ function KOTModal({
                 color: "#7c2d12"
               }}
             >
-              {getDailyScratchRewardText(
-                order
-              )}
+              {getDailyScratchRewardText(order)}
             </strong>
 
             {(
-              scratchReward.type ===
-                "discount" ||
+              scratchReward.type === "discount" ||
               Number(
                 scratchReward.discountPercent
               ) === 5
             ) &&
               Number(
-                scratchReward.appliedDiscount ||
-                  0
+                scratchReward.appliedDiscount || 0
               ) > 0 && (
                 <div
                   style={{
@@ -512,9 +461,7 @@ function KOTModal({
         )}
 
         <section>
-          <small>
-            ORDER ITEMS
-          </small>
+          <small>ORDER ITEMS</small>
 
           {items.length ? (
             items.map((item, i) => {
@@ -528,16 +475,12 @@ function KOTModal({
                 isDailyScratchItem(item);
 
               const itemTotal =
-                Number(
-                  item.price || 0
-                ) * qty;
+                Number(item.price || 0) * qty;
 
               return (
                 <div
                   className="kot-item"
-                  key={
-                    item.id || i
-                  }
+                  key={item.id || i}
                 >
                   <span>
                     {dailyScratchFree && (
@@ -575,9 +518,7 @@ function KOTModal({
               );
             })
           ) : (
-            <div>
-              No items found.
-            </div>
+            <div>No items found.</div>
           )}
         </section>
 
@@ -585,9 +526,7 @@ function KOTModal({
           order.specialNote ||
           order.note) && (
           <div className="kot-note">
-            <b>
-              ★ SPECIAL NOTE:
-            </b>{" "}
+            <b>★ SPECIAL NOTE:</b>{" "}
             {order.instructions ||
               order.specialNote ||
               order.note}
@@ -595,9 +534,7 @@ function KOTModal({
         )}
 
         <div className="kot-total">
-          <span>
-            Total
-          </span>
+          <span>Total</span>
 
           <b>
             {money(order.total)}
@@ -658,6 +595,21 @@ function AdminOrders() {
   const store =
     useStoreSettings();
 
+  /*
+   * =======================================================
+   * IMPORTANT AUDIO REFS
+   * =======================================================
+   */
+
+  const alarmRef =
+    useRef(null);
+
+  const audioGenerationRef =
+    useRef(0);
+
+  const isBellPlayingRef =
+    useRef(false);
+
   const buzzedPreparation =
     useRef(new Set());
 
@@ -667,79 +619,195 @@ function AdminOrders() {
   const firstSnapshot =
     useRef(true);
 
-  const alarmRef =
-    useRef(null);
+  /* =======================================================
+     CREATE AUDIO ONCE
+  ======================================================= */
+
+  const getAlarmAudio = useCallback(() => {
+    if (
+      typeof window === "undefined"
+    ) {
+      return null;
+    }
+
+    try {
+      if (!alarmRef.current) {
+        const audio =
+          new Audio(
+            "/order-ringtone.mp3"
+          );
+
+        audio.loop = true;
+        audio.preload = "auto";
+        audio.volume = 1;
+
+        /*
+         * If browser reports that audio ended
+         * for any reason, reset our ref state.
+         */
+        audio.addEventListener(
+          "ended",
+          () => {
+            isBellPlayingRef.current = false;
+          }
+        );
+
+        alarmRef.current = audio;
+      }
+
+      return alarmRef.current;
+    } catch (error) {
+      console.error(
+        "Audio creation error:",
+        error
+      );
+
+      return null;
+    }
+  }, []);
 
   /* =======================================================
-     ORDER RINGTONE
-======================================================= */
+     PLAY BELL
+  ======================================================= */
 
-  const playBell = () => {
+  const playBell = useCallback(() => {
     if (
       store.buzzerEnabled === false
     ) {
       return;
     }
 
+    const audio =
+      getAlarmAudio();
+
+    if (!audio) {
+      return;
+    }
+
+    /*
+     * Every play gets a new generation.
+     * This prevents an old async play()
+     * promise from keeping the ringtone alive.
+     */
+    const generation =
+      ++audioGenerationRef.current;
+
     try {
-      if (!alarmRef.current) {
-        alarmRef.current =
-          new Audio(
-            "/order-ringtone.mp3"
-          );
+      audio.loop = true;
+      audio.volume = 1;
 
-        /*
-         * IMPORTANT:
-         * New order ke time ringtone continuously
-         * repeat hogi jab tak stopBell() call na ho.
-         */
-        alarmRef.current.loop = true;
-        alarmRef.current.preload = "auto";
-      }
+      /*
+       * Do NOT create another Audio object.
+       * Always use the same one.
+       */
+      audio.currentTime = 0;
 
-      alarmRef.current.currentTime = 0;
-      alarmRef.current.volume = 1;
+      const playPromise =
+        audio.play();
 
-      const promise =
-        alarmRef.current.play();
+      if (
+        playPromise &&
+        typeof playPromise.then ===
+          "function"
+      ) {
+        playPromise
+          .then(() => {
+            /*
+             * If stopBell() happened while
+             * play() was pending, immediately
+             * stop this old playback.
+             */
+            if (
+              generation !==
+              audioGenerationRef.current
+            ) {
+              try {
+                audio.pause();
+                audio.currentTime = 0;
+              } catch {
+                // ignore
+              }
 
-      if (promise?.catch) {
-        promise.catch((error) => {
-          console.warn(
-            "Order ringtone could not play:",
-            error
-          );
-        });
+              return;
+            }
+
+            isBellPlayingRef.current = true;
+          })
+          .catch((error) => {
+            isBellPlayingRef.current = false;
+
+            console.warn(
+              "Order ringtone could not play:",
+              error
+            );
+          });
+      } else {
+        isBellPlayingRef.current = true;
       }
     } catch (error) {
+      isBellPlayingRef.current = false;
+
       console.error(
-        "Ringtone error:",
+        "Ringtone play error:",
         error
       );
     }
-  };
+  }, [
+    getAlarmAudio,
+    store.buzzerEnabled
+  ]);
 
   /* =======================================================
-     STOP ORDER RINGTONE
-======================================================= */
+     STOP BELL
+  ======================================================= */
 
-  const stopBell = () => {
+  const stopBell = useCallback(() => {
+    /*
+     * Invalidate every previous play()
+     * operation first.
+     */
+    audioGenerationRef.current += 1;
+
+    isBellPlayingRef.current = false;
+
     try {
-      if (alarmRef.current) {
-        alarmRef.current.pause();
-        alarmRef.current.currentTime = 0;
+      const audio =
+        alarmRef.current;
+
+      if (!audio) return;
+
+      audio.pause();
+
+      /*
+       * Remove current playback position.
+       */
+      try {
+        audio.currentTime = 0;
+      } catch {
+        // ignore
       }
+
+      /*
+       * Force loop off.
+       */
+      audio.loop = false;
+
+      /*
+       * Make sure next play() will start
+       * from beginning and loop again.
+       */
+      audio.load();
     } catch (error) {
       console.error(
         "Stop ringtone error:",
         error
       );
     }
-  };
+  }, []);
 
   /* =======================================================
      FIREBASE ORDERS
-======================================================= */
+  ======================================================= */
 
   useEffect(() => {
     const unsub =
@@ -769,8 +837,7 @@ function AdminOrders() {
           snapshot.docChanges().forEach(
             (change) => {
               if (
-                change.type ===
-                  "added" &&
+                change.type === "added" &&
                 !firstSnapshot.current &&
                 !knownIds.current.has(
                   change.doc.id
@@ -791,6 +858,9 @@ function AdminOrders() {
                     incoming
                   );
 
+                  /*
+                   * NEW ORDER = RING
+                   */
                   playBell();
                 }
               }
@@ -820,21 +890,17 @@ function AdminOrders() {
       );
 
     return () => unsub();
-  }, []);
+  }, [playBell]);
 
   /* =======================================================
      CLOCK
-======================================================= */
+  ======================================================= */
 
   useEffect(() => {
     const id =
-      setInterval(
-        () =>
-          setNow(
-            Date.now()
-          ),
-        1000
-      );
+      setInterval(() => {
+        setNow(Date.now());
+      }, 1000);
 
     return () =>
       clearInterval(id);
@@ -842,7 +908,7 @@ function AdminOrders() {
 
   /* =======================================================
      PREPARATION TIMER BELL
-======================================================= */
+  ======================================================= */
 
   useEffect(() => {
     if (
@@ -851,62 +917,94 @@ function AdminOrders() {
       return;
     }
 
-    orders.forEach(
-      (order) => {
-        if (
-          (
-            order.status ||
-            "New"
-          ) !== "Preparing"
-        ) {
-          return;
-        }
+    orders.forEach((order) => {
+      if (
+        (
+          order.status ||
+          "New"
+        ) !== "Preparing"
+      ) {
+        return;
+      }
 
-        const end =
-          toMillis(
-            order.preparationEndAt
-          );
-
-        if (
-          !end ||
-          end > now ||
-          buzzedPreparation.current.has(
-            order.id
-          )
-        ) {
-          return;
-        }
-
-        buzzedPreparation.current.add(
-          order.id
+      const end =
+        toMillis(
+          order.preparationEndAt
         );
 
-        playBell();
+      if (
+        !end ||
+        end > now ||
+        buzzedPreparation.current.has(
+          order.id
+        )
+      ) {
+        return;
       }
-    );
+
+      /*
+       * Mark before playing so it only
+       * rings once for this preparation.
+       */
+      buzzedPreparation.current.add(
+        order.id
+      );
+
+      playBell();
+    });
   }, [
     now,
     orders,
-    store.buzzerEnabled
+    store.buzzerEnabled,
+    playBell
+  ]);
+
+  /* =======================================================
+     STOP BELL WHEN BUZZER DISABLED
+  ======================================================= */
+
+  useEffect(() => {
+    if (
+      store.buzzerEnabled === false
+    ) {
+      stopBell();
+    }
+  }, [
+    store.buzzerEnabled,
+    stopBell
   ]);
 
   /* =======================================================
      CLEANUP AUDIO
-======================================================= */
+  ======================================================= */
 
   useEffect(() => {
     return () => {
-      if (alarmRef.current) {
-        alarmRef.current.pause();
-        alarmRef.current.currentTime = 0;
-        alarmRef.current = null;
+      try {
+        audioGenerationRef.current += 1;
+
+        if (alarmRef.current) {
+          alarmRef.current.pause();
+          alarmRef.current.currentTime = 0;
+          alarmRef.current.loop = false;
+          alarmRef.current.src = "";
+          alarmRef.current.load();
+          alarmRef.current = null;
+        }
+
+        isBellPlayingRef.current = false;
+      } catch (error) {
+        console.error(
+          "Audio cleanup error:",
+          error
+        );
       }
     };
   }, []);
 
   /* =======================================================
      UPDATE ORDER + PUSH NOTIFICATION
-======================================================= */
+  ======================================================= */
 
   const updateOrder = async (
     order,
@@ -923,8 +1021,8 @@ function AdminOrders() {
       );
 
       /*
-       * Agar popup wala order update hua,
-       * ringtone bhi turant stop karo.
+       * Stop ringtone if this order
+       * belongs to popup.
        */
       if (
         newOrder?.id === order.id
@@ -934,14 +1032,9 @@ function AdminOrders() {
       }
 
       /*
-       * IMPORTANT:
-       * Push notification is only sent when
-       * the order STATUS changes.
-       *
-       * So +10 Min / UPI Paid / other updates
-       * won't send unwanted notifications.
+       * Push notification ONLY
+       * when status changes.
        */
-
       if (
         updates?.status &&
         String(
@@ -951,12 +1044,14 @@ function AdminOrders() {
         sendOrderStatusNotification(
           order,
           updates.status
-        ).catch((notificationError) => {
-          console.error(
-            "Background order notification error:",
-            notificationError
-          );
-        });
+        ).catch(
+          (notificationError) => {
+            console.error(
+              "Background order notification error:",
+              notificationError
+            );
+          }
+        );
       }
 
       return true;
@@ -976,7 +1071,7 @@ function AdminOrders() {
 
   /* =======================================================
      PRINT KOT
-======================================================= */
+  ======================================================= */
 
   const printKOT = async (
     order
@@ -998,31 +1093,16 @@ function AdminOrders() {
         return false;
       }
 
-      console.log(
-        "Sending order to Electron printer:",
-        order
-      );
-
       const result =
         await electron.printKOT(
           order
         );
-
-      console.log(
-        "Electron print result:",
-        result
-      );
 
       if (!result?.success) {
         const reason =
           result?.error ||
           result?.failureReason ||
           "Unknown printing error";
-
-        console.error(
-          "KOT printing failed:",
-          reason
-        );
 
         alert(
           "KOT printing failed.\n\n" +
@@ -1060,14 +1140,13 @@ function AdminOrders() {
 
   /* =======================================================
      ACCEPT ORDER
-======================================================= */
+  ======================================================= */
 
   const accept = async (
     order
   ) => {
     /*
-     * Ringtone stop immediately when
-     * staff accepts the order.
+     * FIRST STOP RINGTONE.
      */
     stopBell();
 
@@ -1088,8 +1167,7 @@ function AdminOrders() {
       await updateOrder(
         order,
         {
-          status:
-            "Preparing",
+          status: "Preparing",
 
           acceptedAt:
             Timestamp.fromMillis(
@@ -1109,20 +1187,16 @@ function AdminOrders() {
           preparationMinutes:
             minutes,
 
-          rejectedAt:
-            null
+          rejectedAt: null
         }
       );
 
-    if (!accepted) {
-      return;
-    }
+    if (!accepted) return;
 
     const printPayload = {
       ...order,
 
-      status:
-        "Preparing",
+      status: "Preparing",
 
       acceptedAt: {
         seconds:
@@ -1190,31 +1264,20 @@ function AdminOrders() {
   };
 
   /* =======================================================
-     REJECT ORDER
-======================================================= */
+     REJECT
+  ======================================================= */
 
-  const reject = async (order) => {
+  const reject = async (
+    order
+  ) => {
     if (!order?.id) {
-      console.error(
-        "Reject failed: Order ID missing",
-        order
-      );
-
-      alert(
-        "Order ID nahi mila."
-      );
-
+      alert("Order ID nahi mila.");
       return false;
     }
 
     try {
-      console.log(
-        "Rejecting order:",
-        order.id
-      );
-
       /*
-       * Stop ringtone immediately.
+       * FIRST STOP RINGTONE.
        */
       stopBell();
 
@@ -1222,8 +1285,7 @@ function AdminOrders() {
         await updateOrder(
           order,
           {
-            status:
-              "Rejected",
+            status: "Rejected",
 
             rejectionReason:
               "Order rejected by staff",
@@ -1234,17 +1296,11 @@ function AdminOrders() {
         );
 
       if (success) {
-        console.log(
-          "Order rejected successfully:",
-          order.id
+        setNewOrder((current) =>
+          current?.id === order.id
+            ? null
+            : current
         );
-
-        if (
-          newOrder?.id === order.id
-        ) {
-          stopBell();
-          setNewOrder(null);
-        }
 
         return true;
       }
@@ -1270,7 +1326,7 @@ function AdminOrders() {
 
   /* =======================================================
      EXTRA TIME
-======================================================= */
+  ======================================================= */
 
   const extra = (
     order
@@ -1303,22 +1359,20 @@ function AdminOrders() {
 
   /* =======================================================
      READY
-======================================================= */
+  ======================================================= */
 
   const ready = async (
     order
   ) => {
     /*
-     * If preparation alarm is currently
-     * ringing, stop it.
+     * STOP PREPARATION RINGTONE.
      */
     stopBell();
 
     return updateOrder(
       order,
       {
-        status:
-          "Food Ready",
+        status: "Food Ready",
 
         foodReadyAt:
           Timestamp.now()
@@ -1328,7 +1382,7 @@ function AdminOrders() {
 
   /* =======================================================
      DISPATCH
-======================================================= */
+  ======================================================= */
 
   const dispatch = (
     order
@@ -1336,8 +1390,7 @@ function AdminOrders() {
     updateOrder(
       order,
       {
-        status:
-          "Dispatched",
+        status: "Dispatched",
 
         dispatchedAt:
           Timestamp.now()
@@ -1346,7 +1399,7 @@ function AdminOrders() {
 
   /* =======================================================
      DELIVERED
-======================================================= */
+  ======================================================= */
 
   const delivered = (
     order
@@ -1354,8 +1407,7 @@ function AdminOrders() {
     updateOrder(
       order,
       {
-        status:
-          "Delivered",
+        status: "Delivered",
 
         deliveredAt:
           Timestamp.now()
@@ -1364,7 +1416,7 @@ function AdminOrders() {
 
   /* =======================================================
      UPI
-======================================================= */
+  ======================================================= */
 
   const verifyUpi = (
     order
@@ -1372,8 +1424,7 @@ function AdminOrders() {
     updateOrder(
       order,
       {
-        paymentStatus:
-          "Paid",
+        paymentStatus: "Paid",
 
         paymentVerifiedAt:
           Timestamp.now()
@@ -1382,7 +1433,7 @@ function AdminOrders() {
 
   /* =======================================================
      COUNTS
-======================================================= */
+  ======================================================= */
 
   const counts =
     useMemo(
@@ -1409,7 +1460,7 @@ function AdminOrders() {
 
   /* =======================================================
      FILTER
-======================================================= */
+  ======================================================= */
 
   const filtered =
     useMemo(
@@ -1422,8 +1473,7 @@ function AdminOrders() {
                 .toLowerCase();
 
             const status =
-              o.status ||
-              "New";
+              o.status || "New";
 
             const searchable = [
               label(o),
@@ -1459,7 +1509,7 @@ function AdminOrders() {
 
   /* =======================================================
      PREPARATION TIMER
-======================================================= */
+  ======================================================= */
 
   const remaining = (
     order
@@ -1490,7 +1540,7 @@ function AdminOrders() {
 
   /* =======================================================
      ACCEPT TIMER
-======================================================= */
+  ======================================================= */
 
   const acceptRemaining = (
     order
@@ -1524,7 +1574,7 @@ function AdminOrders() {
 
   /* =======================================================
      UI
-======================================================= */
+  ======================================================= */
 
   return (
     <div className="sc-orders-shell">
@@ -1587,7 +1637,6 @@ function AdminOrders() {
               onClick={playBell}
             >
               🔔
-
               <b>
                 {counts.New || 0}
               </b>
@@ -1601,9 +1650,7 @@ function AdminOrders() {
 
           <div className="search">
 
-            <span>
-              ⌕
-            </span>
+            <span>⌕</span>
 
             <input
               value={query}
@@ -1667,9 +1714,7 @@ function AdminOrders() {
         ) : filtered.length === 0 ? (
           <div className="empty-card">
 
-            <div>
-              📦
-            </div>
+            <div>📦</div>
 
             <h2>
               No orders found
@@ -1750,10 +1795,8 @@ function AdminOrders() {
                               ).toLocaleTimeString(
                                 "en-IN",
                                 {
-                                  hour:
-                                    "2-digit",
-                                  minute:
-                                    "2-digit"
+                                  hour: "2-digit",
+                                  minute: "2-digit"
                                 }
                               )
                             : "—"}
@@ -1782,9 +1825,7 @@ function AdminOrders() {
                           {order.orderType ||
                             "Delivery"}{" "}
                           ·{" "}
-                          {addressFor(
-                            order
-                          )}
+                          {addressFor(order)}
                         </span>
 
                         <DailyScratchBadge
@@ -1957,6 +1998,18 @@ function AdminOrders() {
                       </button>
 
                       {status ===
+                        "New" && (
+                        <button
+                          className="action accept"
+                          onClick={() =>
+                            accept(order)
+                          }
+                        >
+                          ✓ Accept Order
+                        </button>
+                      )}
+
+                      {status ===
                         "Preparing" && (
                         <>
                           <div
@@ -1974,9 +2027,7 @@ function AdminOrders() {
                             </span>
 
                             <strong>
-                              {remaining(
-                                order
-                              )}
+                              {remaining(order)}
                             </strong>
 
                           </div>
@@ -2010,9 +2061,7 @@ function AdminOrders() {
                         <button
                           className="action dispatch"
                           onClick={() =>
-                            dispatch(
-                              order
-                            )
+                            dispatch(order)
                           }
                         >
                           🛵 Dispatch
@@ -2024,9 +2073,7 @@ function AdminOrders() {
                         <button
                           className="action ready"
                           onClick={() =>
-                            delivered(
-                              order
-                            )
+                            delivered(order)
                           }
                         >
                           ✓ Mark Delivered
@@ -2044,11 +2091,24 @@ function AdminOrders() {
 
                       <button
                         className="action outline view-kot-btn"
-                        onClick={() =>
+                        onClick={() => {
+                          /*
+                           * View KOT also stops
+                           * the new-order ringtone.
+                           */
+                          stopBell();
+
                           setKotOrder(
                             order
-                          )
-                        }
+                          );
+
+                          if (
+                            newOrder?.id ===
+                            order.id
+                          ) {
+                            setNewOrder(null);
+                          }
+                        }}
                       >
                         🧾 View KOT
                       </button>
@@ -2082,6 +2142,10 @@ function AdminOrders() {
         )}
 
       </main>
+
+      {/* ===================================================
+          NEW ORDER POPUP
+      =================================================== */}
 
       {newOrder && (
         <div className="new-order-overlay">
@@ -2160,9 +2224,7 @@ function AdminOrders() {
               <button
                 className="action accept big"
                 onClick={() =>
-                  accept(
-                    newOrder
-                  )
+                  accept(newOrder)
                 }
               >
                 ✓ ACCEPT ORDER
@@ -2171,9 +2233,7 @@ function AdminOrders() {
               <button
                 className="action reject big"
                 onClick={() =>
-                  reject(
-                    newOrder
-                  )
+                  reject(newOrder)
                 }
               >
                 ✕ REJECT
@@ -2188,9 +2248,7 @@ function AdminOrders() {
                     newOrder
                   );
 
-                  setNewOrder(
-                    null
-                  );
+                  setNewOrder(null);
                 }}
               >
                 🧾 VIEW KOT
@@ -2203,11 +2261,19 @@ function AdminOrders() {
         </div>
       )}
 
+      {/* ===================================================
+          KOT MODAL
+      =================================================== */}
+
       <KOTModal
         order={kotOrder}
-        onClose={() =>
-          setKotOrder(null)
-        }
+        onClose={() => {
+          /*
+           * Safety stop.
+           */
+          stopBell();
+          setKotOrder(null);
+        }}
         onPrint={printKOT}
       />
 
