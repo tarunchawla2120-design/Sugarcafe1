@@ -595,11 +595,9 @@ function AdminOrders() {
   const store =
     useStoreSettings();
 
-  /*
-   * =======================================================
-   * IMPORTANT AUDIO REFS
-   * =======================================================
-   */
+  /* =======================================================
+     AUDIO REFS
+  ======================================================= */
 
   const alarmRef =
     useRef(null);
@@ -608,6 +606,15 @@ function AdminOrders() {
     useRef(0);
 
   const isBellPlayingRef =
+    useRef(false);
+
+  /*
+   * iPhone/Safari audio unlock state.
+   */
+  const audioUnlockedRef =
+    useRef(false);
+
+  const unlockingAudioRef =
     useRef(false);
 
   const buzzedPreparation =
@@ -632,23 +639,41 @@ function AdminOrders() {
 
     try {
       if (!alarmRef.current) {
+
+        /*
+         * IMPORTANT:
+         * File must be:
+         *
+         * public/order-ringtone.mp3
+         */
         const audio =
           new Audio(
             "/order-ringtone.mp3"
           );
 
-        audio.loop = true;
         audio.preload = "auto";
+        audio.loop = true;
         audio.volume = 1;
+        audio.muted = false;
 
-        /*
-         * If browser reports that audio ended
-         * for any reason, reset our ref state.
-         */
         audio.addEventListener(
           "ended",
           () => {
-            isBellPlayingRef.current = false;
+            isBellPlayingRef.current =
+              false;
+          }
+        );
+
+        audio.addEventListener(
+          "error",
+          (event) => {
+            console.error(
+              "❌ Ringtone audio error:",
+              event
+            );
+
+            isBellPlayingRef.current =
+              false;
           }
         );
 
@@ -656,9 +681,11 @@ function AdminOrders() {
       }
 
       return alarmRef.current;
+
     } catch (error) {
+
       console.error(
-        "Audio creation error:",
+        "❌ Audio creation error:",
         error
       );
 
@@ -667,154 +694,342 @@ function AdminOrders() {
   }, []);
 
   /* =======================================================
+     UNLOCK AUDIO
+     IMPORTANT FOR iPHONE / SAFARI
+  ======================================================= */
+
+  const unlockAlarmAudio =
+    useCallback(async () => {
+
+      /*
+       * Already unlocked.
+       */
+      if (
+        audioUnlockedRef.current
+      ) {
+        return true;
+      }
+
+      /*
+       * Prevent duplicate unlock calls.
+       */
+      if (
+        unlockingAudioRef.current
+      ) {
+        return false;
+      }
+
+      unlockingAudioRef.current =
+        true;
+
+      try {
+
+        const audio =
+          getAlarmAudio();
+
+        if (!audio) {
+          return false;
+        }
+
+        /*
+         * This play() is triggered from
+         * a real user interaction.
+         *
+         * Muted so no unwanted test sound.
+         */
+        audio.muted = true;
+        audio.volume = 0;
+        audio.loop = false;
+        audio.currentTime = 0;
+
+        const playPromise =
+          audio.play();
+
+        if (
+          playPromise &&
+          typeof playPromise.then ===
+            "function"
+        ) {
+          await playPromise;
+        }
+
+        audio.pause();
+
+        try {
+          audio.currentTime = 0;
+        } catch {
+          // ignore
+        }
+
+        /*
+         * Restore ringtone settings.
+         */
+        audio.muted = false;
+        audio.volume = 1;
+        audio.loop = true;
+
+        audioUnlockedRef.current =
+          true;
+
+        console.log(
+          "🔊 SugarCafe ringtone unlocked"
+        );
+
+        return true;
+
+      } catch (error) {
+
+        audioUnlockedRef.current =
+          false;
+
+        console.warn(
+          "⚠️ Ringtone unlock failed:",
+          error
+        );
+
+        return false;
+
+      } finally {
+
+        unlockingAudioRef.current =
+          false;
+      }
+
+    }, [
+      getAlarmAudio
+    ]);
+
+  /* =======================================================
      PLAY BELL
   ======================================================= */
 
-  const playBell = useCallback(() => {
-    if (
-      store.buzzerEnabled === false
-    ) {
-      return;
-    }
-
-    const audio =
-      getAlarmAudio();
-
-    if (!audio) {
-      return;
-    }
-
-    /*
-     * Every play gets a new generation.
-     * This prevents an old async play()
-     * promise from keeping the ringtone alive.
-     */
-    const generation =
-      ++audioGenerationRef.current;
-
-    try {
-      audio.loop = true;
-      audio.volume = 1;
+  const playBell =
+    useCallback(async () => {
 
       /*
-       * Do NOT create another Audio object.
-       * Always use the same one.
+       * Respect dashboard buzzer setting.
        */
-      audio.currentTime = 0;
-
-      const playPromise =
-        audio.play();
-
       if (
-        playPromise &&
-        typeof playPromise.then ===
-          "function"
+        store.buzzerEnabled === false
       ) {
-        playPromise
-          .then(() => {
-            /*
-             * If stopBell() happened while
-             * play() was pending, immediately
-             * stop this old playback.
-             */
-            if (
-              generation !==
-              audioGenerationRef.current
-            ) {
-              try {
-                audio.pause();
-                audio.currentTime = 0;
-              } catch {
-                // ignore
-              }
-
-              return;
-            }
-
-            isBellPlayingRef.current = true;
-          })
-          .catch((error) => {
-            isBellPlayingRef.current = false;
-
-            console.warn(
-              "Order ringtone could not play:",
-              error
-            );
-          });
-      } else {
-        isBellPlayingRef.current = true;
+        return;
       }
-    } catch (error) {
-      isBellPlayingRef.current = false;
 
-      console.error(
-        "Ringtone play error:",
-        error
-      );
-    }
-  }, [
-    getAlarmAudio,
-    store.buzzerEnabled
-  ]);
+      const audio =
+        getAlarmAudio();
+
+      if (!audio) {
+        return;
+      }
+
+      /*
+       * Don't restart if already playing.
+       */
+      if (!audio.paused) {
+        return;
+      }
+
+      /*
+       * New generation.
+       */
+      const generation =
+        ++audioGenerationRef.current;
+
+      try {
+
+        audio.loop = true;
+        audio.muted = false;
+        audio.volume = 1;
+        audio.currentTime = 0;
+
+        const playPromise =
+          audio.play();
+
+        if (
+          playPromise &&
+          typeof playPromise.then ===
+            "function"
+        ) {
+          await playPromise;
+        }
+
+        /*
+         * stopBell() may have happened
+         * while play() was pending.
+         */
+        if (
+          generation !==
+          audioGenerationRef.current
+        ) {
+
+          try {
+            audio.pause();
+            audio.currentTime = 0;
+          } catch {
+            // ignore
+          }
+
+          return;
+        }
+
+        isBellPlayingRef.current =
+          true;
+
+        console.log(
+          "🔔 SugarCafe ringtone PLAYING"
+        );
+
+      } catch (error) {
+
+        isBellPlayingRef.current =
+          false;
+
+        console.warn(
+          "⚠️ Order ringtone could not play:",
+          error
+        );
+
+        /*
+         * On iPhone this usually means
+         * the dashboard has not received
+         * a user interaction yet.
+         */
+      }
+
+    }, [
+      getAlarmAudio,
+      store.buzzerEnabled
+    ]);
 
   /* =======================================================
      STOP BELL
   ======================================================= */
 
-  const stopBell = useCallback(() => {
-    /*
-     * Invalidate every previous play()
-     * operation first.
-     */
-    audioGenerationRef.current += 1;
-
-    isBellPlayingRef.current = false;
-
-    try {
-      const audio =
-        alarmRef.current;
-
-      if (!audio) return;
-
-      audio.pause();
+  const stopBell =
+    useCallback(() => {
 
       /*
-       * Remove current playback position.
+       * Invalidate all pending play()
+       * operations.
        */
+      audioGenerationRef.current += 1;
+
+      isBellPlayingRef.current =
+        false;
+
       try {
-        audio.currentTime = 0;
-      } catch {
-        // ignore
+
+        const audio =
+          alarmRef.current;
+
+        if (!audio) {
+          return;
+        }
+
+        audio.pause();
+
+        try {
+          audio.currentTime = 0;
+        } catch {
+          // ignore
+        }
+
+        audio.loop = false;
+        audio.muted = false;
+        audio.volume = 1;
+
+        /*
+         * IMPORTANT:
+         *
+         * Do NOT use audio.load() here.
+         * It can reset the media element
+         * and make iPhone audio unlocking
+         * unreliable.
+         */
+
+        console.log(
+          "🔕 SugarCafe ringtone STOPPED"
+        );
+
+      } catch (error) {
+
+        console.error(
+          "❌ Stop ringtone error:",
+          error
+        );
       }
 
-      /*
-       * Force loop off.
-       */
-      audio.loop = false;
+    }, []);
 
-      /*
-       * Make sure next play() will start
-       * from beginning and loop again.
-       */
-      audio.load();
-    } catch (error) {
-      console.error(
-        "Stop ringtone error:",
-        error
+  /* =======================================================
+     AUTOMATIC AUDIO UNLOCK ON FIRST
+     USER INTERACTION
+  ======================================================= */
+
+  useEffect(() => {
+
+    const unlock = () => {
+      unlockAlarmAudio();
+    };
+
+    /*
+     * Works for desktop + mobile.
+     */
+    window.addEventListener(
+      "pointerdown",
+      unlock,
+      { once: true }
+    );
+
+    /*
+     * iPhone fallback.
+     */
+    window.addEventListener(
+      "touchstart",
+      unlock,
+      { once: true }
+    );
+
+    window.addEventListener(
+      "click",
+      unlock,
+      { once: true }
+    );
+
+    return () => {
+
+      window.removeEventListener(
+        "pointerdown",
+        unlock
       );
-    }
-  }, []);
+
+      window.removeEventListener(
+        "touchstart",
+        unlock
+      );
+
+      window.removeEventListener(
+        "click",
+        unlock
+      );
+    };
+
+  }, [
+    unlockAlarmAudio
+  ]);
 
   /* =======================================================
      FIREBASE ORDERS
   ======================================================= */
 
   useEffect(() => {
+
     const unsub =
       onSnapshot(
         collection(db, "orders"),
 
         (snapshot) => {
+
           const data =
             snapshot.docs
               .map((d) => ({
@@ -836,6 +1051,7 @@ function AdminOrders() {
 
           snapshot.docChanges().forEach(
             (change) => {
+
               if (
                 change.type === "added" &&
                 !firstSnapshot.current &&
@@ -843,23 +1059,29 @@ function AdminOrders() {
                   change.doc.id
                 )
               ) {
+
                 const incoming = {
                   id: change.doc.id,
                   ...change.doc.data()
                 };
 
+                /*
+                 * Only New orders should
+                 * trigger new-order alarm.
+                 */
                 if (
                   (
                     incoming.status ||
                     "New"
                   ) === "New"
                 ) {
+
                   setNewOrder(
                     incoming
                   );
 
                   /*
-                   * NEW ORDER = RING
+                   * 🔔 NEW ORDER RING
                    */
                   playBell();
                 }
@@ -876,6 +1098,7 @@ function AdminOrders() {
         },
 
         (err) => {
+
           console.error(
             "Orders listener error:",
             err
@@ -890,13 +1113,17 @@ function AdminOrders() {
       );
 
     return () => unsub();
-  }, [playBell]);
+
+  }, [
+    playBell
+  ]);
 
   /* =======================================================
      CLOCK
   ======================================================= */
 
   useEffect(() => {
+
     const id =
       setInterval(() => {
         setNow(Date.now());
@@ -904,6 +1131,7 @@ function AdminOrders() {
 
     return () =>
       clearInterval(id);
+
   }, []);
 
   /* =======================================================
@@ -911,6 +1139,7 @@ function AdminOrders() {
   ======================================================= */
 
   useEffect(() => {
+
     if (
       store.buzzerEnabled === false
     ) {
@@ -918,6 +1147,7 @@ function AdminOrders() {
     }
 
     orders.forEach((order) => {
+
       if (
         (
           order.status ||
@@ -943,15 +1173,20 @@ function AdminOrders() {
       }
 
       /*
-       * Mark before playing so it only
-       * rings once for this preparation.
+       * Mark before playing.
+       * Rings only once per preparation.
        */
       buzzedPreparation.current.add(
         order.id
       );
 
+      /*
+       * 🔔 PREPARATION COMPLETE RING
+       */
       playBell();
+
     });
+
   }, [
     now,
     orders,
@@ -964,11 +1199,13 @@ function AdminOrders() {
   ======================================================= */
 
   useEffect(() => {
+
     if (
       store.buzzerEnabled === false
     ) {
       stopBell();
     }
+
   }, [
     store.buzzerEnabled,
     stopBell
@@ -979,27 +1216,49 @@ function AdminOrders() {
   ======================================================= */
 
   useEffect(() => {
+
     return () => {
+
       try {
+
         audioGenerationRef.current += 1;
 
         if (alarmRef.current) {
+
           alarmRef.current.pause();
-          alarmRef.current.currentTime = 0;
+
+          try {
+            alarmRef.current.currentTime = 0;
+          } catch {
+            // ignore
+          }
+
           alarmRef.current.loop = false;
+          alarmRef.current.muted = false;
+
+          /*
+           * Do not call load() here.
+           */
           alarmRef.current.src = "";
-          alarmRef.current.load();
+
           alarmRef.current = null;
         }
 
-        isBellPlayingRef.current = false;
+        isBellPlayingRef.current =
+          false;
+
+        audioUnlockedRef.current =
+          false;
+
       } catch (error) {
+
         console.error(
           "Audio cleanup error:",
           error
         );
       }
     };
+
   }, []);
 
   /* =======================================================
@@ -1010,7 +1269,9 @@ function AdminOrders() {
     order,
     updates
   ) => {
+
     try {
+
       await updateDoc(
         doc(
           db,
@@ -1041,11 +1302,13 @@ function AdminOrders() {
           updates.status
         ).trim()
       ) {
+
         sendOrderStatusNotification(
           order,
           updates.status
         ).catch(
           (notificationError) => {
+
             console.error(
               "Background order notification error:",
               notificationError
@@ -1055,7 +1318,9 @@ function AdminOrders() {
       }
 
       return true;
+
     } catch (e) {
+
       console.error(
         "Order update error:",
         e
@@ -1076,11 +1341,14 @@ function AdminOrders() {
   const printKOT = async (
     order
   ) => {
+
     try {
+
       const electron =
         getElectronPrinter();
 
       if (!electron) {
+
         console.warn(
           "Electron print bridge unavailable."
         );
@@ -1099,6 +1367,7 @@ function AdminOrders() {
         );
 
       if (!result?.success) {
+
         const reason =
           result?.error ||
           result?.failureReason ||
@@ -1120,7 +1389,9 @@ function AdminOrders() {
       );
 
       return true;
+
     } catch (error) {
+
       console.error(
         "KOT print exception:",
         error
@@ -1145,6 +1416,7 @@ function AdminOrders() {
   const accept = async (
     order
   ) => {
+
     /*
      * FIRST STOP RINGTONE.
      */
@@ -1231,6 +1503,7 @@ function AdminOrders() {
       !printed;
       attempt++
     ) {
+
       console.log(
         `KOT print attempt ${attempt}/3`
       );
@@ -1244,6 +1517,7 @@ function AdminOrders() {
         !printed &&
         attempt < 3
       ) {
+
         await new Promise(
           (resolve) =>
             setTimeout(
@@ -1255,6 +1529,7 @@ function AdminOrders() {
     }
 
     if (!printed) {
+
       alert(
         "Order accepted successfully.\n\n" +
         "Lekin KOT + Counter Slip print nahi hui.\n\n" +
@@ -1270,12 +1545,18 @@ function AdminOrders() {
   const reject = async (
     order
   ) => {
+
     if (!order?.id) {
-      alert("Order ID nahi mila.");
+
+      alert(
+        "Order ID nahi mila."
+      );
+
       return false;
     }
 
     try {
+
       /*
        * FIRST STOP RINGTONE.
        */
@@ -1296,6 +1577,7 @@ function AdminOrders() {
         );
 
       if (success) {
+
         setNewOrder((current) =>
           current?.id === order.id
             ? null
@@ -1306,7 +1588,9 @@ function AdminOrders() {
       }
 
       return false;
+
     } catch (error) {
+
       console.error(
         "Reject order error:",
         error
@@ -1331,6 +1615,7 @@ function AdminOrders() {
   const extra = (
     order
   ) => {
+
     const mins =
       Number(
         order.extraPreparationMinutes ??
@@ -1364,6 +1649,7 @@ function AdminOrders() {
   const ready = async (
     order
   ) => {
+
     /*
      * STOP PREPARATION RINGTONE.
      */
@@ -1440,6 +1726,7 @@ function AdminOrders() {
       () =>
         STATUS.reduce(
           (a, s) => {
+
             a[s] =
               s === "All"
                 ? orders.length
@@ -1467,6 +1754,7 @@ function AdminOrders() {
       () =>
         orders.filter(
           (o) => {
+
             const q =
               query
                 .trim()
@@ -1514,6 +1802,7 @@ function AdminOrders() {
   const remaining = (
     order
   ) => {
+
     const end =
       toMillis(
         order.preparationEndAt
@@ -1545,6 +1834,7 @@ function AdminOrders() {
   const acceptRemaining = (
     order
   ) => {
+
     const end =
       (
         toMillis(
@@ -1632,11 +1922,85 @@ function AdminOrders() {
 
             </div>
 
+            {/* =================================================
+                SOUND / NOTIFICATION BUTTON
+            ================================================= */}
+
             <button
+              type="button"
               className="notification-button"
-              onClick={playBell}
+              title="Enable / Test Order Sound"
+              onClick={async () => {
+
+                /*
+                 * Unlock audio first.
+                 */
+                const unlocked =
+                  await unlockAlarmAudio();
+
+                if (!unlocked) {
+
+                  alert(
+                    "Sound enable nahi ho paya.\n\n" +
+                    "Please dashboard par dobara tap karein."
+                  );
+
+                  return;
+                }
+
+                /*
+                 * Play short test ringtone.
+                 */
+                const audio =
+                  getAlarmAudio();
+
+                if (!audio) {
+                  return;
+                }
+
+                try {
+
+                  audio.loop = false;
+                  audio.muted = false;
+                  audio.volume = 1;
+                  audio.currentTime = 0;
+
+                  await audio.play();
+
+                  isBellPlayingRef.current =
+                    true;
+
+                  console.log(
+                    "🔊 Test ringtone playing"
+                  );
+
+                  setTimeout(() => {
+
+                    try {
+
+                      audio.pause();
+                      audio.currentTime = 0;
+                      audio.loop = true;
+
+                      isBellPlayingRef.current =
+                        false;
+
+                    } catch {
+                      // ignore
+                    }
+
+                  }, 1200);
+
+                } catch (error) {
+
+                  console.warn(
+                    "Test ringtone failed:",
+                    error
+                  );
+                }
+              }}
             >
-              🔔
+              🔊
               <b>
                 {counts.New || 0}
               </b>
@@ -1673,6 +2037,7 @@ function AdminOrders() {
         <section className="status-tabs">
 
           {STATUS.map((s) => (
+
             <button
               key={s}
               className={
@@ -1689,6 +2054,7 @@ function AdminOrders() {
                 setFilter(s)
               }
             >
+
               {s === "All"
                 ? "All Orders"
                 : s}
@@ -1696,7 +2062,9 @@ function AdminOrders() {
               <b>
                 {counts[s] || 0}
               </b>
+
             </button>
+
           ))}
 
         </section>
@@ -1708,10 +2076,13 @@ function AdminOrders() {
         )}
 
         {loading ? (
+
           <div className="empty-card">
             Loading live orders…
           </div>
+
         ) : filtered.length === 0 ? (
+
           <div className="empty-card">
 
             <div>📦</div>
@@ -1726,7 +2097,9 @@ function AdminOrders() {
             </p>
 
           </div>
+
         ) : (
+
           <div className="orders-grid">
 
             {filtered.map(
@@ -1754,6 +2127,7 @@ function AdminOrders() {
                   preparationEnd <= now;
 
                 return (
+
                   <article
                     className={`order-card ${status
                       .toLowerCase()
@@ -1859,6 +2233,7 @@ function AdminOrders() {
                               );
 
                             return (
+
                               <div
                                 className="item-row"
                                 key={
@@ -1898,6 +2273,7 @@ function AdminOrders() {
                                 </span>
 
                                 <strong>
+
                                   {freeScratch
                                     ? "FREE"
                                     : money(
@@ -1907,9 +2283,11 @@ function AdminOrders() {
                                         ) *
                                           qty
                                       )}
+
                                 </strong>
 
                               </div>
+
                             );
                           }
                         )}
@@ -1923,6 +2301,7 @@ function AdminOrders() {
                       {getDailyScratchReward(
                         order
                       )?.enabled && (
+
                         <div
                           style={{
                             marginTop: 8,
@@ -1944,6 +2323,7 @@ function AdminOrders() {
                             order
                           )}
                         </div>
+
                       )}
 
                       <div className="total-row">
@@ -1991,6 +2371,7 @@ function AdminOrders() {
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
+
                           reject(order);
                         }}
                       >
@@ -1999,6 +2380,7 @@ function AdminOrders() {
 
                       {status ===
                         "New" && (
+
                         <button
                           className="action accept"
                           onClick={() =>
@@ -2007,11 +2389,14 @@ function AdminOrders() {
                         >
                           ✓ Accept Order
                         </button>
+
                       )}
 
                       {status ===
                         "Preparing" && (
+
                         <>
+
                           <div
                             className={`timer preparation ${
                               expired
@@ -2053,11 +2438,14 @@ function AdminOrders() {
                             </button>
 
                           </div>
+
                         </>
+
                       )}
 
                       {status ===
                         "Food Ready" && (
+
                         <button
                           className="action dispatch"
                           onClick={() =>
@@ -2066,10 +2454,12 @@ function AdminOrders() {
                         >
                           🛵 Dispatch
                         </button>
+
                       )}
 
                       {status ===
                         "Dispatched" && (
+
                         <button
                           className="action ready"
                           onClick={() =>
@@ -2078,23 +2468,26 @@ function AdminOrders() {
                         >
                           ✓ Mark Delivered
                         </button>
+
                       )}
 
                       {status ===
                         "Rejected" && (
+
                         <div className="rejected">
                           Rejected ·{" "}
                           {order.rejectionReason ||
                             "Staff rejected"}
                         </div>
+
                       )}
 
                       <button
                         className="action outline view-kot-btn"
                         onClick={() => {
+
                           /*
-                           * View KOT also stops
-                           * the new-order ringtone.
+                           * View KOT stops ringtone.
                            */
                           stopBell();
 
@@ -2106,7 +2499,10 @@ function AdminOrders() {
                             newOrder?.id ===
                             order.id
                           ) {
-                            setNewOrder(null);
+
+                            setNewOrder(
+                              null
+                            );
                           }
                         }}
                       >
@@ -2119,26 +2515,30 @@ function AdminOrders() {
                           "Paid" &&
                         status !==
                           "Rejected" && (
-                          <button
-                            className="action payment-btn"
-                            onClick={() =>
-                              verifyUpi(
-                                order
-                              )
-                            }
-                          >
-                            💳 Mark UPI Paid
-                          </button>
-                        )}
+
+                        <button
+                          className="action payment-btn"
+                          onClick={() =>
+                            verifyUpi(
+                              order
+                            )
+                          }
+                        >
+                          💳 Mark UPI Paid
+                        </button>
+
+                      )}
 
                     </div>
 
                   </article>
+
                 );
               }
             )}
 
           </div>
+
         )}
 
       </main>
@@ -2148,6 +2548,7 @@ function AdminOrders() {
       =================================================== */}
 
       {newOrder && (
+
         <div className="new-order-overlay">
 
           <div className="new-order-alert">
@@ -2155,8 +2556,12 @@ function AdminOrders() {
             <button
               className="alert-close"
               onClick={() => {
+
                 stopBell();
-                setNewOrder(null);
+
+                setNewOrder(
+                  null
+                );
               }}
             >
               ×
@@ -2189,6 +2594,7 @@ function AdminOrders() {
               {getDailyScratchReward(
                 newOrder
               )?.enabled && (
+
                 <div
                   style={{
                     marginTop: 8,
@@ -2215,6 +2621,7 @@ function AdminOrders() {
                     newOrder
                   )}
                 </div>
+
               )}
 
             </div>
@@ -2242,13 +2649,16 @@ function AdminOrders() {
               <button
                 className="action outline big"
                 onClick={() => {
+
                   stopBell();
 
                   setKotOrder(
                     newOrder
                   );
 
-                  setNewOrder(null);
+                  setNewOrder(
+                    null
+                  );
                 }}
               >
                 🧾 VIEW KOT
@@ -2259,6 +2669,7 @@ function AdminOrders() {
           </div>
 
         </div>
+
       )}
 
       {/* ===================================================
@@ -2267,14 +2678,19 @@ function AdminOrders() {
 
       <KOTModal
         order={kotOrder}
+
         onClose={() => {
-          /*
-           * Safety stop.
-           */
+
           stopBell();
-          setKotOrder(null);
+
+          setKotOrder(
+            null
+          );
         }}
-        onPrint={printKOT}
+
+        onPrint={
+          printKOT
+        }
       />
 
     </div>
