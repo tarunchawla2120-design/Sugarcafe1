@@ -608,9 +608,6 @@ function AdminOrders() {
   const isBellPlayingRef =
     useRef(false);
 
-  /*
-   * iPhone/Safari audio unlock state.
-   */
   const audioUnlockedRef =
     useRef(false);
 
@@ -628,6 +625,9 @@ function AdminOrders() {
 
   /* =======================================================
      CREATE AUDIO ONCE
+     
+     FILE:
+     public/order_bell_full_volume.mp3
   ======================================================= */
 
   const getAlarmAudio = useCallback(() => {
@@ -640,15 +640,9 @@ function AdminOrders() {
     try {
       if (!alarmRef.current) {
 
-        /*
-         * IMPORTANT:
-         * File must be:
-         *
-         * public/order-ringtone.mp3
-         */
         const audio =
           new Audio(
-            "/order-ringtone.mp3"
+            "/order_bell_full_volume.mp3"
           );
 
         audio.preload = "auto";
@@ -695,24 +689,18 @@ function AdminOrders() {
 
   /* =======================================================
      UNLOCK AUDIO
-     IMPORTANT FOR iPHONE / SAFARI
+     iPHONE / SAFARI
   ======================================================= */
 
   const unlockAlarmAudio =
     useCallback(async () => {
 
-      /*
-       * Already unlocked.
-       */
       if (
         audioUnlockedRef.current
       ) {
         return true;
       }
 
-      /*
-       * Prevent duplicate unlock calls.
-       */
       if (
         unlockingAudioRef.current
       ) {
@@ -732,10 +720,8 @@ function AdminOrders() {
         }
 
         /*
-         * This play() is triggered from
-         * a real user interaction.
-         *
-         * Muted so no unwanted test sound.
+         * User interaction ke time
+         * muted playback.
          */
         audio.muted = true;
         audio.volume = 0;
@@ -762,7 +748,7 @@ function AdminOrders() {
         }
 
         /*
-         * Restore ringtone settings.
+         * Restore normal settings.
          */
         audio.muted = false;
         audio.volume = 1;
@@ -801,14 +787,13 @@ function AdminOrders() {
 
   /* =======================================================
      PLAY BELL
+     
+     CONTINUOUS LOOP
   ======================================================= */
 
   const playBell =
     useCallback(async () => {
 
-      /*
-       * Respect dashboard buzzer setting.
-       */
       if (
         store.buzzerEnabled === false
       ) {
@@ -823,20 +808,21 @@ function AdminOrders() {
       }
 
       /*
-       * Don't restart if already playing.
+       * Already ringing.
        */
       if (!audio.paused) {
         return;
       }
 
-      /*
-       * New generation.
-       */
       const generation =
         ++audioGenerationRef.current;
 
       try {
 
+        /*
+         * IMPORTANT:
+         * Continuous ringtone.
+         */
         audio.loop = true;
         audio.muted = false;
         audio.volume = 1;
@@ -854,8 +840,8 @@ function AdminOrders() {
         }
 
         /*
-         * stopBell() may have happened
-         * while play() was pending.
+         * If stopped while play was pending,
+         * do not restart.
          */
         if (
           generation !==
@@ -876,7 +862,7 @@ function AdminOrders() {
           true;
 
         console.log(
-          "🔔 SugarCafe ringtone PLAYING"
+          "🔔 SugarCafe ringtone PLAYING continuously"
         );
 
       } catch (error) {
@@ -888,12 +874,6 @@ function AdminOrders() {
           "⚠️ Order ringtone could not play:",
           error
         );
-
-        /*
-         * On iPhone this usually means
-         * the dashboard has not received
-         * a user interaction yet.
-         */
       }
 
     }, [
@@ -909,8 +889,7 @@ function AdminOrders() {
     useCallback(() => {
 
       /*
-       * Invalidate all pending play()
-       * operations.
+       * Cancel pending play.
        */
       audioGenerationRef.current += 1;
 
@@ -939,12 +918,7 @@ function AdminOrders() {
         audio.volume = 1;
 
         /*
-         * IMPORTANT:
-         *
-         * Do NOT use audio.load() here.
-         * It can reset the media element
-         * and make iPhone audio unlocking
-         * unreliable.
+         * DO NOT call audio.load().
          */
 
         console.log(
@@ -962,8 +936,7 @@ function AdminOrders() {
     }, []);
 
   /* =======================================================
-     AUTOMATIC AUDIO UNLOCK ON FIRST
-     USER INTERACTION
+     AUTO UNLOCK AUDIO ON FIRST USER TOUCH
   ======================================================= */
 
   useEffect(() => {
@@ -972,18 +945,12 @@ function AdminOrders() {
       unlockAlarmAudio();
     };
 
-    /*
-     * Works for desktop + mobile.
-     */
     window.addEventListener(
       "pointerdown",
       unlock,
       { once: true }
     );
 
-    /*
-     * iPhone fallback.
-     */
     window.addEventListener(
       "touchstart",
       unlock,
@@ -1065,10 +1032,6 @@ function AdminOrders() {
                   ...change.doc.data()
                 };
 
-                /*
-                 * Only New orders should
-                 * trigger new-order alarm.
-                 */
                 if (
                   (
                     incoming.status ||
@@ -1076,12 +1039,15 @@ function AdminOrders() {
                   ) === "New"
                 ) {
 
+                  /*
+                   * Show popup.
+                   */
                   setNewOrder(
                     incoming
                   );
 
                   /*
-                   * 🔔 NEW ORDER RING
+                   * 🔔 CONTINUOUS NEW ORDER RING
                    */
                   playBell();
                 }
@@ -1173,15 +1139,14 @@ function AdminOrders() {
       }
 
       /*
-       * Mark before playing.
-       * Rings only once per preparation.
+       * Only once per preparation.
        */
       buzzedPreparation.current.add(
         order.id
       );
 
       /*
-       * 🔔 PREPARATION COMPLETE RING
+       * 🔔 CONTINUOUS RING
        */
       playBell();
 
@@ -1235,10 +1200,6 @@ function AdminOrders() {
 
           alarmRef.current.loop = false;
           alarmRef.current.muted = false;
-
-          /*
-           * Do not call load() here.
-           */
           alarmRef.current.src = "";
 
           alarmRef.current = null;
@@ -1282,8 +1243,8 @@ function AdminOrders() {
       );
 
       /*
-       * Stop ringtone if this order
-       * belongs to popup.
+       * Stop ringtone if popup belongs
+       * to this order.
        */
       if (
         newOrder?.id === order.id
@@ -1293,8 +1254,8 @@ function AdminOrders() {
       }
 
       /*
-       * Push notification ONLY
-       * when status changes.
+       * Push notification only when
+       * status changes.
        */
       if (
         updates?.status &&
@@ -1418,7 +1379,7 @@ function AdminOrders() {
   ) => {
 
     /*
-     * FIRST STOP RINGTONE.
+     * STOP RINGTONE.
      */
     stopBell();
 
@@ -1558,7 +1519,7 @@ function AdminOrders() {
     try {
 
       /*
-       * FIRST STOP RINGTONE.
+       * STOP RINGTONE.
        */
       stopBell();
 
@@ -1828,41 +1789,6 @@ function AdminOrders() {
   };
 
   /* =======================================================
-     ACCEPT TIMER
-  ======================================================= */
-
-  const acceptRemaining = (
-    order
-  ) => {
-
-    const end =
-      (
-        toMillis(
-          order.createdAt
-        ) || now
-      ) +
-      Number(
-        order.acceptanceSeconds ||
-          60
-      ) *
-        1000;
-
-    const sec =
-      Math.max(
-        0,
-        Math.floor(
-          (end - now) / 1000
-        )
-      );
-
-    return `${String(
-      Math.floor(sec / 60)
-    ).padStart(2, "0")}:${String(
-      sec % 60
-    ).padStart(2, "0")}`;
-  };
-
-  /* =======================================================
      UI
   ======================================================= */
 
@@ -1932,9 +1858,6 @@ function AdminOrders() {
               title="Enable / Test Order Sound"
               onClick={async () => {
 
-                /*
-                 * Unlock audio first.
-                 */
                 const unlocked =
                   await unlockAlarmAudio();
 
@@ -1949,7 +1872,7 @@ function AdminOrders() {
                 }
 
                 /*
-                 * Play short test ringtone.
+                 * 1.2 second test.
                  */
                 const audio =
                   getAlarmAudio();
@@ -1969,10 +1892,6 @@ function AdminOrders() {
 
                   isBellPlayingRef.current =
                     true;
-
-                  console.log(
-                    "🔊 Test ringtone playing"
-                  );
 
                   setTimeout(() => {
 
@@ -2371,7 +2290,6 @@ function AdminOrders() {
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-
                           reject(order);
                         }}
                       >
@@ -2486,9 +2404,6 @@ function AdminOrders() {
                         className="action outline view-kot-btn"
                         onClick={() => {
 
-                          /*
-                           * View KOT stops ringtone.
-                           */
                           stopBell();
 
                           setKotOrder(
@@ -2499,7 +2414,6 @@ function AdminOrders() {
                             newOrder?.id ===
                             order.id
                           ) {
-
                             setNewOrder(
                               null
                             );
@@ -2532,13 +2446,11 @@ function AdminOrders() {
                     </div>
 
                   </article>
-
                 );
               }
             )}
 
           </div>
-
         )}
 
       </main>
@@ -2669,7 +2581,6 @@ function AdminOrders() {
           </div>
 
         </div>
-
       )}
 
       {/* ===================================================
