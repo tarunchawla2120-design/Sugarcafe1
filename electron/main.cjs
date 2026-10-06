@@ -19,7 +19,6 @@ const DIST_DIR = isPackaged
   ? path.join(process.resourcesPath, "dist")
   : path.join(PROJECT_DIR, "dist");
 
-
 /* =========================================================
    WAIT FOR SERVER
 ========================================================= */
@@ -32,10 +31,7 @@ function waitForServer(url, timeout = 30000) {
       const req = http.get(url, (res) => {
         res.resume();
 
-        if (
-          res.statusCode &&
-          res.statusCode < 500
-        ) {
+        if (res.statusCode && res.statusCode < 500) {
           resolve();
           return;
         }
@@ -54,9 +50,7 @@ function waitForServer(url, timeout = 30000) {
       if (Date.now() - started >= timeout) {
         reject(
           new Error(
-            `Server did not start within ${
-              timeout / 1000
-            } seconds`
+            `Server did not start within ${timeout / 1000} seconds`
           )
         );
         return;
@@ -69,16 +63,13 @@ function waitForServer(url, timeout = 30000) {
   });
 }
 
-
 /* =========================================================
    DEVELOPMENT VITE SERVER
 ========================================================= */
 
 function startDevServer() {
   const command =
-    process.platform === "win32"
-      ? "npm.cmd"
-      : "npm";
+    process.platform === "win32" ? "npm.cmd" : "npm";
 
   server = spawn(
     command,
@@ -101,29 +92,20 @@ function startDevServer() {
   );
 
   server.on("error", (error) => {
-    console.error(
-      "Failed to start Vite server:",
-      error
-    );
+    console.error("Failed to start Vite server:", error);
   });
 
   server.on("exit", (code) => {
-    console.log(
-      "Vite server stopped:",
-      code
-    );
+    console.log("Vite server stopped:", code);
   });
 }
-
 
 /* =========================================================
    MIME TYPES
 ========================================================= */
 
 function getMimeType(filePath) {
-  const ext = path
-    .extname(filePath)
-    .toLowerCase();
+  const ext = path.extname(filePath).toLowerCase();
 
   const types = {
     ".html": "text/html; charset=UTF-8",
@@ -147,101 +129,79 @@ function getMimeType(filePath) {
     ".mp4": "video/mp4",
   };
 
-  return (
-    types[ext] ||
-    "application/octet-stream"
-  );
+  return types[ext] || "application/octet-stream";
 }
-
 
 /* =========================================================
    PRODUCTION STATIC SERVER
-   This serves the packaged React DIST folder.
 ========================================================= */
 
 function startProductionServer() {
   return new Promise((resolve, reject) => {
     if (!fs.existsSync(DIST_DIR)) {
       reject(
-        new Error(
-          `DIST folder not found:\n${DIST_DIR}`
-        )
+        new Error(`DIST folder not found:\n${DIST_DIR}`)
       );
       return;
     }
 
-    productionServer = http.createServer(
-      (req, res) => {
-        try {
-          let requestPath = decodeURIComponent(
-            req.url.split("?")[0]
-          );
+    productionServer = http.createServer((req, res) => {
+      try {
+        let requestPath = decodeURIComponent(
+          req.url.split("?")[0]
+        );
 
-          if (
-            !requestPath ||
-            requestPath === "/"
-          ) {
-            requestPath = "/index.html";
-          }
-
-          // Prevent path traversal
-          const safePath = path
-            .normalize(requestPath)
-            .replace(/^(\.\.[\\/])+/, "");
-
-          let filePath = path.join(
-            DIST_DIR,
-            safePath
-          );
-
-          // React Router support:
-          // /admin-login, /admin etc. should load index.html
-          if (
-            !fs.existsSync(filePath) ||
-            !fs.statSync(filePath).isFile()
-          ) {
-            filePath = path.join(
-              DIST_DIR,
-              "index.html"
-            );
-          }
-
-          if (!fs.existsSync(filePath)) {
-            res.writeHead(404);
-            res.end("SugarCafe Dashboard not found");
-            return;
-          }
-
-          const contentType =
-            getMimeType(filePath);
-
-          res.writeHead(200, {
-            "Content-Type": contentType,
-            "Cache-Control":
-              "no-cache",
-          });
-
-          fs.createReadStream(filePath).pipe(
-            res
-          );
-        } catch (error) {
-          console.error(
-            "Production server error:",
-            error
-          );
-
-          res.writeHead(500);
-          res.end("Internal server error");
+        if (!requestPath || requestPath === "/") {
+          requestPath = "/index.html";
         }
+
+        const safePath = path
+          .normalize(requestPath)
+          .replace(/^(\.\.[\\/])+/, "");
+
+        let filePath = path.join(
+          DIST_DIR,
+          safePath
+        );
+
+        if (
+          !fs.existsSync(filePath) ||
+          !fs.statSync(filePath).isFile()
+        ) {
+          filePath = path.join(
+            DIST_DIR,
+            "index.html"
+          );
+        }
+
+        if (!fs.existsSync(filePath)) {
+          res.writeHead(404);
+          res.end("SugarCafe Dashboard not found");
+          return;
+        }
+
+        const contentType =
+          getMimeType(filePath);
+
+        res.writeHead(200, {
+          "Content-Type": contentType,
+          "Cache-Control": "no-cache",
+        });
+
+        fs.createReadStream(filePath).pipe(res);
+      } catch (error) {
+        console.error(
+          "Production server error:",
+          error
+        );
+
+        res.writeHead(500);
+        res.end("Internal server error");
       }
-    );
+    });
 
-    productionServer.on(
-      "error",
-      reject
-    );
+    productionServer.on("error", reject);
 
-    // Random free local port
     productionServer.listen(
       0,
       "127.0.0.1",
@@ -278,7 +238,6 @@ function startProductionServer() {
   });
 }
 
-
 /* =========================================================
    HTML ESCAPE
 ========================================================= */
@@ -291,7 +250,6 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
-
 
 /* =========================================================
    DATE / TIME
@@ -338,7 +296,6 @@ function formatDateTime(value) {
     full: `${d.getFullYear()}-${mm}-${dd} ${hh}:${min}:${sec}`,
   };
 }
-
 
 /* =========================================================
    CODE 128
@@ -533,9 +490,11 @@ function code128Svg(value) {
   `;
 }
 
-
 /* =========================================================
    KOT HTML
+   TWO COPIES:
+   1. KITCHEN COPY
+   2. DELIVERY HANDOVER COPY
 ========================================================= */
 
 function buildKOTHtml(order) {
@@ -707,7 +666,7 @@ function buildKOTHtml(order) {
 <style>
 
 @page {
-  size: 80mm auto;
+  size: 72mm 3276mm;
   margin: 0;
 }
 
@@ -717,6 +676,7 @@ function buildKOTHtml(order) {
 
 html,
 body {
+  width: 72mm;
   margin: 0;
   padding: 0;
   background: #fff;
@@ -728,14 +688,15 @@ body {
 }
 
 body {
-  width: 80mm;
+  width: 72mm;
 }
 
 .ticket {
-  width: 80mm;
+  width: 72mm;
+
   padding:
-    5mm
     4mm
+    3.5mm
     7mm;
 
   font-size: 12px;
@@ -795,6 +756,7 @@ body {
 .items-head,
 .item {
   display: grid;
+
   grid-template-columns:
     1fr
     36px;
@@ -810,6 +772,7 @@ body {
 
 .item {
   padding: 5px 0;
+
   border-top:
     1px dashed #aaa;
 
@@ -929,7 +892,9 @@ body {
 
 <body>
 
-<!-- KITCHEN COPY -->
+<!-- =====================================================
+     COPY 1 — KITCHEN
+===================================================== -->
 
 <div class="ticket">
 
@@ -1054,7 +1019,9 @@ body {
 </div>
 
 
-<!-- DELIVERY HANDOVER COPY -->
+<!-- =====================================================
+     COPY 2 — DELIVERY HANDOVER
+===================================================== -->
 
 <div class="ticket">
 
@@ -1162,9 +1129,7 @@ body {
         ? `
           <br>
           Landmark:
-          ${escapeHtml(
-            landmark
-          )}
+          ${escapeHtml(landmark)}
         `
         : ""
     }
@@ -1207,26 +1172,29 @@ body {
 `;
 }
 
-
 /* =========================================================
    SILENT KOT PRINTING
+   TVS-E RP 3230
+   72mm × 3276mm
 ========================================================= */
 
 ipcMain.handle(
   "print-kot",
   async (_event, order) => {
-    const printWin =
-      new BrowserWindow({
+    let printWin = null;
+
+    try {
+      printWin = new BrowserWindow({
         show: false,
-        width: 420,
-        height: 900,
+
+        width: 380,
+        height: 1200,
 
         webPreferences: {
           sandbox: true,
         },
       });
 
-    try {
       await printWin.loadURL(
         "data:text/html;charset=utf-8," +
           encodeURIComponent(
@@ -1234,26 +1202,32 @@ ipcMain.handle(
           )
       );
 
-      await new Promise(
-        (resolve) =>
-          setTimeout(resolve, 250)
+      await new Promise((resolve) =>
+        setTimeout(resolve, 700)
       );
 
       const printers =
         await printWin.webContents.getPrintersAsync();
 
       console.log(
-        "SugarCafe printers:",
+        "SugarCafe available printers:",
         printers.map((p) => ({
           name: p.name,
+          displayName: p.displayName,
           isDefault: p.isDefault,
         }))
       );
 
-      const preferred =
+      /* =====================================================
+         FIND TVS-E RP 3230
+      ===================================================== */
+
+      const selectedPrinter =
         printers.find((p) => {
           const name = String(
-            p.name || ""
+            p.name ||
+              p.displayName ||
+              ""
           )
             .toLowerCase()
             .replace(
@@ -1271,73 +1245,105 @@ ipcMain.handle(
           );
         });
 
-      const defaultPrinter =
-        printers.find(
-          (p) => p.isDefault
+      if (!selectedPrinter?.name) {
+        throw new Error(
+          "TVS-E RP 3230 printer not found. Please make sure the printer is installed in Windows."
         );
+      }
 
-      const selectedPrinter =
-        preferred ||
-        defaultPrinter;
+      console.log(
+        "SugarCafe KOT printer selected:",
+        selectedPrinter.name
+      );
+
+      /* =====================================================
+         PRINT SETTINGS
+         
+         72mm = 72000 microns
+         3276mm = 3276000 microns
+      ===================================================== */
 
       const options = {
         silent: true,
+
         printBackground: true,
+
+        deviceName:
+          selectedPrinter.name,
+
         margins: {
           marginType: "none",
         },
+
+        pageSize: {
+          width: 72000,
+          height: 3276000,
+        },
+
+        copies: 1,
+
+        scaleFactor: 100,
       };
 
-      if (
-        selectedPrinter?.name
-      ) {
-        options.deviceName =
-          selectedPrinter.name;
-      }
-
-      return await new Promise(
-        (resolve) => {
-          printWin.webContents.print(
-            options,
-            (
-              success,
-              failureReason
-            ) => {
-              resolve({
+      const result =
+        await new Promise(
+          (resolve) => {
+            printWin.webContents.print(
+              options,
+              (
                 success,
-                failureReason:
-                  failureReason ||
-                  "",
-              });
+                failureReason
+              ) => {
+                console.log(
+                  "SugarCafe KOT print result:",
+                  {
+                    success,
+                    failureReason:
+                      failureReason || "",
+                  }
+                );
 
-              setTimeout(() => {
-                if (
-                  !printWin.isDestroyed()
-                ) {
-                  printWin.close();
-                }
-              }, 500);
-            }
-          );
-        }
-      );
+                resolve({
+                  success,
+                  failureReason:
+                    failureReason || "",
+                });
+              }
+            );
+          }
+        );
+
+      return result;
     } catch (error) {
-      if (
-        !printWin.isDestroyed()
-      ) {
-        printWin.close();
-      }
+      console.error(
+        "SugarCafe KOT print failed:",
+        error
+      );
 
       return {
         success: false,
+
         failureReason:
           error?.message ||
           "KOT print failed",
       };
+    } finally {
+      if (
+        printWin &&
+        !printWin.isDestroyed()
+      ) {
+        setTimeout(() => {
+          if (
+            printWin &&
+            !printWin.isDestroyed()
+          ) {
+            printWin.close();
+          }
+        }, 500);
+      }
     }
   }
 );
-
 
 /* =========================================================
    DASHBOARD WINDOW - DEVELOPMENT
@@ -1371,7 +1377,6 @@ function createWindow() {
       },
     });
 
-  // ONLY ADMIN DASHBOARD LOGIN
   win.loadURL(
     `${DEV_URL}/admin-login`
   );
@@ -1386,7 +1391,6 @@ function createWindow() {
     }
   );
 }
-
 
 /* =========================================================
    DASHBOARD WINDOW - PRODUCTION
@@ -1423,7 +1427,6 @@ async function createWindowProduction() {
       },
     });
 
-  // ONLY ADMIN DASHBOARD
   await win.loadURL(
     `${dashboardUrl}/admin-login`
   );
@@ -1439,15 +1442,12 @@ async function createWindowProduction() {
   );
 
   win.on("closed", () => {
-    if (
-      productionServer
-    ) {
+    if (productionServer) {
       productionServer.close();
       productionServer = null;
     }
   });
 }
-
 
 /* =========================================================
    ELECTRON START
@@ -1502,7 +1502,6 @@ app.whenReady().then(
     );
   }
 );
-
 
 /* =========================================================
    CLOSE
