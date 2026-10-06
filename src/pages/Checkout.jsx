@@ -2,20 +2,39 @@
    SUGAR CAFE — CHECKOUT FINAL
    DELIVERY + TAKEAWAY
    LEAFLET + OPENSTREETMAP
-   EXACT GPS LOCATION + AREA NAME
+   GPS LOCATION REQUIRED FOR DELIVERY RADIUS
+   MANUAL COMPLETE ADDRESS REQUIRED FOR BILL/KOT
    RAZORPAY
    DAILY SCRATCH
    SUGAR REWARDS — 6TH QUALIFYING ORDER
 
    IMPORTANT
    ---------------------------------------------------------
-   • Only DELIVERED ₹500+ orders count.
-   • Current order is NOT counted until delivered.
-   • 5 previous qualifying delivered orders + current ₹500+
-     order = 6th order and unlocks Sugar Reward.
-   • Daily Scratch is disabled when Sugar Reward is active.
-   • Exact latitude/longitude is saved with the order.
-   • Map centre pin represents the selected delivery location.
+   DELIVERY FLOW:
+
+   1. Customer MUST use "Use My Current Location".
+   2. GPS coordinates are used ONLY for delivery radius.
+   3. Customer MUST type complete delivery address manually.
+   4. Manual address is saved exactly for bill/KOT.
+   5. GPS reverse geocoding provides Area / City / PIN
+      as additional location information.
+   6. Moving the map does NOT change the verified GPS.
+   7. Order cannot be placed without:
+      - GPS verification
+      - Complete manual address
+      - Delivery within allowed radius
+
+   GPS:
+   - latitude
+   - longitude
+   - accuracy
+
+   ADDRESS:
+   - deliveryAddress
+   - deliveryArea
+   - deliveryCity
+   - deliveryPostcode
+   - deliveryFullAddress
 ========================================================= */
 
 import {
@@ -30,7 +49,6 @@ import {
   MapContainer,
   TileLayer,
   useMap,
-  useMapEvents,
 } from "react-leaflet";
 
 import "leaflet/dist/leaflet.css";
@@ -145,10 +163,9 @@ const todayKey = () => {
 
   return `${d.getFullYear()}-${String(
     d.getMonth() + 1
-  ).padStart(2, "0")}-${String(d.getDate()).padStart(
-    2,
-    "0"
-  )}`;
+  ).padStart(2, "0")}-${String(
+    d.getDate()
+  ).padStart(2, "0")}`;
 };
 
 /* =========================================================
@@ -208,27 +225,10 @@ const getTimestampMillis = (value) => {
 
   const parsed = new Date(value).getTime();
 
-  return Number.isFinite(parsed) ? parsed : 0;
+  return Number.isFinite(parsed)
+    ? parsed
+    : 0;
 };
-
-/* =========================================================
-   MAP CENTER TRACKER
-========================================================= */
-
-function MapCenterTracker({ onMoveEnd }) {
-  useMapEvents({
-    moveend: (event) => {
-      const center = event.target.getCenter();
-
-      onMoveEnd({
-        lat: center.lat,
-        lng: center.lng,
-      });
-    },
-  });
-
-  return null;
-}
 
 /* =========================================================
    MAP RECENTER BUTTON
@@ -275,6 +275,11 @@ export default function Checkout() {
   const [orderType, setOrderType] =
     useState("Delivery");
 
+  /*
+   * IMPORTANT:
+   * `address` is now the customer's MANUAL address.
+   * It is never replaced by Nominatim.
+   */
   const [address, setAddress] =
     useState("");
 
@@ -297,6 +302,19 @@ export default function Checkout() {
   const [geocodingManual, setGeocodingManual] =
     useState(false);
 
+  /*
+   * GPS verification
+   *
+   * This is intentionally NOT restored from localStorage.
+   * Customer must press "Use My Current Location"
+   * during the current checkout session.
+   */
+  const [gpsVerified, setGpsVerified] =
+    useState(false);
+
+  const [gpsAccuracy, setGpsAccuracy] =
+    useState(null);
+
   const [locationArea, setLocationArea] =
     useState("");
 
@@ -304,6 +322,9 @@ export default function Checkout() {
     useState("");
 
   const [locationPostcode, setLocationPostcode] =
+    useState("");
+
+  const [locationState, setLocationState] =
     useState("");
 
   const [locationFullAddress, setLocationFullAddress] =
@@ -411,13 +432,15 @@ export default function Checkout() {
     );
 
   /* =======================================================
-     LOAD CUSTOMER + LOCATION
+     LOAD CUSTOMER
   ======================================================= */
 
   useEffect(() => {
     try {
       const raw =
-        localStorage.getItem("sugarCafeUser");
+        localStorage.getItem(
+          "sugarCafeUser"
+        );
 
       if (raw) {
         const d = JSON.parse(raw);
@@ -435,80 +458,48 @@ export default function Checkout() {
             d.uid ||
             "",
 
-          addresses: Array.isArray(d.addresses)
-            ? d.addresses
-            : [],
+          addresses:
+            Array.isArray(d.addresses)
+              ? d.addresses
+              : [],
 
-          guest: d.guest ?? true,
+          guest:
+            d.guest ?? true,
         };
 
         setCustomerProfile(profile);
-        setSavedAddresses(profile.addresses);
+        setSavedAddresses(
+          profile.addresses
+        );
 
         if (d.paymentMethod) {
-          setPaymentMethod(d.paymentMethod);
-        }
-      }
-
-      const locationRaw =
-        localStorage.getItem("userLocation");
-
-      if (locationRaw) {
-        const loc = JSON.parse(locationRaw);
-
-        const lat = safeNumber(
-          loc.latitude,
-          NaN
-        );
-
-        const lng = safeNumber(
-          loc.longitude,
-          NaN
-        );
-
-        if (
-          Number.isFinite(lat) &&
-          Number.isFinite(lng)
-        ) {
-          const location = {
-            lat,
-            lng,
-          };
-
-          setMarker(location);
-          setMapCenter(location);
-
-          setAddress(
-            loc.address ||
-              loc.fullAddress ||
-              ""
-          );
-
-          setLocationFullAddress(
-            loc.fullAddress ||
-              loc.address ||
-              ""
-          );
-
-          setLocationArea(
-            loc.area || ""
-          );
-
-          setLocationCity(
-            loc.city || ""
-          );
-
-          setLocationPostcode(
-            loc.postcode || ""
+          setPaymentMethod(
+            d.paymentMethod
           );
         }
       }
     } catch (error) {
       console.error(
-        "Checkout load error:",
+        "Checkout customer load error:",
         error
       );
     }
+  }, []);
+
+  /* =======================================================
+     DO NOT TRUST OLD GPS LOCATION
+  ======================================================= */
+
+  useEffect(() => {
+    /*
+     * We intentionally do NOT mark old localStorage
+     * coordinates as verified GPS.
+     *
+     * Customer must press:
+     * "Use My Current Location"
+     */
+    setGpsVerified(false);
+    setGpsAccuracy(null);
   }, []);
 
   /* =======================================================
@@ -520,11 +511,15 @@ export default function Checkout() {
       store?.codEnabled === false &&
       store?.upiEnabled
     ) {
-      setPaymentMethod("Online Payment");
+      setPaymentMethod(
+        "Online Payment"
+      );
     } else if (
       store?.codEnabled !== false
     ) {
-      setPaymentMethod("Cash on Delivery");
+      setPaymentMethod(
+        "Cash on Delivery"
+      );
     }
   }, [
     store?.codEnabled,
@@ -561,8 +556,15 @@ export default function Checkout() {
     [marker]
   );
 
+  /*
+   * IMPORTANT:
+   * Delivery radius is valid ONLY after current GPS
+   * has been explicitly verified.
+   */
   const deliveryAvailable =
-    distance <= MAX_DELIVERY_DISTANCE;
+    gpsVerified &&
+    distance <=
+      MAX_DELIVERY_DISTANCE;
 
   /* =======================================================
      DELIVERY CHARGE
@@ -571,6 +573,7 @@ export default function Checkout() {
   const deliveryCharge = useMemo(() => {
     if (
       orderType !== "Delivery" ||
+      !gpsVerified ||
       !deliveryAvailable ||
       Number(totalPrice) <= 0
     ) {
@@ -588,6 +591,7 @@ export default function Checkout() {
     );
   }, [
     orderType,
+    gpsVerified,
     deliveryAvailable,
     totalPrice,
     distance,
@@ -612,7 +616,10 @@ export default function Checkout() {
 
       try {
         const q = query(
-          collection(db, "orders"),
+          collection(
+            db,
+            "orders"
+          ),
           where(
             "customerId",
             "==",
@@ -620,47 +627,59 @@ export default function Checkout() {
           )
         );
 
-        const snap = await getDocs(q);
+        const snap =
+          await getDocs(q);
 
         const qualifying = [];
 
         let redeemed = 0;
 
-        snap.docs.forEach((docSnap) => {
-          const d = docSnap.data();
+        snap.docs.forEach(
+          (docSnap) => {
+            const d =
+              docSnap.data();
 
-          const status = String(
-            d.status || ""
-          ).toLowerCase();
+            const status =
+              String(
+                d.status || ""
+              ).toLowerCase();
 
-          const bill = Number(
-            d.total ??
-              d.bill ??
-              0
-          );
+            const bill =
+              Number(
+                d.total ??
+                  d.bill ??
+                  0
+              );
 
-          if (
-            status === "delivered" &&
-            bill >= LOYALTY_MIN_BILL
-          ) {
-            qualifying.push({
-              id: docSnap.id,
-              createdAt:
-                d.createdAt || null,
-            });
+            if (
+              status ===
+                "delivered" &&
+              bill >=
+                LOYALTY_MIN_BILL
+            ) {
+              qualifying.push({
+                id: docSnap.id,
+
+                createdAt:
+                  d.createdAt ||
+                  null,
+              });
+            }
+
+            if (
+              status ===
+                "delivered" &&
+              d.loyaltyRewardRedeemed ===
+                true &&
+              String(
+                d.loyaltyReward ||
+                  ""
+              ).trim()
+            ) {
+              redeemed += 1;
+            }
           }
-
-          if (
-            status === "delivered" &&
-            d.loyaltyRewardRedeemed ===
-              true &&
-            String(
-              d.loyaltyReward || ""
-            ).trim()
-          ) {
-            redeemed += 1;
-          }
-        });
+        );
 
         qualifying.sort(
           (a, b) =>
@@ -677,7 +696,8 @@ export default function Checkout() {
 
         const completedCycles =
           Math.floor(
-            count / LOYALTY_TARGET
+            count /
+              LOYALTY_TARGET
           );
 
         const validRedeemed =
@@ -686,7 +706,9 @@ export default function Checkout() {
             completedCycles
           );
 
-        setQualifyingOrders(count);
+        setQualifyingOrders(
+          count
+        );
 
         setRedeemedLoyaltyRewards(
           validRedeemed
@@ -737,7 +759,8 @@ export default function Checkout() {
   const sixthOrderRewardUnlocked =
     currentOrderQualifies &&
     isSixthOrder &&
-    availablePreviousRewards === 0;
+    availablePreviousRewards ===
+      0;
 
   const loyaltyUnlocked =
     sixthOrderRewardUnlocked ||
@@ -761,7 +784,9 @@ export default function Checkout() {
 
   useEffect(() => {
     if (!loyaltyUnlocked) {
-      setSelectedLoyaltyReward("");
+      setSelectedLoyaltyReward(
+        ""
+      );
     }
   }, [loyaltyUnlocked]);
 
@@ -770,13 +795,18 @@ export default function Checkout() {
   ======================================================= */
 
   useEffect(() => {
-    /*
-     * Sugar Reward always takes priority.
-     */
     if (loyaltyUnlocked) {
-      setDailyScratchEligible(false);
-      setDailyScratchReward(null);
-      setDailyScratchRevealed(false);
+      setDailyScratchEligible(
+        false
+      );
+
+      setDailyScratchReward(
+        null
+      );
+
+      setDailyScratchRevealed(
+        false
+      );
 
       return;
     }
@@ -790,8 +820,13 @@ export default function Checkout() {
     );
 
     if (!eligible) {
-      setDailyScratchReward(null);
-      setDailyScratchRevealed(false);
+      setDailyScratchReward(
+        null
+      );
+
+      setDailyScratchRevealed(
+        false
+      );
 
       return;
     }
@@ -803,7 +838,9 @@ export default function Checkout() {
 
     try {
       const saved =
-        sessionStorage.getItem(key);
+        sessionStorage.getItem(
+          key
+        );
 
       if (saved) {
         const data =
@@ -814,11 +851,18 @@ export default function Checkout() {
         );
 
         setDailyScratchRevealed(
-          Boolean(data.revealed)
+          Boolean(
+            data.revealed
+          )
         );
       } else {
-        setDailyScratchReward(null);
-        setDailyScratchRevealed(false);
+        setDailyScratchReward(
+          null
+        );
+
+        setDailyScratchRevealed(
+          false
+        );
       }
     } catch (error) {
       console.error(
@@ -826,8 +870,13 @@ export default function Checkout() {
         error
       );
 
-      setDailyScratchReward(null);
-      setDailyScratchRevealed(false);
+      setDailyScratchReward(
+        null
+      );
+
+      setDailyScratchRevealed(
+        false
+      );
     }
   }, [
     customerId,
@@ -856,8 +905,13 @@ export default function Checkout() {
         )
       ];
 
-    setDailyScratchReward(reward);
-    setDailyScratchRevealed(true);
+    setDailyScratchReward(
+      reward
+    );
+
+    setDailyScratchRevealed(
+      true
+    );
 
     try {
       sessionStorage.setItem(
@@ -936,20 +990,30 @@ export default function Checkout() {
 
   const gst = 0;
 
-  const grandTotal = Math.max(
-    0,
-    Number(totalPrice) +
-      Number(deliveryCharge) -
-      Number(scratchDiscount) +
-      Number(gst)
-  );
+  const grandTotal =
+    Math.max(
+      0,
+      Number(totalPrice) +
+        Number(deliveryCharge) -
+        Number(scratchDiscount) +
+        Number(gst)
+    );
 
   /* =======================================================
      REVERSE GEOCODING
+     
+     IMPORTANT:
+     This function is ONLY used for the exact GPS
+     location. It does NOT overwrite the customer's
+     manually typed delivery address.
   ======================================================= */
 
   const reverseGeocode = useCallback(
-    async (lat, lng, signal) => {
+    async (
+      lat,
+      lng,
+      signal
+    ) => {
       try {
         const response =
           await fetch(
@@ -963,6 +1027,7 @@ export default function Checkout() {
                 Accept:
                   "application/json",
               },
+
               signal,
             }
           );
@@ -977,18 +1042,20 @@ export default function Checkout() {
           await response.json();
 
         const a =
-          data?.address || {};
+          data?.address ||
+          {};
 
         /*
-         * Local area first.
+         * Prefer proper locality names.
          */
         const area =
           a.suburb ||
           a.neighbourhood ||
           a.quarter ||
           a.village ||
-          a.town ||
           a.city_district ||
+          a.residential ||
+          a.town ||
           data?.name ||
           "";
 
@@ -996,43 +1063,35 @@ export default function Checkout() {
           a.city ||
           a.town ||
           a.municipality ||
+          a.county ||
           "";
 
         const state =
-          a.state || "";
+          a.state ||
+          "";
 
         const postcode =
-          a.postcode || "";
-
-        const shortParts = [
-          area,
-          city && city !== area
-            ? city
-            : "",
-          postcode,
-        ].filter(Boolean);
-
-        const shortAddress =
-          shortParts.join(", ");
+          a.postcode ||
+          "";
 
         const fullAddress =
           data?.display_name ||
-          shortAddress ||
-          `${Number(lat).toFixed(
-            6
-          )}, ${Number(lng).toFixed(
-            6
-          )}`;
+          [
+            area,
+            city,
+            state,
+            postcode,
+          ]
+            .filter(Boolean)
+            .join(", ");
 
         return {
           area,
           city,
           state,
           postcode,
-          shortAddress:
-            shortAddress ||
-            fullAddress,
-          fullAddress,
+          fullAddress:
+            fullAddress || "",
         };
       } catch (error) {
         if (
@@ -1049,20 +1108,12 @@ export default function Checkout() {
 
         return {
           area:
-            "Selected Location",
+            "Current Location",
           city: "",
           state: "",
           postcode: "",
-          shortAddress: `${Number(
-            lat
-          ).toFixed(6)}, ${Number(
-            lng
-          ).toFixed(6)}`,
-          fullAddress: `${Number(
-            lat
-          ).toFixed(6)}, ${Number(
-            lng
-          ).toFixed(6)}`,
+          fullAddress:
+            "",
         };
       }
     },
@@ -1070,213 +1121,241 @@ export default function Checkout() {
   );
 
   /* =======================================================
-     UPDATE LOCATION
+     SAVE GPS LOCATION
   ======================================================= */
 
-  const updateLocation = useCallback(
-    async (
-      location,
-      geocode = true
-    ) => {
-      const lat = Number(
-        location?.lat
-      );
-
-      const lng = Number(
-        location?.lng
-      );
-
-      if (
-        !Number.isFinite(lat) ||
-        !Number.isFinite(lng)
-      ) {
-        return;
-      }
-
-      const nextLocation = {
+  const saveGpsLocation =
+    useCallback(
+      async ({
         lat,
         lng,
-      };
+        accuracy,
+        geocode = true,
+      }) => {
+        if (
+          !Number.isFinite(lat) ||
+          !Number.isFinite(lng)
+        ) {
+          return;
+        }
 
-      setMarker(nextLocation);
-      setMapCenter(nextLocation);
+        const location = {
+          lat,
+          lng,
+        };
 
-      /*
-       * Save coordinates immediately.
-       * Address will be updated after geocoding.
-       */
-      try {
-        const oldRaw =
-          localStorage.getItem(
-            "userLocation"
+        /*
+         * GPS becomes verified.
+         */
+        setGpsVerified(true);
+
+        setGpsAccuracy(
+          Number.isFinite(
+            Number(accuracy)
+          )
+            ? Number(
+                accuracy
+              )
+            : null
+        );
+
+        /*
+         * GPS is the ONLY location used for
+         * delivery distance.
+         */
+        setMarker(location);
+        setMapCenter(location);
+
+        /*
+         * Immediately save GPS coordinates.
+         */
+        try {
+          const oldRaw =
+            localStorage.getItem(
+              "userLocation"
+            );
+
+          const old =
+            oldRaw
+              ? JSON.parse(
+                  oldRaw
+                )
+              : {};
+
+          localStorage.setItem(
+            "userLocation",
+            JSON.stringify({
+              ...old,
+
+              latitude:
+                lat,
+
+              longitude:
+                lng,
+
+              gpsVerified:
+                true,
+
+              gpsAccuracy:
+                Number.isFinite(
+                  Number(
+                    accuracy
+                  )
+                )
+                  ? Number(
+                      accuracy
+                    )
+                  : null,
+
+              gpsVerifiedAt:
+                new Date().toISOString(),
+            })
           );
+        } catch (error) {
+          console.error(
+            "GPS storage error:",
+            error
+          );
+        }
 
-        const old =
-          oldRaw
-            ? JSON.parse(oldRaw)
-            : {};
-
-        localStorage.setItem(
-          "userLocation",
-          JSON.stringify({
-            ...old,
-            latitude: lat,
-            longitude: lng,
-          })
-        );
-      } catch (error) {
-        console.error(
-          "Location storage error:",
-          error
-        );
-      }
-
-      if (!geocode) {
-        return;
-      }
-
-      /*
-       * Cancel previous timer.
-       */
-      if (
-        reverseGeocodeTimer.current
-      ) {
-        clearTimeout(
+        /*
+         * Cancel previous reverse request.
+         */
+        if (
           reverseGeocodeTimer.current
+        ) {
+          clearTimeout(
+            reverseGeocodeTimer.current
+          );
+        }
+
+        if (
+          reverseGeocodeController.current
+        ) {
+          reverseGeocodeController.current.abort();
+        }
+
+        if (!geocode) {
+          return;
+        }
+
+        /*
+         * Reverse geocode the EXACT GPS.
+         */
+        const controller =
+          new AbortController();
+
+        reverseGeocodeController.current =
+          controller;
+
+        const result =
+          await reverseGeocode(
+            lat,
+            lng,
+            controller.signal
+          );
+
+        if (!result) {
+          return;
+        }
+
+        /*
+         * IMPORTANT:
+         * GPS reverse geocoding only updates
+         * area/city/state/pincode information.
+         *
+         * It NEVER changes `address`.
+         */
+        setLocationArea(
+          result.area || ""
         );
-      }
 
-      /*
-       * Cancel previous request.
-       */
-      if (
-        reverseGeocodeController.current
-      ) {
-        reverseGeocodeController.current.abort();
-      }
-
-      /*
-       * Wait 700ms after map stops moving.
-       */
-      reverseGeocodeTimer.current =
-        setTimeout(async () => {
-          const controller =
-            new AbortController();
-
-          reverseGeocodeController.current =
-            controller;
-
-          const result =
-            await reverseGeocode(
-              lat,
-              lng,
-              controller.signal
-            );
-
-          if (!result) {
-            return;
-          }
-
-          /*
-           * Make sure the result still belongs
-           * to the currently selected location.
-           */
-          setMarker((current) => {
-            const same =
-              Math.abs(
-                current.lat - lat
-              ) < 0.000001 &&
-              Math.abs(
-                current.lng - lng
-              ) < 0.000001;
-
-            return same
-              ? nextLocation
-              : current;
-          });
-
-          setAddress(
-            result.shortAddress
-          );
-
-          setLocationArea(
-            result.area
-          );
-
-          setLocationCity(
-            result.city
-          );
-
-          setLocationPostcode(
-            result.postcode
-          );
-
-          setLocationFullAddress(
-            result.fullAddress
-          );
-
-          try {
-            const oldRaw =
-              localStorage.getItem(
-                "userLocation"
-              );
-
-            const old =
-              oldRaw
-                ? JSON.parse(oldRaw)
-                : {};
-
-            localStorage.setItem(
-              "userLocation",
-              JSON.stringify({
-                ...old,
-
-                latitude: lat,
-                longitude: lng,
-
-                address:
-                  result.shortAddress,
-
-                fullAddress:
-                  result.fullAddress,
-
-                area:
-                  result.area,
-
-                city:
-                  result.city,
-
-                state:
-                  result.state,
-
-                postcode:
-                  result.postcode,
-              })
-            );
-          } catch (error) {
-            console.error(
-              "Location save error:",
-              error
-            );
-          }
-        }, 700);
-    },
-    [reverseGeocode]
-  );
-
-  /* =======================================================
-     MAP MOVE
-  ======================================================= */
-
-  const handleMapMove =
-    useCallback(
-      (center) => {
-        updateLocation(
-          center,
-          true
+        setLocationCity(
+          result.city || ""
         );
+
+        setLocationState(
+          result.state || ""
+        );
+
+        setLocationPostcode(
+          result.postcode || ""
+        );
+
+        setLocationFullAddress(
+          result.fullAddress || ""
+        );
+
+        try {
+          const oldRaw =
+            localStorage.getItem(
+              "userLocation"
+            );
+
+          const old =
+            oldRaw
+              ? JSON.parse(
+                  oldRaw
+                )
+              : {};
+
+          localStorage.setItem(
+            "userLocation",
+            JSON.stringify({
+              ...old,
+
+              latitude:
+                lat,
+
+              longitude:
+                lng,
+
+              gpsVerified:
+                true,
+
+              gpsAccuracy:
+                Number.isFinite(
+                  Number(
+                    accuracy
+                  )
+                )
+                  ? Number(
+                      accuracy
+                    )
+                  : null,
+
+              gpsVerifiedAt:
+                new Date().toISOString(),
+
+              gpsArea:
+                result.area ||
+                "",
+
+              gpsCity:
+                result.city ||
+                "",
+
+              gpsState:
+                result.state ||
+                "",
+
+              gpsPostcode:
+                result.postcode ||
+                "",
+
+              gpsFullAddress:
+                result.fullAddress ||
+                "",
+            })
+          );
+        } catch (error) {
+          console.error(
+            "GPS address storage error:",
+            error
+          );
+        }
       },
-      [updateLocation]
+      [reverseGeocode]
     );
 
   /* =======================================================
@@ -1294,10 +1373,12 @@ export default function Checkout() {
       return;
     }
 
-    setLoadingLocation(true);
+    setLoadingLocation(
+      true
+    );
 
     /*
-     * Cancel any old reverse request.
+     * Cancel previous reverse request.
      */
     if (
       reverseGeocodeController.current
@@ -1308,33 +1389,49 @@ export default function Checkout() {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         try {
-          const lat = Number(
-            position.coords.latitude
-          );
+          const lat =
+            Number(
+              position.coords
+                .latitude
+            );
 
-          const lng = Number(
-            position.coords.longitude
-          );
+          const lng =
+            Number(
+              position.coords
+                .longitude
+            );
+
+          const accuracy =
+            Number(
+              position.coords
+                .accuracy
+            );
 
           if (
-            !Number.isFinite(lat) ||
-            !Number.isFinite(lng)
+            !Number.isFinite(
+              lat
+            ) ||
+            !Number.isFinite(
+              lng
+            )
           ) {
             throw new Error(
               "Invalid GPS coordinates"
             );
           }
 
-          const location = {
+          /*
+           * Save exact GPS.
+           */
+          await saveGpsLocation({
             lat,
             lng,
-          };
-
-          setMarker(location);
-          setMapCenter(location);
+            accuracy,
+            geocode: true,
+          });
 
           /*
-           * Immediately move map to exact GPS.
+           * Move map to exact GPS.
            */
           if (mapRef) {
             mapRef.flyTo(
@@ -1345,62 +1442,78 @@ export default function Checkout() {
               }
             );
           }
-
-          /*
-           * Reverse geocode exact GPS.
-           */
-          await updateLocation(
-            location,
-            true
-          );
         } catch (error) {
           console.error(
             "Current location error:",
             error
           );
 
+          setGpsVerified(
+            false
+          );
+
           alert(
-            "Unable to set your current location."
+            "Unable to set your current location. Please try again."
           );
         } finally {
-          setLoadingLocation(false);
+          setLoadingLocation(
+            false
+          );
         }
       },
       (error) => {
-        setLoadingLocation(false);
+        setLoadingLocation(
+          false
+        );
 
-        if (error.code === 1) {
+        setGpsVerified(
+          false
+        );
+
+        if (
+          error.code === 1
+        ) {
           alert(
-            "Location permission denied.\n\nBrowser settings mein Location Allow karein."
+            "📍 Location permission denied.\n\nPlease allow Location permission in your browser settings and try again."
           );
         } else if (
           error.code === 2
         ) {
           alert(
-            "Your exact location could not be detected. Please try again."
+            "📍 Your exact location could not be detected.\n\nPlease turn ON Location Services and try again."
           );
         } else if (
           error.code === 3
         ) {
           alert(
-            "Location request timed out. Please try again."
+            "📍 Location request timed out.\n\nPlease try again in an open area."
           );
         } else {
           alert(
-            "Unable to get your location. Please try again."
+            "📍 Unable to get your current location. Please try again."
           );
         }
       },
       {
-        enableHighAccuracy: true,
-        timeout: 20000,
-        maximumAge: 0,
+        enableHighAccuracy:
+          true,
+
+        timeout:
+          25000,
+
+        maximumAge:
+          0,
       }
     );
   };
 
   /* =======================================================
      MANUAL ADDRESS
+     
+     IMPORTANT:
+     Manual address does NOT change GPS coordinates.
+     
+     Customer address is saved exactly as typed.
   ======================================================= */
 
   const useManualAddress =
@@ -1410,165 +1523,90 @@ export default function Checkout() {
 
       if (!value) {
         alert(
-          "Please enter your complete delivery address."
+          "🏠 Please enter your complete delivery address."
         );
 
         return;
       }
 
-      setGeocodingManual(true);
+      if (
+        value.length < 10
+      ) {
+        alert(
+          "🏠 Please enter a more complete address.\n\nInclude House/Flat No., Street/Area and Landmark."
+        );
+
+        return;
+      }
+
+      /*
+       * We DO NOT geocode the manual address.
+       *
+       * GPS is already used for delivery radius.
+       * Manual address is for actual delivery/bill.
+       */
+      setGeocodingManual(
+        true
+      );
 
       try {
-        const response =
-          await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-              `${value}, Korba, Chhattisgarh, India`
-            )}&limit=1&addressdetails=1&accept-language=en`,
-            {
-              headers: {
-                Accept:
-                  "application/json",
-              },
-            }
-          );
-
-        if (!response.ok) {
-          throw new Error(
-            "Address search failed"
-          );
-        }
-
-        const results =
-          await response.json();
-
-        if (
-          !results?.[0]
-        ) {
-          alert(
-            "Address nahi mila. Please complete address enter karein."
-          );
-
-          return;
-        }
-
-        const lat = safeNumber(
-          results[0].lat,
-          NaN
-        );
-
-        const lng = safeNumber(
-          results[0].lon,
-          NaN
-        );
-
-        if (
-          !Number.isFinite(lat) ||
-          !Number.isFinite(lng)
-        ) {
-          alert(
-            "Selected address coordinates nahi mile."
-          );
-
-          return;
-        }
-
-        const a =
-          results[0]?.address ||
-          {};
-
-        const area =
-          a.suburb ||
-          a.neighbourhood ||
-          a.quarter ||
-          a.village ||
-          a.town ||
-          a.city_district ||
-          results[0]?.name ||
-          "";
-
-        const city =
-          a.city ||
-          a.town ||
-          a.municipality ||
-          "";
-
-        const postcode =
-          a.postcode || "";
-
-        const shortAddress =
-          [
-            area,
-            city &&
-            city !== area
-              ? city
-              : "",
-            postcode,
-          ]
-            .filter(Boolean)
-            .join(", ") ||
-          results[0]
-            .display_name ||
-          value;
-
-        const fullAddress =
-          results[0]
-            .display_name ||
-          shortAddress;
-
-        const location = {
-          lat,
-          lng,
-        };
-
-        setMarker(location);
-        setMapCenter(location);
-
         setAddress(
-          shortAddress
+          value
         );
 
-        setLocationArea(
-          area
-        );
+        /*
+         * Save manual address locally.
+         * Existing GPS coordinates remain untouched.
+         */
+        const oldRaw =
+          localStorage.getItem(
+            "userLocation"
+          );
 
-        setLocationCity(
-          city
-        );
-
-        setLocationPostcode(
-          postcode
-        );
-
-        setLocationFullAddress(
-          fullAddress
-        );
+        const old =
+          oldRaw
+            ? JSON.parse(
+                oldRaw
+              )
+            : {};
 
         localStorage.setItem(
           "userLocation",
           JSON.stringify({
-            latitude: lat,
-            longitude: lng,
+            ...old,
 
             address:
-              shortAddress,
+              value,
 
-            fullAddress,
+            deliveryAddress:
+              value,
 
-            area,
-            city,
-            postcode,
+            latitude:
+              marker.lat,
+
+            longitude:
+              marker.lng,
+
+            gpsVerified:
+              gpsVerified,
           })
         );
 
-        if (mapRef) {
-          mapRef.flyTo(
-            [lat, lng],
-            17,
-            {
-              duration: 0.8,
-            }
+        /*
+         * If GPS was not selected first,
+         * do not claim address is verified.
+         */
+        if (!gpsVerified) {
+          alert(
+            "Address saved, but GPS location is still required.\n\nPlease tap 'Use My Current Location' to check delivery availability."
           );
+
+          return;
         }
+
+        alert(
+          "✓ Delivery address added successfully."
+        );
       } catch (error) {
         console.error(
           "Manual address error:",
@@ -1576,72 +1614,45 @@ export default function Checkout() {
         );
 
         alert(
-          "Address check nahi ho paya. Please try again."
+          "Address save nahi ho paya. Please try again."
         );
       } finally {
-        setGeocodingManual(false);
+        setGeocodingManual(
+          false
+        );
       }
     };
 
   /* =======================================================
      SAVED ADDRESS
+     
+     Saved address can populate the text field,
+     but GPS is STILL required for delivery radius.
   ======================================================= */
 
   const selectSavedAddress =
     async (saved) => {
-      const lat = safeNumber(
-        saved.latitude,
-        NaN
-      );
+      const savedText =
+        String(
+          saved.fullAddress ||
+            saved.address ||
+            ""
+        ).trim();
 
-      const lng = safeNumber(
-        saved.longitude,
-        NaN
-      );
-
-      if (
-        !Number.isFinite(lat) ||
-        !Number.isFinite(lng)
-      ) {
-        /*
-         * Old saved address without coordinates.
-         */
-        if (
-          saved.address ||
-          saved.fullAddress
-        ) {
-          setManualAddress(
-            saved.fullAddress ||
-              saved.address ||
-              ""
-          );
-        }
-
+      if (!savedText) {
         alert(
-          "Is saved address ki exact location available nahi hai. Please address ko dobara select karein."
+          "This saved address is empty. Please enter your address again."
         );
 
         return;
       }
 
-      const location = {
-        lat,
-        lng,
-      };
-
-      setMarker(location);
-      setMapCenter(location);
-
-      setAddress(
-        saved.address ||
-          saved.fullAddress ||
-          ""
+      setManualAddress(
+        savedText
       );
 
-      setLocationFullAddress(
-        saved.fullAddress ||
-          saved.address ||
-          ""
+      setAddress(
+        savedText
       );
 
       setLocationArea(
@@ -1656,35 +1667,30 @@ export default function Checkout() {
         saved.postcode || ""
       );
 
-      localStorage.setItem(
-        "userLocation",
-        JSON.stringify({
-          ...saved,
-
-          latitude: lat,
-          longitude: lng,
-
-          address:
-            saved.address ||
-            saved.fullAddress ||
-            "",
-
-          fullAddress:
-            saved.fullAddress ||
-            saved.address ||
-            "",
-        })
+      setLocationFullAddress(
+        saved.fullAddress ||
+          saved.address ||
+          ""
       );
 
-      if (mapRef) {
-        mapRef.flyTo(
-          [lat, lng],
-          17,
-          {
-            duration: 0.8,
-          }
-        );
-      }
+      /*
+       * IMPORTANT:
+       * Do NOT mark saved coordinates as current GPS.
+       *
+       * Customer still needs to press
+       * "Use My Current Location".
+       */
+      setGpsVerified(
+        false
+      );
+
+      setGpsAccuracy(
+        null
+      );
+
+      alert(
+        "Address selected.\n\nPlease tap 'Use My Current Location' to verify your current delivery location."
+      );
     };
 
   /* =======================================================
@@ -1694,10 +1700,14 @@ export default function Checkout() {
   const saveCustomerAddress =
     async () => {
       if (
-        orderType !== "Delivery"
+        orderType !==
+        "Delivery"
       ) {
         return null;
       }
+
+      const manual =
+        manualAddress.trim();
 
       const selected = {
         id: String(
@@ -1707,13 +1717,18 @@ export default function Checkout() {
         label:
           "Delivery Address",
 
+        /*
+         * EXACT CUSTOMER-TYPED ADDRESS
+         */
         address:
-          address.trim(),
+          manual,
 
         fullAddress:
-          locationFullAddress ||
-          address.trim(),
+          manual,
 
+        /*
+         * GPS-derived details
+         */
         area:
           locationArea || "",
 
@@ -1723,11 +1738,24 @@ export default function Checkout() {
         postcode:
           locationPostcode || "",
 
+        state:
+          locationState || "",
+
         latitude:
-          Number(marker.lat),
+          Number(
+            marker.lat
+          ),
 
         longitude:
-          Number(marker.lng),
+          Number(
+            marker.lng
+          ),
+
+        gpsAccuracy:
+          gpsAccuracy,
+
+        gpsVerified:
+          gpsVerified,
 
         savedAt:
           new Date().toISOString(),
@@ -1753,20 +1781,13 @@ export default function Checkout() {
           const exists =
             old.some(
               (item) =>
-                Math.abs(
-                  Number(
-                    item.latitude
-                  ) -
-                    selected.latitude
-                ) <
-                  0.00001 &&
-                Math.abs(
-                  Number(
-                    item.longitude
-                  ) -
-                    selected.longitude
-                ) <
-                  0.00001
+                String(
+                  item.address ||
+                    item.fullAddress ||
+                    ""
+                ).trim()
+                  .toLowerCase() ===
+                manual.toLowerCase()
             );
 
           const addresses =
@@ -2198,10 +2219,6 @@ export default function Checkout() {
                         );
                       }
 
-                      /*
-                       * Create Firestore order
-                       * only after successful verification.
-                       */
                       if (
                         !verifyData.finalized
                       ) {
@@ -2366,24 +2383,48 @@ export default function Checkout() {
         orderType ===
         "Delivery"
       ) {
-        if (!address.trim()) {
+        /*
+         * 1. GPS REQUIRED
+         */
+        if (!gpsVerified) {
           alert(
-            "Please select your delivery address."
+            "📍 Please use 'Use My Current Location' first.\n\nYour current GPS location is required to check whether delivery is available at your location."
           );
 
           return;
         }
 
+        /*
+         * 2. MANUAL ADDRESS REQUIRED
+         */
+        const typedAddress =
+          manualAddress.trim();
+
+        if (!typedAddress) {
+          alert(
+            "🏠 Please enter your complete delivery address.\n\nExample:\nHouse/Flat No., Street, Area, Landmark, City, PIN"
+          );
+
+          return;
+        }
+
+        /*
+         * 3. ADDRESS SHOULD BE REASONABLY COMPLETE
+         */
         if (
-          !deliveryAvailable
+          typedAddress.length <
+          10
         ) {
           alert(
-            `Sorry! We currently deliver within ${MAX_DELIVERY_DISTANCE} km.`
+            "🏠 Please enter a complete delivery address.\n\nInclude House/Flat No., Street/Area, Landmark and PIN."
           );
 
           return;
         }
 
+        /*
+         * 4. GPS COORDINATES MUST EXIST
+         */
         if (
           !Number.isFinite(
             Number(marker.lat)
@@ -2393,11 +2434,34 @@ export default function Checkout() {
           )
         ) {
           alert(
-            "Please select a valid delivery location."
+            "📍 Please use your current location again."
           );
 
           return;
         }
+
+        /*
+         * 5. DELIVERY RADIUS
+         */
+        if (
+          !deliveryAvailable
+        ) {
+          alert(
+            `Sorry! We currently deliver within ${MAX_DELIVERY_DISTANCE} km of Sugar Cafe.\n\nYour current location is ${distance.toFixed(
+              2
+            )} km away.`
+          );
+
+          return;
+        }
+
+        /*
+         * Keep the manual address as the final
+         * customer delivery address.
+         */
+        setAddress(
+          typedAddress
+        );
       }
 
       /* ===================================================
@@ -2429,7 +2493,9 @@ export default function Checkout() {
       }
 
       try {
-        setPlacingOrder(true);
+        setPlacingOrder(
+          true
+        );
 
         /* ================================================
            CART ITEMS
@@ -2572,6 +2638,38 @@ export default function Checkout() {
           !rewardWasSixthOrder;
 
         /* ================================================
+           FINAL MANUAL ADDRESS
+        ================================================= */
+
+        const finalDeliveryAddress =
+          orderType ===
+          "Delivery"
+            ? manualAddress.trim()
+            : "Takeaway — Pickup from Sugar Cafe";
+
+        /*
+         * Full address for internal records:
+         * Manual address + GPS-derived area information.
+         *
+         * This does NOT replace the manual address.
+         */
+        const combinedDeliveryAddress =
+          orderType ===
+          "Delivery"
+            ? [
+                manualAddress.trim(),
+
+                locationArea,
+
+                locationCity,
+
+                locationPostcode,
+              ]
+                .filter(Boolean)
+                .join(", ")
+            : "";
+
+        /* ================================================
            ORDER DATA
         ================================================= */
 
@@ -2601,14 +2699,31 @@ export default function Checkout() {
           /* ORDER */
           orderType,
 
+          /*
+           * IMPORTANT:
+           * `address` is EXACTLY what customer typed.
+           * This is the field KOT/Bill can use.
+           */
           address:
-            orderType ===
-            "Delivery"
-              ? address
-              : "Takeaway — Pickup from Sugar Cafe",
+            finalDeliveryAddress,
 
           /*
-           * EXACT LOCATION
+           * Explicit delivery address field.
+           */
+          deliveryAddress:
+            orderType ===
+            "Delivery"
+              ? manualAddress.trim()
+              : "",
+
+          /*
+           * Combined address for internal/dashboard use.
+           */
+          deliveryFullAddress:
+            combinedDeliveryAddress,
+
+          /*
+           * GPS
            */
           latitude:
             orderType ===
@@ -2626,8 +2741,22 @@ export default function Checkout() {
                 )
               : null,
 
+          gpsVerified:
+            orderType ===
+            "Delivery"
+              ? Boolean(
+                  gpsVerified
+                )
+              : false,
+
+          gpsAccuracy:
+            orderType ===
+            "Delivery"
+              ? gpsAccuracy
+              : null,
+
           /*
-           * Area information
+           * GPS-derived area information
            */
           deliveryArea:
             orderType ===
@@ -2643,6 +2772,13 @@ export default function Checkout() {
                 ""
               : "",
 
+          deliveryState:
+            orderType ===
+            "Delivery"
+              ? locationState ||
+                ""
+              : "",
+
           deliveryPostcode:
             orderType ===
             "Delivery"
@@ -2650,14 +2786,9 @@ export default function Checkout() {
                 ""
               : "",
 
-          deliveryFullAddress:
-            orderType ===
-            "Delivery"
-              ? locationFullAddress ||
-                address ||
-                ""
-              : "",
-
+          /*
+           * Exact distance from Sugar Cafe
+           */
           distance:
             orderType ===
             "Delivery"
@@ -2861,7 +2992,11 @@ export default function Checkout() {
     placingOrder ||
     (orderType ===
       "Delivery" &&
-      !deliveryAvailable);
+      (
+        !gpsVerified ||
+        !manualAddress.trim() ||
+        !deliveryAvailable
+      ));
 
   /* =======================================================
      RENDER
@@ -3039,20 +3174,22 @@ export default function Checkout() {
               </h3>
 
               <p>
-                Your location is detected automatically
+                Current GPS + complete delivery address required
               </p>
             </div>
 
             <span
               className={`location-status ${
+                gpsVerified &&
                 deliveryAvailable
                   ? "confirmed"
                   : "not-confirmed"
               }`}
             >
-              {deliveryAvailable
+              {gpsVerified &&
+              deliveryAvailable
                 ? "✓ Confirmed"
-                : "⚠ Check"}
+                : "⚠ Required"}
             </span>
           </div>
 
@@ -3162,11 +3299,14 @@ export default function Checkout() {
             </div>
           )}
 
-          {/* MANUAL ADDRESS */}
+          {/* =================================================
+              MANUAL ADDRESS
+          ================================================= */}
 
           <div className="manual-address-box">
+
             <label>
-              Search / enter your delivery address
+              Complete Delivery Address *
             </label>
 
             <input
@@ -3175,13 +3315,24 @@ export default function Checkout() {
               }
               onChange={(
                 event
-              ) =>
-                setManualAddress(
+              ) => {
+                const value =
                   event.target
-                    .value
-                )
-              }
-              placeholder="House/Flat No., Area, Landmark, City, PIN"
+                    .value;
+
+                setManualAddress(
+                  value
+                );
+
+                /*
+                 * Keep exact typed address.
+                 */
+                setAddress(
+                  value
+                );
+              }}
+              placeholder="House/Flat No., Street, Area, Landmark, City, PIN"
+              autoComplete="street-address"
             />
 
             <button
@@ -3195,16 +3346,37 @@ export default function Checkout() {
               }
             >
               {geocodingManual
-                ? "Checking address..."
-                : "✓ Use This Address"}
+                ? "Saving address..."
+                : "✓ Add This Address"}
             </button>
+
+            <small
+              style={{
+                display:
+                  "block",
+                marginTop:
+                  "8px",
+                lineHeight:
+                  "1.45",
+              }}
+            >
+              🏠 This address will be printed on your bill/KOT.
+              Please enter the exact house/flat number, street,
+              area, landmark, city and PIN.
+            </small>
           </div>
 
-          {/* CURRENT LOCATION */}
+          {/* =================================================
+              CURRENT LOCATION
+          ================================================= */}
 
           <button
             type="button"
-            className="current-location-btn"
+            className={`current-location-btn ${
+              gpsVerified
+                ? "gps-verified"
+                : ""
+            }`}
             onClick={
               getCurrentLocation
             }
@@ -3213,12 +3385,16 @@ export default function Checkout() {
             }
           >
             <span>
-              ◎
+              {gpsVerified
+                ? "✓"
+                : "◎"}
             </span>
 
             <span>
               {loadingLocation
-                ? "Getting Exact Location..."
+                ? "Getting Exact GPS Location..."
+                : gpsVerified
+                ? "Current Location Verified — Tap to Refresh"
                 : "Use My Current Location"}
             </span>
 
@@ -3227,7 +3403,44 @@ export default function Checkout() {
             </span>
           </button>
 
-          {/* MAP */}
+          {/* GPS STATUS */}
+
+          <div
+            className={`gps-verification-box ${
+              gpsVerified
+                ? "verified"
+                : "not-verified"
+            }`}
+          >
+            <div>
+              <strong>
+                {gpsVerified
+                  ? "✓ GPS Location Verified"
+                  : "📍 GPS Location Required"}
+              </strong>
+
+              <small>
+                {gpsVerified
+                  ? gpsAccuracy
+                    ? `Accuracy: approximately ${gpsAccuracy} metres`
+                    : "Your current GPS location is being used for delivery radius."
+                  : "Tap 'Use My Current Location' so we can calculate the delivery distance correctly."}
+              </small>
+            </div>
+
+            {gpsVerified && (
+              <span>
+                {distance.toFixed(
+                  2
+                )}{" "}
+                km
+              </span>
+            )}
+          </div>
+
+          {/* =================================================
+              MAP
+          ================================================= */}
 
           <div className="checkout-map-wrapper">
             <MapContainer
@@ -3239,6 +3452,7 @@ export default function Checkout() {
               scrollWheelZoom={
                 false
               }
+              dragging={true}
               className="checkout-map"
               whenReady={(
                 event
@@ -3251,12 +3465,6 @@ export default function Checkout() {
               <TileLayer
                 attribution="&copy; OpenStreetMap contributors"
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-
-              <MapCenterTracker
-                onMoveEnd={
-                  handleMapMove
-                }
               />
 
               <MapRecenter
@@ -3278,7 +3486,9 @@ export default function Checkout() {
 
             <div className="live-location-badge">
               <span />
-              Live location
+              {gpsVerified
+                ? "GPS location"
+                : "Use current location"}
             </div>
           </div>
 
@@ -3291,79 +3501,39 @@ export default function Checkout() {
 
             <div>
               <strong>
-                Select your exact delivery location
+                GPS location is used for delivery radius
               </strong>
 
               <p>
-                Move the map until the pin is exactly where you want the order delivered.
+                Your current GPS location determines whether we can deliver to you. The address above is used for the delivery/bill.
               </p>
             </div>
           </div>
 
-          {/* SELECTED ADDRESS */}
+          {/* =================================================
+              SELECTED ADDRESS
+          ================================================= */}
 
           <div className="selected-address-box">
             <div className="selected-address-icon">
-              📍
+              🏠
             </div>
 
             <div className="selected-address-content">
               <span>
-                SELECTED AREA
+                DELIVERY ADDRESS
               </span>
 
               <strong>
-                {address ||
-                  "Please select your delivery location"}
+                {manualAddress ||
+                  "Please enter your complete delivery address"}
               </strong>
 
-              {locationFullAddress &&
-                locationFullAddress !==
-                  address && (
-                  <small>
-                    {locationFullAddress}
-                  </small>
-                )}
-
-              <small>
-                {distance.toFixed(
-                  2
-                )}{" "}
-                km from Sugar Cafe
-              </small>
-            </div>
-
-            <div
-              className={`distance-status ${
-                deliveryAvailable
-                  ? "available"
-                  : "unavailable"
-              }`}
-            >
-              {deliveryAvailable
-                ? "✓ Deliverable"
-                : "✕ Outside Range"}
-            </div>
-          </div>
-
-          {/* AREA DETAILS */}
-
-          {(locationArea ||
-            locationCity ||
-            locationPostcode) && (
-            <div className="location-area-details">
-              <span>
-                📍
-              </span>
-
-              <div>
-                <strong>
-                  {locationArea ||
-                    "Selected Location"}
-                </strong>
-
+              {gpsVerified && (
                 <small>
+                  GPS Area:{" "}
                   {[
+                    locationArea,
                     locationCity,
                     locationPostcode,
                   ]
@@ -3372,35 +3542,147 @@ export default function Checkout() {
                     )
                     .join(
                       ", "
-                    )}
+                    ) ||
+                    "Location detected"}
                 </small>
-              </div>
+              )}
+
+              <small>
+                {gpsVerified
+                  ? `${distance.toFixed(
+                      2
+                    )} km from Sugar Cafe`
+                  : "GPS verification required"}
+              </small>
             </div>
-          )}
 
-          {/* OUTSIDE RANGE */}
+            <div
+              className={`distance-status ${
+                gpsVerified &&
+                deliveryAvailable
+                  ? "available"
+                  : "unavailable"
+              }`}
+            >
+              {!gpsVerified
+                ? "GPS Required"
+                : deliveryAvailable
+                ? "✓ Deliverable"
+                : "✕ Outside Range"}
+            </div>
+          </div>
 
-          {!deliveryAvailable && (
+          {/* =================================================
+              GPS AREA DETAILS
+          ================================================= */}
+
+          {gpsVerified &&
+            (locationArea ||
+              locationCity ||
+              locationPostcode) && (
+              <div className="location-area-details">
+                <span>
+                  📍
+                </span>
+
+                <div>
+                  <strong>
+                    GPS Detected Area
+                  </strong>
+
+                  <small>
+                    {[
+                      locationArea,
+                      locationCity,
+                      locationState,
+                      locationPostcode,
+                    ]
+                      .filter(
+                        Boolean
+                      )
+                      .join(
+                        ", "
+                      )}
+                  </small>
+                </div>
+              </div>
+            )}
+
+          {/* =================================================
+              GPS NOT VERIFIED
+          ================================================= */}
+
+          {!gpsVerified && (
             <div className="delivery-warning">
               <span>
-                ⚠️
+                📍
               </span>
 
               <div>
                 <strong>
-                  Delivery not available
+                  Current location required
                 </strong>
 
                 <p>
-                  We currently deliver within{" "}
-                  {
-                    MAX_DELIVERY_DISTANCE
-                  }{" "}
-                  km of Sugar Cafe.
+                  Please tap "Use My Current Location" before placing a delivery order. Your GPS location is required to calculate the delivery radius.
                 </p>
               </div>
             </div>
           )}
+
+          {/* =================================================
+              ADDRESS MISSING
+          ================================================= */}
+
+          {gpsVerified &&
+            !manualAddress.trim() && (
+              <div className="delivery-warning">
+                <span>
+                  🏠
+                </span>
+
+                <div>
+                  <strong>
+                    Complete address required
+                  </strong>
+
+                  <p>
+                    Please enter House/Flat No., Street/Area, Landmark, City and PIN. This address will be printed on the bill/KOT.
+                  </p>
+                </div>
+              </div>
+            )}
+
+          {/* =================================================
+              OUTSIDE RANGE
+          ================================================= */}
+
+          {gpsVerified &&
+            !deliveryAvailable && (
+              <div className="delivery-warning">
+                <span>
+                  ⚠️
+                </span>
+
+                <div>
+                  <strong>
+                    Delivery not available
+                  </strong>
+
+                  <p>
+                    We currently deliver within{" "}
+                    {
+                      MAX_DELIVERY_DISTANCE
+                    }{" "}
+                    km of Sugar Cafe. Your current GPS location is{" "}
+                    {distance.toFixed(
+                      2
+                    )}{" "}
+                    km away.
+                  </p>
+                </div>
+              </div>
+            )}
         </section>
       )}
 
@@ -4148,6 +4430,29 @@ export default function Checkout() {
 
       <div className="checkout-bottom">
 
+        {/* GPS WARNING */}
+
+        {orderType ===
+          "Delivery" &&
+          !gpsVerified && (
+            <div className="checkout-action-warning">
+              📍 Please use your current GPS location before placing the delivery order.
+            </div>
+          )}
+
+        {/* ADDRESS WARNING */}
+
+        {orderType ===
+          "Delivery" &&
+          gpsVerified &&
+          !manualAddress.trim() && (
+            <div className="checkout-action-warning">
+              🏠 Please enter your complete delivery address. This address will be printed on the bill/KOT.
+            </div>
+          )}
+
+        {/* REWARD WARNING */}
+
         {loyaltyUnlocked &&
           !selectedLoyaltyReward && (
             <div className="checkout-action-warning">
@@ -4155,11 +4460,14 @@ export default function Checkout() {
             </div>
           )}
 
+        {/* OUTSIDE RANGE */}
+
         {orderType ===
           "Delivery" &&
+          gpsVerified &&
           !deliveryAvailable && (
             <div className="checkout-action-warning">
-              📍 Your selected location is outside our delivery area.
+              📍 Your current GPS location is outside our delivery area.
             </div>
           )}
 
