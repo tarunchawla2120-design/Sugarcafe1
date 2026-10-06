@@ -92,11 +92,17 @@ function startDevServer() {
   );
 
   server.on("error", (error) => {
-    console.error("Failed to start Vite server:", error);
+    console.error(
+      "Failed to start Vite server:",
+      error
+    );
   });
 
   server.on("exit", (code) => {
-    console.log("Vite server stopped:", code);
+    console.log(
+      "Vite server stopped:",
+      code
+    );
   });
 }
 
@@ -105,7 +111,9 @@ function startDevServer() {
 ========================================================= */
 
 function getMimeType(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
+  const ext = path
+    .extname(filePath)
+    .toLowerCase();
 
   const types = {
     ".html": "text/html; charset=UTF-8",
@@ -129,7 +137,10 @@ function getMimeType(filePath) {
     ".mp4": "video/mp4",
   };
 
-  return types[ext] || "application/octet-stream";
+  return (
+    types[ext] ||
+    "application/octet-stream"
+  );
 }
 
 /* =========================================================
@@ -140,67 +151,87 @@ function startProductionServer() {
   return new Promise((resolve, reject) => {
     if (!fs.existsSync(DIST_DIR)) {
       reject(
-        new Error(`DIST folder not found:\n${DIST_DIR}`)
+        new Error(
+          `DIST folder not found:\n${DIST_DIR}`
+        )
       );
       return;
     }
 
-    productionServer = http.createServer((req, res) => {
-      try {
-        let requestPath = decodeURIComponent(
-          req.url.split("?")[0]
-        );
+    productionServer = http.createServer(
+      (req, res) => {
+        try {
+          let requestPath =
+            decodeURIComponent(
+              req.url.split("?")[0]
+            );
 
-        if (!requestPath || requestPath === "/") {
-          requestPath = "/index.html";
-        }
+          if (
+            !requestPath ||
+            requestPath === "/"
+          ) {
+            requestPath = "/index.html";
+          }
 
-        const safePath = path
-          .normalize(requestPath)
-          .replace(/^(\.\.[\\/])+/, "");
+          const safePath = path
+            .normalize(requestPath)
+            .replace(
+              /^(\.\.[\\/])+/,
+              ""
+            );
 
-        let filePath = path.join(
-          DIST_DIR,
-          safePath
-        );
-
-        if (
-          !fs.existsSync(filePath) ||
-          !fs.statSync(filePath).isFile()
-        ) {
-          filePath = path.join(
+          let filePath = path.join(
             DIST_DIR,
-            "index.html"
+            safePath
+          );
+
+          if (
+            !fs.existsSync(filePath) ||
+            !fs.statSync(filePath).isFile()
+          ) {
+            filePath = path.join(
+              DIST_DIR,
+              "index.html"
+            );
+          }
+
+          if (!fs.existsSync(filePath)) {
+            res.writeHead(404);
+            res.end(
+              "SugarCafe Dashboard not found"
+            );
+            return;
+          }
+
+          const contentType =
+            getMimeType(filePath);
+
+          res.writeHead(200, {
+            "Content-Type": contentType,
+            "Cache-Control": "no-cache",
+          });
+
+          fs.createReadStream(
+            filePath
+          ).pipe(res);
+        } catch (error) {
+          console.error(
+            "Production server error:",
+            error
+          );
+
+          res.writeHead(500);
+          res.end(
+            "Internal server error"
           );
         }
-
-        if (!fs.existsSync(filePath)) {
-          res.writeHead(404);
-          res.end("SugarCafe Dashboard not found");
-          return;
-        }
-
-        const contentType =
-          getMimeType(filePath);
-
-        res.writeHead(200, {
-          "Content-Type": contentType,
-          "Cache-Control": "no-cache",
-        });
-
-        fs.createReadStream(filePath).pipe(res);
-      } catch (error) {
-        console.error(
-          "Production server error:",
-          error
-        );
-
-        res.writeHead(500);
-        res.end("Internal server error");
       }
-    });
+    );
 
-    productionServer.on("error", reject);
+    productionServer.on(
+      "error",
+      reject
+    );
 
     productionServer.listen(
       0,
@@ -293,7 +324,9 @@ function formatDateTime(value) {
   return {
     date: `${dd}/${mm}/${yy}`,
     time: `${hh}:${min}`,
-    full: `${d.getFullYear()}-${mm}-${dd} ${hh}:${min}:${sec}`,
+    full:
+      `${d.getFullYear()}-${mm}-${dd} ` +
+      `${hh}:${min}:${sec}`,
   };
 }
 
@@ -463,7 +496,7 @@ function code128Svg(value) {
             x="${x.toFixed(2)}"
             y="0"
             width="${w.toFixed(2)}"
-            height="44"
+            height="38"
             fill="#111"
           />
         `;
@@ -480,8 +513,8 @@ function code128Svg(value) {
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="${width.toFixed(0)}"
-      height="44"
-      viewBox="0 0 ${width.toFixed(0)} 44"
+      height="38"
+      viewBox="0 0 ${width.toFixed(0)} 38"
       preserveAspectRatio="none"
       aria-label="barcode"
     >
@@ -492,23 +525,21 @@ function code128Svg(value) {
 
 /* =========================================================
    KOT HTML
-   TWO COPIES:
-   1. KITCHEN COPY
-   2. DELIVERY HANDOVER COPY
+   TWO COPIES
 ========================================================= */
 
 function buildKOTHtml(order) {
-  const dt = formatDateTime(
-    order?.createdAt
-  );
+  const dt =
+    formatDateTime(
+      order?.createdAt
+    );
 
-  const items = Array.isArray(
-    order?.items
-  )
-    ? order.items
-    : Array.isArray(order?.cart)
-      ? order.cart
-      : [];
+  const items =
+    Array.isArray(order?.items)
+      ? order.items
+      : Array.isArray(order?.cart)
+        ? order.cart
+        : [];
 
   const kotNo =
     order?.kotNumber ||
@@ -563,21 +594,28 @@ function buildKOTHtml(order) {
     order?.prepareBy ||
     "";
 
-  const prepareText = prepareBy
-    ? formatDateTime(prepareBy).full
-    : "—";
+  const prepareText =
+    prepareBy
+      ? formatDateTime(
+          prepareBy
+        ).full
+      : "—";
 
-  const barcodeValue = String(
-    order?.zomatoOrderNumber ||
-      order?.platformOrderNumber ||
-      order?.orderNumber ||
-      order?.id ||
-      "000000"
-  );
+  const barcodeValue =
+    String(
+      order?.zomatoOrderNumber ||
+        order?.platformOrderNumber ||
+        order?.orderNumber ||
+        order?.id ||
+        "000000"
+    );
 
-  const total = Number(
-    order?.total || 0
-  ).toLocaleString("en-IN");
+  const total =
+    Number(
+      order?.total || 0
+    ).toLocaleString(
+      "en-IN"
+    );
 
   const customerName =
     order?.customerName ||
@@ -607,52 +645,57 @@ function buildKOTHtml(order) {
       ? addressObj?.landmark ||
         addressObj?.area ||
         ""
-      : order?.landmark || "";
+      : order?.landmark ||
+        "";
 
-  const itemRows = items.length
-    ? items
-        .map((item) => {
-          const qty = Number(
-            item?.qty ||
-              item?.quantity ||
-              1
-          );
+  const itemRows =
+    items.length
+      ? items
+          .map((item) => {
+            const qty =
+              Number(
+                item?.qty ||
+                  item?.quantity ||
+                  1
+              );
 
-          return `
-            <div class="item">
-              <span>
-                ${escapeHtml(
-                  item?.name ||
-                    "Food Item"
-                )}
+            return `
+              <div class="item">
+                <span>
+                  ${escapeHtml(
+                    item?.name ||
+                      "Food Item"
+                  )}
 
-                ${
-                  item?.variant
-                    ? `
-                      <small>
-                        ${escapeHtml(
-                          item.variant
-                        )}
-                      </small>
-                    `
-                    : ""
-                }
-              </span>
+                  ${
+                    item?.variant
+                      ? `
+                        <small>
+                          ${escapeHtml(
+                            item.variant
+                          )}
+                        </small>
+                      `
+                      : ""
+                  }
+                </span>
 
-              <b>${qty}</b>
-            </div>
-          `;
-        })
-        .join("")
-    : `
-        <div class="item">
-          <span>No items found</span>
-          <b>1</b>
-        </div>
-      `;
+                <b>${qty}</b>
+              </div>
+            `;
+          })
+          .join("")
+      : `
+          <div class="item">
+            <span>No items found</span>
+            <b>1</b>
+          </div>
+        `;
 
   const barcode =
-    code128Svg(barcodeValue);
+    code128Svg(
+      barcodeValue
+    );
 
   return `
 <!doctype html>
@@ -665,6 +708,11 @@ function buildKOTHtml(order) {
 
 <style>
 
+/* =========================================================
+   72MM PRINTER PAPER
+   SAFE CONTENT WIDTH = 68MM
+========================================================= */
+
 @page {
   size: 72mm 3276mm;
   margin: 0;
@@ -676,30 +724,42 @@ function buildKOTHtml(order) {
 
 html,
 body {
-  width: 72mm;
+  width: 68mm;
+  max-width: 68mm;
+
   margin: 0;
   padding: 0;
+
   background: #fff;
   color: #111;
+
   font-family:
     Arial,
     Helvetica,
     sans-serif;
+
+  overflow-x: hidden;
 }
 
 body {
-  width: 72mm;
+  width: 68mm;
+  max-width: 68mm;
 }
 
 .ticket {
-  width: 72mm;
+  width: 68mm;
+  max-width: 68mm;
 
   padding:
-    4mm
-    3.5mm
-    7mm;
+    3mm
+    2mm
+    6mm;
+
+  margin: 0;
 
   font-size: 12px;
+
+  overflow: hidden;
 
   break-after: page;
   page-break-after: always;
@@ -715,7 +775,7 @@ body {
 }
 
 .brand {
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 900;
   letter-spacing: 1px;
 }
@@ -727,46 +787,61 @@ body {
 }
 
 .meta {
-  margin-top: 8px;
-  font-size: 13px;
-  line-height: 1.55;
+  margin-top: 7px;
+
+  font-size: 12px;
+
+  line-height: 1.5;
+
+  overflow-wrap: anywhere;
 }
 
 .meta strong {
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .rule {
   border-top:
     1px dashed #111;
 
-  margin: 8px 0;
+  margin: 7px 0;
 }
 
 .type {
   font-weight: 900;
-  font-size: 15px;
+
+  font-size: 14px;
+
   text-transform: uppercase;
+
   margin:
     3px
     0
     6px;
 }
 
+/* =========================================================
+   ITEMS
+========================================================= */
+
 .items-head,
 .item {
   display: grid;
 
   grid-template-columns:
-    1fr
-    36px;
+    minmax(0, 1fr)
+    28px;
 
-  gap: 8px;
+  gap: 5px;
+
+  width: 100%;
+  max-width: 100%;
 }
 
 .items-head {
   font-weight: 700;
-  font-size: 12px;
+  font-size: 11px;
+
   margin-bottom: 3px;
 }
 
@@ -776,31 +851,95 @@ body {
   border-top:
     1px dashed #aaa;
 
-  font-size: 14px;
+  font-size: 13px;
+
+  min-width: 0;
+}
+
+.item > span {
+  min-width: 0;
+
+  overflow-wrap:
+    anywhere;
+
+  word-break:
+    break-word;
 }
 
 .item b {
   text-align: right;
+
+  white-space:
+    nowrap;
 }
 
 .item small {
   display: block;
+
   font-size: 10px;
+
   color: #555;
+
   margin-top: 2px;
 }
 
+/* =========================================================
+   NOTES
+========================================================= */
+
 .notes {
-  font-size: 13px;
+  width: 100%;
+  max-width: 100%;
+
+  font-size: 12px;
+
   font-weight: 700;
+
   margin: 8px 0;
+
+  overflow-wrap:
+    anywhere;
+
+  word-break:
+    break-word;
 }
+
+/* =========================================================
+   GENERAL ROWS
+========================================================= */
 
 .line {
   display: flex;
-  justify-content: space-between;
-  gap: 10px;
+
+  justify-content:
+    space-between;
+
+  align-items:
+    flex-start;
+
+  gap: 6px;
+
+  width: 100%;
+  max-width: 100%;
+
   margin: 5px 0;
+}
+
+.line > span {
+  min-width: 0;
+
+  overflow-wrap:
+    anywhere;
+
+  word-break:
+    break-word;
+}
+
+.line > span:last-child {
+  text-align: right;
+
+  white-space:
+    normal;
 }
 
 .strong {
@@ -809,81 +948,146 @@ body {
 
 .prepare {
   margin-top: 8px;
-  font-size: 12px;
+
+  font-size: 11px;
 }
+
+/* =========================================================
+   BARCODE
+========================================================= */
 
 .barcode {
   margin:
-    10px
+    9px
     0
     3px;
 
   width: 100%;
-  height: 44px;
+  max-width: 100%;
+
+  height: 38px;
+
+  overflow: hidden;
 }
 
 .barcode svg {
   display: block;
+
   width: 100%;
-  height: 44px;
+  max-width: 100%;
+
+  height: 38px;
 }
 
 .barcode-label {
   text-align: center;
-  font-family: monospace;
-  font-size: 12px;
-  letter-spacing: 2px;
+
+  font-family:
+    monospace;
+
+  font-size: 11px;
+
+  letter-spacing: 1px;
+
+  overflow-wrap:
+    anywhere;
 }
 
 .pickup {
   text-align: center;
-  font-size: 12px;
+
+  font-size: 11px;
+
   font-weight: 700;
-  margin-top: 8px;
+
+  margin-top: 7px;
+
+  overflow-wrap:
+    anywhere;
+
+  word-break:
+    break-word;
 }
 
 .small {
-  font-size: 10px;
+  font-size: 9px;
+
   color: #333;
 }
 
+/* =========================================================
+   DELIVERY COPY
+========================================================= */
+
 .handover-title {
-  font-size: 14px;
+  font-size: 13px;
+
   font-weight: 900;
+
   letter-spacing: .5px;
 }
 
 .address {
-  font-size: 14px;
+  width: 100%;
+  max-width: 100%;
+
+  font-size: 13px;
+
   font-weight: 700;
+
   line-height: 1.4;
+
   margin-top: 7px;
+
+  overflow-wrap:
+    anywhere;
+
+  word-break:
+    break-word;
 }
 
 .handover-box {
+  width: 100%;
+  max-width: 100%;
+
   border:
     1px solid #111;
 
-  padding: 8px;
+  padding: 7px;
+
   margin-top: 8px;
+
+  overflow: hidden;
 }
 
 .handover-box .line {
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .big-otp {
-  font-size: 22px;
+  font-size: 20px;
+
   font-weight: 900;
+
   text-align: center;
-  margin: 10px 0;
+
+  margin: 9px 0;
 }
 
 .handover-note {
   text-align: center;
-  font-size: 12px;
+
+  font-size: 11px;
+
   font-weight: 800;
+
   margin-top: 8px;
+
+  overflow-wrap:
+    anywhere;
+
+  word-break:
+    break-word;
 }
 
 </style>
@@ -893,7 +1097,7 @@ body {
 <body>
 
 <!-- =====================================================
-     COPY 1 — KITCHEN
+     COPY 1 — KITCHEN COPY
 ===================================================== -->
 
 <div class="ticket">
@@ -942,11 +1146,15 @@ body {
   <div class="rule"></div>
 
   <div class="items-head">
-    <span>Item</span>
+
+    <span>
+      Item
+    </span>
 
     <span style="text-align:right">
       Qty.
     </span>
+
   </div>
 
   ${itemRows}
@@ -983,7 +1191,9 @@ body {
     </span>
 
     <span>
-      ${escapeHtml(prepareText)}
+      ${escapeHtml(
+        prepareText
+      )}
     </span>
 
   </div>
@@ -1000,13 +1210,19 @@ body {
   </div>
 
   <div class="barcode-label">
-    ${escapeHtml(barcodeValue)}
+    ${escapeHtml(
+      barcodeValue
+    )}
   </div>
 
   <div class="pickup">
+
     Pickup barcode for
-    ${escapeHtml(platform)}
+    ${escapeHtml(
+      platform
+    )}
     delivery partner
+
   </div>
 
   <div
@@ -1020,7 +1236,7 @@ body {
 
 
 <!-- =====================================================
-     COPY 2 — DELIVERY HANDOVER
+     COPY 2 — DELIVERY HANDOVER COPY
 ===================================================== -->
 
 <div class="ticket">
@@ -1071,7 +1287,9 @@ body {
       </span>
 
       <span>
-        ${escapeHtml(customerName)}
+        ${escapeHtml(
+          customerName
+        )}
       </span>
 
     </div>
@@ -1129,7 +1347,9 @@ body {
         ? `
           <br>
           Landmark:
-          ${escapeHtml(landmark)}
+          ${escapeHtml(
+            landmark
+          )}
         `
         : ""
     }
@@ -1149,7 +1369,9 @@ body {
   </div>
 
   <div class="barcode-label">
-    ${escapeHtml(barcodeValue)}
+    ${escapeHtml(
+      barcodeValue
+    )}
   </div>
 
   <div class="handover-note">
@@ -1160,8 +1382,9 @@ body {
     class="center small"
     style="margin-top:8px"
   >
-    Customer details & delivery address —
-    hand over this copy to delivery partner.
+    Customer details & delivery
+    address — hand over this copy
+    to delivery partner.
   </div>
 
 </div>
@@ -1175,7 +1398,7 @@ body {
 /* =========================================================
    SILENT KOT PRINTING
    TVS-E RP 3230
-   72mm × 3276mm
+   72MM × 3276MM
 ========================================================= */
 
 ipcMain.handle(
@@ -1184,16 +1407,17 @@ ipcMain.handle(
     let printWin = null;
 
     try {
-      printWin = new BrowserWindow({
-        show: false,
+      printWin =
+        new BrowserWindow({
+          show: false,
 
-        width: 380,
-        height: 1200,
+          width: 380,
+          height: 1200,
 
-        webPreferences: {
-          sandbox: true,
-        },
-      });
+          webPreferences: {
+            sandbox: true,
+          },
+        });
 
       await printWin.loadURL(
         "data:text/html;charset=utf-8," +
@@ -1202,8 +1426,12 @@ ipcMain.handle(
           )
       );
 
-      await new Promise((resolve) =>
-        setTimeout(resolve, 700)
+      await new Promise(
+        (resolve) =>
+          setTimeout(
+            resolve,
+            800
+          )
       );
 
       const printers =
@@ -1213,8 +1441,10 @@ ipcMain.handle(
         "SugarCafe available printers:",
         printers.map((p) => ({
           name: p.name,
-          displayName: p.displayName,
-          isDefault: p.isDefault,
+          displayName:
+            p.displayName,
+          isDefault:
+            p.isDefault,
         }))
       );
 
@@ -1224,16 +1454,17 @@ ipcMain.handle(
 
       const selectedPrinter =
         printers.find((p) => {
-          const name = String(
-            p.name ||
-              p.displayName ||
-              ""
-          )
-            .toLowerCase()
-            .replace(
-              /[^a-z0-9]/g,
-              ""
-            );
+          const name =
+            String(
+              p.name ||
+                p.displayName ||
+                ""
+            )
+              .toLowerCase()
+              .replace(
+                /[^a-z0-9]/g,
+                ""
+              );
 
           return (
             name.includes(
@@ -1245,7 +1476,9 @@ ipcMain.handle(
           );
         });
 
-      if (!selectedPrinter?.name) {
+      if (
+        !selectedPrinter?.name
+      ) {
         throw new Error(
           "TVS-E RP 3230 printer not found. Please make sure the printer is installed in Windows."
         );
@@ -1259,8 +1492,18 @@ ipcMain.handle(
       /* =====================================================
          PRINT SETTINGS
          
-         72mm = 72000 microns
-         3276mm = 3276000 microns
+         Physical paper:
+         72mm
+
+         Safe HTML content:
+         68mm
+
+         Height:
+         3276mm
+
+         Electron uses MICRONS:
+         72mm   = 72000
+         3276mm = 3276000
       ===================================================== */
 
       const options = {
@@ -1285,6 +1528,11 @@ ipcMain.handle(
         scaleFactor: 100,
       };
 
+      console.log(
+        "SugarCafe print options:",
+        options
+      );
+
       const result =
         await new Promise(
           (resolve) => {
@@ -1299,14 +1547,16 @@ ipcMain.handle(
                   {
                     success,
                     failureReason:
-                      failureReason || "",
+                      failureReason ||
+                      "",
                   }
                 );
 
                 resolve({
                   success,
                   failureReason:
-                    failureReason || "",
+                    failureReason ||
+                    "",
                 });
               }
             );
@@ -1339,7 +1589,7 @@ ipcMain.handle(
           ) {
             printWin.close();
           }
-        }, 500);
+        }, 700);
       }
     }
   }
