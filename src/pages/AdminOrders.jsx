@@ -568,6 +568,7 @@ function KOTModal({
 ========================================================= */
 
 function AdminOrders() {
+
   const [orders, setOrders] =
     useState([]);
 
@@ -631,6 +632,7 @@ function AdminOrders() {
   ======================================================= */
 
   const getAlarmAudio = useCallback(() => {
+
     if (
       typeof window === "undefined"
     ) {
@@ -638,6 +640,7 @@ function AdminOrders() {
     }
 
     try {
+
       if (!alarmRef.current) {
 
         const audio =
@@ -653,14 +656,22 @@ function AdminOrders() {
         audio.addEventListener(
           "ended",
           () => {
-            isBellPlayingRef.current =
-              false;
+
+            /*
+             * Normally loop prevents this.
+             * Kept as safety.
+             */
+            if (!audio.loop) {
+              isBellPlayingRef.current =
+                false;
+            }
           }
         );
 
         audio.addEventListener(
           "error",
           (event) => {
+
             console.error(
               "❌ Ringtone audio error:",
               event
@@ -671,7 +682,8 @@ function AdminOrders() {
           }
         );
 
-        alarmRef.current = audio;
+        alarmRef.current =
+          audio;
       }
 
       return alarmRef.current;
@@ -685,26 +697,83 @@ function AdminOrders() {
 
       return null;
     }
+
   }, []);
 
   /* =======================================================
      UNLOCK AUDIO
-     iPHONE / SAFARI
+     
+     FIXED FOR iPHONE / SAFARI / CHROME
+
+     IMPORTANT:
+     We DO NOT attach pointerdown/touchstart
+     global listeners anymore.
+
+     User manually taps the 🔊 button.
   ======================================================= */
 
   const unlockAlarmAudio =
     useCallback(async () => {
 
+      /*
+       * Already unlocked.
+       */
       if (
         audioUnlockedRef.current
       ) {
         return true;
       }
 
+      /*
+       * If another unlock is already running,
+       * wait for it instead of returning false.
+       */
       if (
         unlockingAudioRef.current
       ) {
-        return false;
+
+        return new Promise(
+          (resolve) => {
+
+            let attempts = 0;
+
+            const check =
+              () => {
+
+                attempts += 1;
+
+                if (
+                  audioUnlockedRef.current
+                ) {
+                  resolve(true);
+                  return;
+                }
+
+                if (
+                  !unlockingAudioRef.current
+                ) {
+                  resolve(
+                    audioUnlockedRef.current
+                  );
+                  return;
+                }
+
+                if (
+                  attempts >= 40
+                ) {
+                  resolve(false);
+                  return;
+                }
+
+                setTimeout(
+                  check,
+                  50
+                );
+              };
+
+            check();
+          }
+        );
       }
 
       unlockingAudioRef.current =
@@ -720,14 +789,24 @@ function AdminOrders() {
         }
 
         /*
-         * User interaction ke time
-         * muted playback.
+         * Reset audio.
          */
-        audio.muted = true;
-        audio.volume = 0;
-        audio.loop = false;
-        audio.currentTime = 0;
+        audio.pause();
 
+        audio.currentTime = 0;
+        audio.loop = false;
+        audio.muted = false;
+        audio.volume = 1;
+
+        /*
+         * IMPORTANT:
+         *
+         * This function is called directly from
+         * the user's button click.
+         *
+         * Therefore browser autoplay permission
+         * can be granted here.
+         */
         const playPromise =
           audio.play();
 
@@ -739,27 +818,50 @@ function AdminOrders() {
           await playPromise;
         }
 
-        audio.pause();
-
-        try {
-          audio.currentTime = 0;
-        } catch {
-          // ignore
-        }
-
         /*
-         * Restore normal settings.
+         * If play() succeeds, audio is unlocked.
          */
-        audio.muted = false;
-        audio.volume = 1;
-        audio.loop = true;
-
         audioUnlockedRef.current =
           true;
 
+        isBellPlayingRef.current =
+          true;
+
         console.log(
-          "🔊 SugarCafe ringtone unlocked"
+          "🔊 SugarCafe ringtone unlocked successfully"
         );
+
+        /*
+         * Stop only this short test.
+         *
+         * New-order playBell() can restart it
+         * immediately if required.
+         */
+        setTimeout(() => {
+
+          try {
+
+            if (
+              alarmRef.current ===
+              audio
+            ) {
+
+              audio.pause();
+
+              audio.currentTime =
+                0;
+
+              audio.loop = true;
+
+              isBellPlayingRef.current =
+                false;
+            }
+
+          } catch {
+            // ignore
+          }
+
+        }, 1200);
 
         return true;
 
@@ -769,7 +871,7 @@ function AdminOrders() {
           false;
 
         console.warn(
-          "⚠️ Ringtone unlock failed:",
+          "⚠️ SugarCafe ringtone unlock failed:",
           error
         );
 
@@ -789,6 +891,9 @@ function AdminOrders() {
      PLAY BELL
      
      CONTINUOUS LOOP
+     
+     This function can restart an existing short
+     test sound when a real order arrives.
   ======================================================= */
 
   const playBell =
@@ -808,25 +913,41 @@ function AdminOrders() {
       }
 
       /*
-       * Already ringing.
+       * If already playing the actual continuous
+       * bell, don't restart it every second.
        */
-      if (!audio.paused) {
+      if (
+        isBellPlayingRef.current &&
+        !audio.paused &&
+        audio.loop
+      ) {
         return;
       }
 
+      /*
+       * New order / preparation alarm should
+       * always have priority over a short test sound.
+       */
+      audioGenerationRef.current += 1;
+
       const generation =
-        ++audioGenerationRef.current;
+        audioGenerationRef.current;
 
       try {
 
         /*
-         * IMPORTANT:
+         * Stop any existing short/test playback.
+         */
+        audio.pause();
+
+        audio.currentTime = 0;
+
+        /*
          * Continuous ringtone.
          */
         audio.loop = true;
         audio.muted = false;
         audio.volume = 1;
-        audio.currentTime = 0;
 
         const playPromise =
           audio.play();
@@ -841,7 +962,7 @@ function AdminOrders() {
 
         /*
          * If stopped while play was pending,
-         * do not restart.
+         * do not continue.
          */
         if (
           generation !==
@@ -849,8 +970,10 @@ function AdminOrders() {
         ) {
 
           try {
+
             audio.pause();
             audio.currentTime = 0;
+
           } catch {
             // ignore
           }
@@ -874,6 +997,20 @@ function AdminOrders() {
           "⚠️ Order ringtone could not play:",
           error
         );
+
+        /*
+         * If browser still needs a user gesture,
+         * show useful console information.
+         */
+        if (
+          error?.name ===
+          "NotAllowedError"
+        ) {
+
+          console.warn(
+            "⚠️ Browser blocked autoplay. Tap the 🔊 button once."
+          );
+        }
       }
 
     }, [
@@ -917,10 +1054,6 @@ function AdminOrders() {
         audio.muted = false;
         audio.volume = 1;
 
-        /*
-         * DO NOT call audio.load().
-         */
-
         console.log(
           "🔕 SugarCafe ringtone STOPPED"
         );
@@ -934,56 +1067,6 @@ function AdminOrders() {
       }
 
     }, []);
-
-  /* =======================================================
-     AUTO UNLOCK AUDIO ON FIRST USER TOUCH
-  ======================================================= */
-
-  useEffect(() => {
-
-    const unlock = () => {
-      unlockAlarmAudio();
-    };
-
-    window.addEventListener(
-      "pointerdown",
-      unlock,
-      { once: true }
-    );
-
-    window.addEventListener(
-      "touchstart",
-      unlock,
-      { once: true }
-    );
-
-    window.addEventListener(
-      "click",
-      unlock,
-      { once: true }
-    );
-
-    return () => {
-
-      window.removeEventListener(
-        "pointerdown",
-        unlock
-      );
-
-      window.removeEventListener(
-        "touchstart",
-        unlock
-      );
-
-      window.removeEventListener(
-        "click",
-        unlock
-      );
-    };
-
-  }, [
-    unlockAlarmAudio
-  ]);
 
   /* =======================================================
      FIREBASE ORDERS
@@ -1200,7 +1283,12 @@ function AdminOrders() {
 
           alarmRef.current.loop = false;
           alarmRef.current.muted = false;
-          alarmRef.current.src = "";
+
+          /*
+           * Do not set src = "" here.
+           * Keeping the audio object clean avoids
+           * unnecessary media errors.
+           */
 
           alarmRef.current = null;
         }
@@ -1856,8 +1944,19 @@ function AdminOrders() {
               type="button"
               className="notification-button"
               title="Enable / Test Order Sound"
-              onClick={async () => {
+              onClick={async (e) => {
 
+                e.preventDefault();
+                e.stopPropagation();
+
+                console.log(
+                  "🔊 SugarCafe sound button clicked"
+                );
+
+                /*
+                 * This click itself is the
+                 * browser user gesture.
+                 */
                 const unlocked =
                   await unlockAlarmAudio();
 
@@ -1865,15 +1964,12 @@ function AdminOrders() {
 
                   alert(
                     "Sound enable nahi ho paya.\n\n" +
-                    "Please dashboard par dobara tap karein."
+                    "Please 🔊 button ek baar dobara tap karein."
                   );
 
                   return;
                 }
 
-                /*
-                 * 1.2 second test.
-                 */
                 const audio =
                   getAlarmAudio();
 
@@ -1883,46 +1979,94 @@ function AdminOrders() {
 
                 try {
 
+                  /*
+                   * Stop any current short test.
+                   */
+                  audio.pause();
+
+                  audio.currentTime =
+                    0;
+
+                  /*
+                   * Test sound.
+                   */
                   audio.loop = false;
                   audio.muted = false;
                   audio.volume = 1;
-                  audio.currentTime = 0;
 
-                  await audio.play();
+                  const playPromise =
+                    audio.play();
+
+                  if (
+                    playPromise &&
+                    typeof playPromise.then ===
+                      "function"
+                  ) {
+                    await playPromise;
+                  }
 
                   isBellPlayingRef.current =
                     true;
 
+                  console.log(
+                    "🔔 SugarCafe test ringtone PLAYING"
+                  );
+
+                  /*
+                   * Stop test after 2 seconds.
+                   */
                   setTimeout(() => {
 
                     try {
 
-                      audio.pause();
-                      audio.currentTime = 0;
-                      audio.loop = true;
+                      /*
+                       * Only stop if an actual
+                       * continuous alarm hasn't
+                       * taken over.
+                       */
+                      if (
+                        alarmRef.current ===
+                          audio &&
+                        !audio.loop
+                      ) {
 
-                      isBellPlayingRef.current =
-                        false;
+                        audio.pause();
+
+                        audio.currentTime =
+                          0;
+
+                        audio.loop = true;
+
+                        isBellPlayingRef.current =
+                          false;
+                      }
 
                     } catch {
                       // ignore
                     }
 
-                  }, 1200);
+                  }, 2000);
 
                 } catch (error) {
 
-                  console.warn(
-                    "Test ringtone failed:",
+                  console.error(
+                    "❌ Test ringtone failed:",
                     error
+                  );
+
+                  alert(
+                    "Ringtone play nahi ho pa rahi.\n\n" +
+                    "Phone ka silent mode aur volume check karein."
                   );
                 }
               }}
             >
               🔊
+
               <b>
                 {counts.New || 0}
               </b>
+
             </button>
 
           </div>
