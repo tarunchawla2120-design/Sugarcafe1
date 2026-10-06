@@ -8,6 +8,16 @@
    DAILY SCRATCH
    SUGAR REWARDS — 6TH QUALIFYING ORDER
 
+   FINAL DELIVERY RULES
+   ---------------------------------------------------------
+   DELIVERY:
+   - Minimum delivery order: ₹169
+   - Takeaway has NO ₹169 minimum
+   - 0–2 KM: ₹50 delivery charge
+   - Above 2 KM: ₹20/KM
+   - Maximum delivery charge: ₹149
+   - Maximum delivery radius: 8 KM
+
    IMPORTANT
    ---------------------------------------------------------
    DELIVERY FLOW:
@@ -23,6 +33,7 @@
       - GPS verification
       - Complete manual address
       - Delivery within allowed radius
+      - Minimum ₹169 item total
 
    GPS:
    - latitude
@@ -79,13 +90,18 @@ const SHOP_LOCATION = {
 };
 
 /* =========================================================
-   DELIVERY DEFAULTS
+   FINAL DELIVERY RULES
 ========================================================= */
 
-const DEFAULT_MAX_DISTANCE = 15;
-const DEFAULT_DELIVERY_PER_KM = 20;
-const DEFAULT_MIN_DELIVERY = 20;
-const DEFAULT_MAX_DELIVERY = 300;
+const MIN_ORDER_AMOUNT = 169;
+
+const MAX_DELIVERY_DISTANCE = 8;
+
+const DELIVERY_PER_KM = 20;
+
+const MIN_DELIVERY_CHARGE = 50;
+
+const MAX_DELIVERY_CHARGE = 149;
 
 /* =========================================================
    LOYALTY
@@ -151,12 +167,6 @@ const money = (value) =>
 
 const getQty = (item) =>
   Number(item?.qty ?? item?.quantity ?? 1);
-
-const safeNumber = (value, fallback = 0) => {
-  const n = Number(value);
-
-  return Number.isFinite(n) ? n : fallback;
-};
 
 const todayKey = () => {
   const d = new Date();
@@ -277,7 +287,7 @@ export default function Checkout() {
 
   /*
    * IMPORTANT:
-   * `address` is now the customer's MANUAL address.
+   * `address` is the customer's MANUAL address.
    * It is never replaced by Nominatim.
    */
   const [address, setAddress] =
@@ -303,11 +313,11 @@ export default function Checkout() {
     useState(false);
 
   /*
-   * GPS verification
+   * GPS verification is intentionally NOT restored
+   * from localStorage.
    *
-   * This is intentionally NOT restored from localStorage.
-   * Customer must press "Use My Current Location"
-   * during the current checkout session.
+   * Customer must press:
+   * "Use My Current Location"
    */
   const [gpsVerified, setGpsVerified] =
     useState(false);
@@ -404,34 +414,6 @@ export default function Checkout() {
     useRef(null);
 
   /* =======================================================
-     DELIVERY SETTINGS
-  ======================================================= */
-
-  const MAX_DELIVERY_DISTANCE =
-    safeNumber(
-      store?.maxDeliveryDistanceKm,
-      DEFAULT_MAX_DISTANCE
-    );
-
-  const DELIVERY_PER_KM =
-    safeNumber(
-      store?.deliveryPerKm,
-      DEFAULT_DELIVERY_PER_KM
-    );
-
-  const MIN_DELIVERY_CHARGE =
-    safeNumber(
-      store?.minDeliveryCharge,
-      DEFAULT_MIN_DELIVERY
-    );
-
-  const MAX_DELIVERY_CHARGE =
-    safeNumber(
-      store?.maxDeliveryCharge,
-      DEFAULT_MAX_DELIVERY
-    );
-
-  /* =======================================================
      LOAD CUSTOMER
   ======================================================= */
 
@@ -468,6 +450,7 @@ export default function Checkout() {
         };
 
         setCustomerProfile(profile);
+
         setSavedAddresses(
           profile.addresses
         );
@@ -567,7 +550,11 @@ export default function Checkout() {
       MAX_DELIVERY_DISTANCE;
 
   /* =======================================================
-     DELIVERY CHARGE
+     DELIVERY CHARGE — FINAL RULE
+     
+     0–2 KM       = ₹50
+     Above 2 KM   = ₹20/KM
+     Maximum      = ₹149
   ======================================================= */
 
   const deliveryCharge = useMemo(() => {
@@ -580,13 +567,42 @@ export default function Checkout() {
       return 0;
     }
 
-    const km = Math.ceil(distance);
+    const km = Number(distance);
 
+    if (
+      !Number.isFinite(km) ||
+      km < 0
+    ) {
+      return 0;
+    }
+
+    /*
+     * 0–2 KM = ₹50
+     */
+    if (km <= 2) {
+      return MIN_DELIVERY_CHARGE;
+    }
+
+    /*
+     * Above 2 KM = ₹20/KM
+     *
+     * Math.ceil means:
+     * 2.1 KM -> 3 KM -> ₹60
+     * 3.1 KM -> 4 KM -> ₹80
+     */
+    const calculatedCharge =
+      Math.ceil(km) *
+      DELIVERY_PER_KM;
+
+    /*
+     * Minimum ₹50
+     * Maximum ₹149
+     */
     return Math.min(
       MAX_DELIVERY_CHARGE,
       Math.max(
         MIN_DELIVERY_CHARGE,
-        km * DELIVERY_PER_KM
+        calculatedCharge
       )
     );
   }, [
@@ -595,9 +611,6 @@ export default function Checkout() {
     deliveryAvailable,
     totalPrice,
     distance,
-    DELIVERY_PER_KM,
-    MIN_DELIVERY_CHARGE,
-    MAX_DELIVERY_CHARGE,
   ]);
 
   /* =======================================================
@@ -1001,11 +1014,6 @@ export default function Checkout() {
 
   /* =======================================================
      REVERSE GEOCODING
-     
-     IMPORTANT:
-     This function is ONLY used for the exact GPS
-     location. It does NOT overwrite the customer's
-     manually typed delivery address.
   ======================================================= */
 
   const reverseGeocode = useCallback(
@@ -1045,9 +1053,6 @@ export default function Checkout() {
           data?.address ||
           {};
 
-        /*
-         * Prefer proper locality names.
-         */
         const area =
           a.suburb ||
           a.neighbourhood ||
@@ -1144,9 +1149,6 @@ export default function Checkout() {
           lng,
         };
 
-        /*
-         * GPS becomes verified.
-         */
         setGpsVerified(true);
 
         setGpsAccuracy(
@@ -1159,16 +1161,9 @@ export default function Checkout() {
             : null
         );
 
-        /*
-         * GPS is the ONLY location used for
-         * delivery distance.
-         */
         setMarker(location);
         setMapCenter(location);
 
-        /*
-         * Immediately save GPS coordinates.
-         */
         try {
           const oldRaw =
             localStorage.getItem(
@@ -1218,9 +1213,6 @@ export default function Checkout() {
           );
         }
 
-        /*
-         * Cancel previous reverse request.
-         */
         if (
           reverseGeocodeTimer.current
         ) {
@@ -1239,9 +1231,6 @@ export default function Checkout() {
           return;
         }
 
-        /*
-         * Reverse geocode the EXACT GPS.
-         */
         const controller =
           new AbortController();
 
@@ -1259,13 +1248,6 @@ export default function Checkout() {
           return;
         }
 
-        /*
-         * IMPORTANT:
-         * GPS reverse geocoding only updates
-         * area/city/state/pincode information.
-         *
-         * It NEVER changes `address`.
-         */
         setLocationArea(
           result.area || ""
         );
@@ -1377,9 +1359,6 @@ export default function Checkout() {
       true
     );
 
-    /*
-     * Cancel previous reverse request.
-     */
     if (
       reverseGeocodeController.current
     ) {
@@ -1420,9 +1399,6 @@ export default function Checkout() {
             );
           }
 
-          /*
-           * Save exact GPS.
-           */
           await saveGpsLocation({
             lat,
             lng,
@@ -1430,9 +1406,6 @@ export default function Checkout() {
             geocode: true,
           });
 
-          /*
-           * Move map to exact GPS.
-           */
           if (mapRef) {
             mapRef.flyTo(
               [lat, lng],
@@ -1509,11 +1482,6 @@ export default function Checkout() {
 
   /* =======================================================
      MANUAL ADDRESS
-     
-     IMPORTANT:
-     Manual address does NOT change GPS coordinates.
-     
-     Customer address is saved exactly as typed.
   ======================================================= */
 
   const useManualAddress =
@@ -1539,12 +1507,6 @@ export default function Checkout() {
         return;
       }
 
-      /*
-       * We DO NOT geocode the manual address.
-       *
-       * GPS is already used for delivery radius.
-       * Manual address is for actual delivery/bill.
-       */
       setGeocodingManual(
         true
       );
@@ -1554,10 +1516,6 @@ export default function Checkout() {
           value
         );
 
-        /*
-         * Save manual address locally.
-         * Existing GPS coordinates remain untouched.
-         */
         const oldRaw =
           localStorage.getItem(
             "userLocation"
@@ -1592,10 +1550,6 @@ export default function Checkout() {
           })
         );
 
-        /*
-         * If GPS was not selected first,
-         * do not claim address is verified.
-         */
         if (!gpsVerified) {
           alert(
             "Address saved, but GPS location is still required.\n\nPlease tap 'Use My Current Location' to check delivery availability."
@@ -1625,9 +1579,6 @@ export default function Checkout() {
 
   /* =======================================================
      SAVED ADDRESS
-     
-     Saved address can populate the text field,
-     but GPS is STILL required for delivery radius.
   ======================================================= */
 
   const selectSavedAddress =
@@ -1673,13 +1624,6 @@ export default function Checkout() {
           ""
       );
 
-      /*
-       * IMPORTANT:
-       * Do NOT mark saved coordinates as current GPS.
-       *
-       * Customer still needs to press
-       * "Use My Current Location".
-       */
       setGpsVerified(
         false
       );
@@ -1717,18 +1661,12 @@ export default function Checkout() {
         label:
           "Delivery Address",
 
-        /*
-         * EXACT CUSTOMER-TYPED ADDRESS
-         */
         address:
           manual,
 
         fullAddress:
           manual,
 
-        /*
-         * GPS-derived details
-         */
         area:
           locationArea || "",
 
@@ -2384,7 +2322,34 @@ export default function Checkout() {
         "Delivery"
       ) {
         /*
-         * 1. GPS REQUIRED
+         * 1. MINIMUM DELIVERY ORDER
+         *
+         * Takeaway does NOT enter this block,
+         * so Takeaway has NO ₹169 minimum.
+         */
+        if (
+          Number(totalPrice) <
+          MIN_ORDER_AMOUNT
+        ) {
+          const remainingAmount =
+            MIN_ORDER_AMOUNT -
+            Number(totalPrice);
+
+          alert(
+            `🛵 Minimum delivery order is ₹${MIN_ORDER_AMOUNT}.\n\n` +
+            `Your current item total is ₹${Number(
+              totalPrice
+            ).toFixed(0)}.\n\n` +
+            `Please add ₹${remainingAmount.toFixed(
+              0
+            )} more to place a delivery order.`
+          );
+
+          return;
+        }
+
+        /*
+         * 2. GPS REQUIRED
          */
         if (!gpsVerified) {
           alert(
@@ -2395,7 +2360,7 @@ export default function Checkout() {
         }
 
         /*
-         * 2. MANUAL ADDRESS REQUIRED
+         * 3. MANUAL ADDRESS REQUIRED
          */
         const typedAddress =
           manualAddress.trim();
@@ -2409,7 +2374,7 @@ export default function Checkout() {
         }
 
         /*
-         * 3. ADDRESS SHOULD BE REASONABLY COMPLETE
+         * 4. ADDRESS SHOULD BE REASONABLY COMPLETE
          */
         if (
           typedAddress.length <
@@ -2423,7 +2388,7 @@ export default function Checkout() {
         }
 
         /*
-         * 4. GPS COORDINATES MUST EXIST
+         * 5. GPS COORDINATES MUST EXIST
          */
         if (
           !Number.isFinite(
@@ -2441,7 +2406,9 @@ export default function Checkout() {
         }
 
         /*
-         * 5. DELIVERY RADIUS
+         * 6. DELIVERY RADIUS
+         *
+         * FINAL LIMIT = 8 KM
          */
         if (
           !deliveryAvailable
@@ -2647,12 +2614,6 @@ export default function Checkout() {
             ? manualAddress.trim()
             : "Takeaway — Pickup from Sugar Cafe";
 
-        /*
-         * Full address for internal records:
-         * Manual address + GPS-derived area information.
-         *
-         * This does NOT replace the manual address.
-         */
         const combinedDeliveryAddress =
           orderType ===
           "Delivery"
@@ -2700,31 +2661,21 @@ export default function Checkout() {
           orderType,
 
           /*
-           * IMPORTANT:
-           * `address` is EXACTLY what customer typed.
-           * This is the field KOT/Bill can use.
+           * EXACT CUSTOMER-TYPED ADDRESS
            */
           address:
             finalDeliveryAddress,
 
-          /*
-           * Explicit delivery address field.
-           */
           deliveryAddress:
             orderType ===
             "Delivery"
               ? manualAddress.trim()
               : "",
 
-          /*
-           * Combined address for internal/dashboard use.
-           */
           deliveryFullAddress:
             combinedDeliveryAddress,
 
-          /*
-           * GPS
-           */
+          /* GPS */
           latitude:
             orderType ===
             "Delivery"
@@ -2755,9 +2706,7 @@ export default function Checkout() {
               ? gpsAccuracy
               : null,
 
-          /*
-           * GPS-derived area information
-           */
+          /* GPS AREA */
           deliveryArea:
             orderType ===
             "Delivery"
@@ -2786,9 +2735,7 @@ export default function Checkout() {
                 ""
               : "",
 
-          /*
-           * Exact distance from Sugar Cafe
-           */
+          /* DISTANCE */
           distance:
             orderType ===
             "Delivery"
@@ -2984,19 +2931,31 @@ export default function Checkout() {
     };
 
   /* =======================================================
-     BUTTON DISABLED
+     BUTTON DISABLED — FINAL
+     
+     TAKEAWAY:
+     No ₹169 minimum.
+
+     DELIVERY:
+     ₹169 minimum
+     + GPS
+     + manual address
+     + within 8 KM
   ======================================================= */
 
   const orderDisabled =
     !store.deliveryAvailable ||
     placingOrder ||
-    (orderType ===
-      "Delivery" &&
+    (
+      orderType === "Delivery" &&
       (
+        Number(totalPrice) <
+          MIN_ORDER_AMOUNT ||
         !gpsVerified ||
         !manualAddress.trim() ||
         !deliveryAvailable
-      ));
+      )
+    );
 
   /* =======================================================
      RENDER
@@ -3324,9 +3283,6 @@ export default function Checkout() {
                   value
                 );
 
-                /*
-                 * Keep exact typed address.
-                 */
                 setAddress(
                   value
                 );
@@ -3474,8 +3430,6 @@ export default function Checkout() {
               />
             </MapContainer>
 
-            {/* FIXED CENTRE PIN */}
-
             <div className="map-center-pin">
               <div className="map-pin-shadow" />
 
@@ -3572,9 +3526,7 @@ export default function Checkout() {
             </div>
           </div>
 
-          {/* =================================================
-              GPS AREA DETAILS
-          ================================================= */}
+          {/* GPS AREA DETAILS */}
 
           {gpsVerified &&
             (locationArea ||
@@ -3608,9 +3560,7 @@ export default function Checkout() {
               </div>
             )}
 
-          {/* =================================================
-              GPS NOT VERIFIED
-          ================================================= */}
+          {/* GPS NOT VERIFIED */}
 
           {!gpsVerified && (
             <div className="delivery-warning">
@@ -3630,9 +3580,7 @@ export default function Checkout() {
             </div>
           )}
 
-          {/* =================================================
-              ADDRESS MISSING
-          ================================================= */}
+          {/* ADDRESS MISSING */}
 
           {gpsVerified &&
             !manualAddress.trim() && (
@@ -3653,9 +3601,7 @@ export default function Checkout() {
               </div>
             )}
 
-          {/* =================================================
-              OUTSIDE RANGE
-          ================================================= */}
+          {/* OUTSIDE RANGE */}
 
           {gpsVerified &&
             !deliveryAvailable && (
@@ -4429,6 +4375,24 @@ export default function Checkout() {
       ================================================= */}
 
       <div className="checkout-bottom">
+
+        {/* MINIMUM DELIVERY WARNING */}
+
+        {orderType ===
+          "Delivery" &&
+          Number(totalPrice) <
+            MIN_ORDER_AMOUNT && (
+            <div className="checkout-action-warning">
+              🛵 Minimum delivery order is ₹169.
+              Please add ₹
+              {Math.max(
+                0,
+                MIN_ORDER_AMOUNT -
+                  Number(totalPrice)
+              ).toFixed(0)}
+              {" "}more to your cart.
+            </div>
+          )}
 
         {/* GPS WARNING */}
 
