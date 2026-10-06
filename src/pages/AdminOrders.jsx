@@ -333,7 +333,6 @@ function KOTModal({
   if (!order) return null;
 
   const items = itemsFor(order);
-
   const scratchReward =
     getDailyScratchReward(order);
 
@@ -358,7 +357,6 @@ function KOTModal({
         <div className="sc-kot-head">
           <div>
             <b>☕ SUGAR CAFE</b>
-
             <span>
               KITCHEN ORDER TICKET
             </span>
@@ -626,9 +624,10 @@ function AdminOrders() {
 
   /* =======================================================
      CREATE AUDIO ONCE
-     
-     FILE:
-     public/order_bell_full_volume.mp3
+
+     IMPORTANT:
+     FILE IS:
+     public/order-ringtone.mp3
   ======================================================= */
 
   const getAlarmAudio = useCallback(() => {
@@ -645,7 +644,7 @@ function AdminOrders() {
 
         const audio =
           new Audio(
-            "/order_bell_full_volume.mp3"
+            "/order-ringtone.mp3"
           );
 
         audio.preload = "auto";
@@ -656,11 +655,6 @@ function AdminOrders() {
         audio.addEventListener(
           "ended",
           () => {
-
-            /*
-             * Normally loop prevents this.
-             * Kept as safety.
-             */
             if (!audio.loop) {
               isBellPlayingRef.current =
                 false;
@@ -702,32 +696,22 @@ function AdminOrders() {
 
   /* =======================================================
      UNLOCK AUDIO
-     
+
      FIXED FOR iPHONE / SAFARI / CHROME
-
-     IMPORTANT:
-     We DO NOT attach pointerdown/touchstart
-     global listeners anymore.
-
-     User manually taps the 🔊 button.
+     
+     No global pointerdown/touchstart listeners.
+     User manually taps the sound button.
   ======================================================= */
 
   const unlockAlarmAudio =
     useCallback(async () => {
 
-      /*
-       * Already unlocked.
-       */
       if (
         audioUnlockedRef.current
       ) {
         return true;
       }
 
-      /*
-       * If another unlock is already running,
-       * wait for it instead of returning false.
-       */
       if (
         unlockingAudioRef.current
       ) {
@@ -737,39 +721,38 @@ function AdminOrders() {
 
             let attempts = 0;
 
-            const check =
-              () => {
+            const check = () => {
 
-                attempts += 1;
+              attempts += 1;
 
-                if (
+              if (
+                audioUnlockedRef.current
+              ) {
+                resolve(true);
+                return;
+              }
+
+              if (
+                !unlockingAudioRef.current
+              ) {
+                resolve(
                   audioUnlockedRef.current
-                ) {
-                  resolve(true);
-                  return;
-                }
-
-                if (
-                  !unlockingAudioRef.current
-                ) {
-                  resolve(
-                    audioUnlockedRef.current
-                  );
-                  return;
-                }
-
-                if (
-                  attempts >= 40
-                ) {
-                  resolve(false);
-                  return;
-                }
-
-                setTimeout(
-                  check,
-                  50
                 );
-              };
+                return;
+              }
+
+              if (
+                attempts >= 40
+              ) {
+                resolve(false);
+                return;
+              }
+
+              setTimeout(
+                check,
+                50
+              );
+            };
 
             check();
           }
@@ -788,9 +771,6 @@ function AdminOrders() {
           return false;
         }
 
-        /*
-         * Reset audio.
-         */
         audio.pause();
 
         audio.currentTime = 0;
@@ -799,13 +779,7 @@ function AdminOrders() {
         audio.volume = 1;
 
         /*
-         * IMPORTANT:
-         *
-         * This function is called directly from
-         * the user's button click.
-         *
-         * Therefore browser autoplay permission
-         * can be granted here.
+         * Direct user interaction se play.
          */
         const playPromise =
           audio.play();
@@ -818,9 +792,6 @@ function AdminOrders() {
           await playPromise;
         }
 
-        /*
-         * If play() succeeds, audio is unlocked.
-         */
         audioUnlockedRef.current =
           true;
 
@@ -832,10 +803,7 @@ function AdminOrders() {
         );
 
         /*
-         * Stop only this short test.
-         *
-         * New-order playBell() can restart it
-         * immediately if required.
+         * Short test only.
          */
         setTimeout(() => {
 
@@ -889,11 +857,8 @@ function AdminOrders() {
 
   /* =======================================================
      PLAY BELL
-     
+
      CONTINUOUS LOOP
-     
-     This function can restart an existing short
-     test sound when a real order arrives.
   ======================================================= */
 
   const playBell =
@@ -913,8 +878,7 @@ function AdminOrders() {
       }
 
       /*
-       * If already playing the actual continuous
-       * bell, don't restart it every second.
+       * Already continuously playing.
        */
       if (
         isBellPlayingRef.current &&
@@ -924,10 +888,6 @@ function AdminOrders() {
         return;
       }
 
-      /*
-       * New order / preparation alarm should
-       * always have priority over a short test sound.
-       */
       audioGenerationRef.current += 1;
 
       const generation =
@@ -935,16 +895,9 @@ function AdminOrders() {
 
       try {
 
-        /*
-         * Stop any existing short/test playback.
-         */
         audio.pause();
-
         audio.currentTime = 0;
 
-        /*
-         * Continuous ringtone.
-         */
         audio.loop = true;
         audio.muted = false;
         audio.volume = 1;
@@ -960,10 +913,6 @@ function AdminOrders() {
           await playPromise;
         }
 
-        /*
-         * If stopped while play was pending,
-         * do not continue.
-         */
         if (
           generation !==
           audioGenerationRef.current
@@ -998,10 +947,6 @@ function AdminOrders() {
           error
         );
 
-        /*
-         * If browser still needs a user gesture,
-         * show useful console information.
-         */
         if (
           error?.name ===
           "NotAllowedError"
@@ -1025,9 +970,6 @@ function AdminOrders() {
   const stopBell =
     useCallback(() => {
 
-      /*
-       * Cancel pending play.
-       */
       audioGenerationRef.current += 1;
 
       isBellPlayingRef.current =
@@ -1122,15 +1064,12 @@ function AdminOrders() {
                   ) === "New"
                 ) {
 
-                  /*
-                   * Show popup.
-                   */
                   setNewOrder(
                     incoming
                   );
 
                   /*
-                   * 🔔 CONTINUOUS NEW ORDER RING
+                   * Continuous new order ringtone.
                    */
                   playBell();
                 }
@@ -1221,16 +1160,10 @@ function AdminOrders() {
         return;
       }
 
-      /*
-       * Only once per preparation.
-       */
       buzzedPreparation.current.add(
         order.id
       );
 
-      /*
-       * 🔔 CONTINUOUS RING
-       */
       playBell();
 
     });
@@ -1284,12 +1217,6 @@ function AdminOrders() {
           alarmRef.current.loop = false;
           alarmRef.current.muted = false;
 
-          /*
-           * Do not set src = "" here.
-           * Keeping the audio object clean avoids
-           * unnecessary media errors.
-           */
-
           alarmRef.current = null;
         }
 
@@ -1311,7 +1238,7 @@ function AdminOrders() {
   }, []);
 
   /* =======================================================
-     UPDATE ORDER + PUSH NOTIFICATION
+     UPDATE ORDER
   ======================================================= */
 
   const updateOrder = async (
@@ -1330,10 +1257,6 @@ function AdminOrders() {
         updates
       );
 
-      /*
-       * Stop ringtone if popup belongs
-       * to this order.
-       */
       if (
         newOrder?.id === order.id
       ) {
@@ -1341,10 +1264,6 @@ function AdminOrders() {
         setNewOrder(null);
       }
 
-      /*
-       * Push notification only when
-       * status changes.
-       */
       if (
         updates?.status &&
         String(
@@ -1397,10 +1316,6 @@ function AdminOrders() {
         getElectronPrinter();
 
       if (!electron) {
-
-        console.warn(
-          "Electron print bridge unavailable."
-        );
 
         alert(
           "Automatic KOT printing ke liye SugarCafe Dashboard Windows App open karein.\n\n" +
@@ -1466,9 +1381,6 @@ function AdminOrders() {
     order
   ) => {
 
-    /*
-     * STOP RINGTONE.
-     */
     stopBell();
 
     const minutes =
@@ -1606,9 +1518,6 @@ function AdminOrders() {
 
     try {
 
-      /*
-       * STOP RINGTONE.
-       */
       stopBell();
 
       const success =
@@ -1699,9 +1608,6 @@ function AdminOrders() {
     order
   ) => {
 
-    /*
-     * STOP PREPARATION RINGTONE.
-     */
     stopBell();
 
     return updateOrder(
@@ -1953,10 +1859,6 @@ function AdminOrders() {
                   "🔊 SugarCafe sound button clicked"
                 );
 
-                /*
-                 * This click itself is the
-                 * browser user gesture.
-                 */
                 const unlocked =
                   await unlockAlarmAudio();
 
@@ -1979,17 +1881,11 @@ function AdminOrders() {
 
                 try {
 
-                  /*
-                   * Stop any current short test.
-                   */
                   audio.pause();
 
                   audio.currentTime =
                     0;
 
-                  /*
-                   * Test sound.
-                   */
                   audio.loop = false;
                   audio.muted = false;
                   audio.volume = 1;
@@ -2012,18 +1908,10 @@ function AdminOrders() {
                     "🔔 SugarCafe test ringtone PLAYING"
                   );
 
-                  /*
-                   * Stop test after 2 seconds.
-                   */
                   setTimeout(() => {
 
                     try {
 
-                      /*
-                       * Only stop if an actual
-                       * continuous alarm hasn't
-                       * taken over.
-                       */
                       if (
                         alarmRef.current ===
                           audio &&
