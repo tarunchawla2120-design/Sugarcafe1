@@ -18,34 +18,14 @@
    - Maximum delivery charge: ₹149
    - Maximum delivery radius: 8 KM
 
-   IMPORTANT
+   ORDER CONFIRMATION
    ---------------------------------------------------------
-   DELIVERY FLOW:
-
-   1. Customer MUST use "Use My Current Location".
-   2. GPS coordinates are used ONLY for delivery radius.
-   3. Customer MUST type complete delivery address manually.
-   4. Manual address is saved exactly for bill/KOT.
-   5. GPS reverse geocoding provides Area / City / PIN
-      as additional location information.
-   6. Moving the map does NOT change the verified GPS.
-   7. Order cannot be placed without:
-      - GPS verification
-      - Complete manual address
-      - Delivery within allowed radius
-      - Minimum ₹169 item total
-
-   GPS:
-   - latitude
-   - longitude
-   - accuracy
-
-   ADDRESS:
-   - deliveryAddress
-   - deliveryArea
-   - deliveryCity
-   - deliveryPostcode
-   - deliveryFullAddress
+   - New order starts as WAITING_FOR_CONFIRMATION
+   - Store has 60 seconds to Accept / Reject
+   - Confirmation deadline stored in Firestore
+   - Preparation starts ONLY after Accept
+   - KOT is printed ONLY after Accept
+   - Dashboard handles automatic cancellation after deadline
 ========================================================= */
 
 import {
@@ -102,6 +82,12 @@ const DELIVERY_PER_KM = 20;
 const MIN_DELIVERY_CHARGE = 50;
 
 const MAX_DELIVERY_CHARGE = 149;
+
+/* =========================================================
+   ORDER CONFIRMATION
+========================================================= */
+
+const ORDER_CONFIRMATION_SECONDS = 60;
 
 /* =========================================================
    LOYALTY
@@ -286,8 +272,7 @@ export default function Checkout() {
     useState("Delivery");
 
   /*
-   * IMPORTANT:
-   * `address` is the customer's MANUAL address.
+   * `address` is customer's MANUAL address.
    * It is never replaced by Nominatim.
    */
   const [address, setAddress] =
@@ -315,9 +300,6 @@ export default function Checkout() {
   /*
    * GPS verification is intentionally NOT restored
    * from localStorage.
-   *
-   * Customer must press:
-   * "Use My Current Location"
    */
   const [gpsVerified, setGpsVerified] =
     useState(false);
@@ -474,13 +456,6 @@ export default function Checkout() {
   ======================================================= */
 
   useEffect(() => {
-    /*
-     * We intentionally do NOT mark old localStorage
-     * coordinates as verified GPS.
-     *
-     * Customer must press:
-     * "Use My Current Location"
-     */
     setGpsVerified(false);
     setGpsAccuracy(null);
   }, []);
@@ -540,8 +515,7 @@ export default function Checkout() {
   );
 
   /*
-   * IMPORTANT:
-   * Delivery radius is valid ONLY after current GPS
+   * Delivery radius valid ONLY after current GPS
    * has been explicitly verified.
    */
   const deliveryAvailable =
@@ -550,7 +524,7 @@ export default function Checkout() {
       MAX_DELIVERY_DISTANCE;
 
   /* =======================================================
-     DELIVERY CHARGE — FINAL RULE
+     DELIVERY CHARGE
      
      0–2 KM       = ₹50
      Above 2 KM   = ₹20/KM
@@ -576,28 +550,14 @@ export default function Checkout() {
       return 0;
     }
 
-    /*
-     * 0–2 KM = ₹50
-     */
     if (km <= 2) {
       return MIN_DELIVERY_CHARGE;
     }
 
-    /*
-     * Above 2 KM = ₹20/KM
-     *
-     * Math.ceil means:
-     * 2.1 KM -> 3 KM -> ₹60
-     * 3.1 KM -> 4 KM -> ₹80
-     */
     const calculatedCharge =
       Math.ceil(km) *
       DELIVERY_PER_KM;
 
-    /*
-     * Minimum ₹50
-     * Maximum ₹149
-     */
     return Math.min(
       MAX_DELIVERY_CHARGE,
       Math.max(
@@ -2157,6 +2117,16 @@ export default function Checkout() {
                         );
                       }
 
+                      /*
+                       * IMPORTANT:
+                       *
+                       * Order is created in Firestore
+                       * ONLY AFTER Razorpay verification.
+                       *
+                       * Therefore the 60-second confirmation
+                       * timer starts when this order is actually
+                       * created.
+                       */
                       if (
                         !verifyData.finalized
                       ) {
@@ -2321,12 +2291,6 @@ export default function Checkout() {
         orderType ===
         "Delivery"
       ) {
-        /*
-         * 1. MINIMUM DELIVERY ORDER
-         *
-         * Takeaway does NOT enter this block,
-         * so Takeaway has NO ₹169 minimum.
-         */
         if (
           Number(totalPrice) <
           MIN_ORDER_AMOUNT
@@ -2348,9 +2312,6 @@ export default function Checkout() {
           return;
         }
 
-        /*
-         * 2. GPS REQUIRED
-         */
         if (!gpsVerified) {
           alert(
             "📍 Please use 'Use My Current Location' first.\n\nYour current GPS location is required to check whether delivery is available at your location."
@@ -2359,9 +2320,6 @@ export default function Checkout() {
           return;
         }
 
-        /*
-         * 3. MANUAL ADDRESS REQUIRED
-         */
         const typedAddress =
           manualAddress.trim();
 
@@ -2373,9 +2331,6 @@ export default function Checkout() {
           return;
         }
 
-        /*
-         * 4. ADDRESS SHOULD BE REASONABLY COMPLETE
-         */
         if (
           typedAddress.length <
           10
@@ -2387,9 +2342,6 @@ export default function Checkout() {
           return;
         }
 
-        /*
-         * 5. GPS COORDINATES MUST EXIST
-         */
         if (
           !Number.isFinite(
             Number(marker.lat)
@@ -2405,11 +2357,6 @@ export default function Checkout() {
           return;
         }
 
-        /*
-         * 6. DELIVERY RADIUS
-         *
-         * FINAL LIMIT = 8 KM
-         */
         if (
           !deliveryAvailable
         ) {
@@ -2422,10 +2369,6 @@ export default function Checkout() {
           return;
         }
 
-        /*
-         * Keep the manual address as the final
-         * customer delivery address.
-         */
         setAddress(
           typedAddress
         );
@@ -2629,6 +2572,25 @@ export default function Checkout() {
                 .filter(Boolean)
                 .join(", ")
             : "";
+
+        /* ================================================
+           ORDER CONFIRMATION TIME
+           
+           IMPORTANT:
+           Order creation timestamp and 60-second deadline
+           are calculated BEFORE creating orderData.
+           
+           For Online Payment this orderData is only written
+           AFTER Razorpay verification succeeds.
+        ================================================= */
+
+        const orderCreatedAt =
+          Date.now();
+
+        const confirmationDeadline =
+          orderCreatedAt +
+          ORDER_CONFIRMATION_SECONDS *
+            1000;
 
         /* ================================================
            ORDER DATA
@@ -2837,8 +2799,52 @@ export default function Checkout() {
           loyaltyCurrentOrderQualifies:
             currentOrderQualifies,
 
-          /* STATUS */
-          status: "New",
+          /* =================================================
+             ORDER CONFIRMATION
+             
+             Customer places order
+             ↓
+             WAITING_FOR_CONFIRMATION
+             ↓
+             Dashboard has 60 seconds
+             
+             IMPORTANT:
+             No preparation timer here.
+             No preparationStartedAt.
+             No preparationEndAt.
+             ================================================= */
+
+          status:
+            "WAITING_FOR_CONFIRMATION",
+
+          confirmationStatus:
+            "PENDING",
+
+          confirmationDeadline:
+            Timestamp.fromMillis(
+              confirmationDeadline
+            ),
+
+          acceptedAt:
+            null,
+
+          rejectedAt:
+            null,
+
+          cancelledAt:
+            null,
+
+          cancellationReason:
+            "",
+
+          rejectionReason:
+            "",
+
+          /* =================================================
+             PREPARATION
+             
+             These stay NULL until Dashboard accepts.
+             ================================================= */
 
           preparationMinutes:
             Number(
@@ -2861,8 +2867,14 @@ export default function Checkout() {
           deliveredAt:
             null,
 
+          /* =================================================
+             CREATED
+             ================================================= */
+
           createdAt:
-            Timestamp.now(),
+            Timestamp.fromMillis(
+              orderCreatedAt
+            ),
         };
 
         /* ================================================
@@ -2881,6 +2893,11 @@ export default function Checkout() {
             }
           );
         } else {
+          /*
+           * COD:
+           * Order is created immediately with
+           * WAITING_FOR_CONFIRMATION.
+           */
           await saveCompletedOrder(
             orderData
           );
@@ -2894,17 +2911,17 @@ export default function Checkout() {
           selectedLoyaltyReward
         ) {
           alert(
-            `🎉 Order placed!\n\nYour Sugar Reward "${selectedLoyaltyReward}" has been added FREE to this order.`
+            `🎉 Order placed!\n\nYour Sugar Reward "${selectedLoyaltyReward}" has been added FREE to this order.\n\n⏳ Please wait for Sugar Cafe to confirm your order.`
           );
         } else if (
           rewardFreeItem
         ) {
           alert(
-            `🎉 Order placed!\n\nYour FREE ${rewardFreeItem} has been added to this order.`
+            `🎉 Order placed!\n\nYour FREE ${rewardFreeItem} has been added to this order.\n\n⏳ Please wait for Sugar Cafe to confirm your order.`
           );
         } else {
           alert(
-            "🎉 Order Placed Successfully!"
+            "🎉 Order Placed Successfully!\n\n⏳ Please wait for Sugar Cafe to confirm your order."
           );
         }
 
@@ -2932,7 +2949,7 @@ export default function Checkout() {
 
   /* =======================================================
      BUTTON DISABLED — FINAL
-     
+
      TAKEAWAY:
      No ₹169 minimum.
 
@@ -3258,9 +3275,7 @@ export default function Checkout() {
             </div>
           )}
 
-          {/* =================================================
-              MANUAL ADDRESS
-          ================================================= */}
+          {/* MANUAL ADDRESS */}
 
           <div className="manual-address-box">
 
@@ -3322,9 +3337,7 @@ export default function Checkout() {
             </small>
           </div>
 
-          {/* =================================================
-              CURRENT LOCATION
-          ================================================= */}
+          {/* CURRENT LOCATION */}
 
           <button
             type="button"
@@ -3394,9 +3407,7 @@ export default function Checkout() {
             )}
           </div>
 
-          {/* =================================================
-              MAP
-          ================================================= */}
+          {/* MAP */}
 
           <div className="checkout-map-wrapper">
             <MapContainer
@@ -3464,9 +3475,7 @@ export default function Checkout() {
             </div>
           </div>
 
-          {/* =================================================
-              SELECTED ADDRESS
-          ================================================= */}
+          {/* SELECTED ADDRESS */}
 
           <div className="selected-address-box">
             <div className="selected-address-icon">
