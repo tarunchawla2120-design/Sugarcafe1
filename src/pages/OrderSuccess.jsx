@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   doc,
   getDoc,
@@ -32,6 +32,15 @@ function OrderSuccess() {
   const [orderExists, setOrderExists] = useState(false);
 
   // ============================================
+  // CANCELLATION ALERT
+  // ============================================
+
+  const [cancellationAlert, setCancellationAlert] =
+    useState(null);
+
+  const cancellationAudioRef = useRef(null);
+
+  // ============================================
   // SAME 6TH ORDER SUGAR REWARD
   // ============================================
 
@@ -48,6 +57,56 @@ function OrderSuccess() {
     useState(false);
 
   // ============================================
+  // STOP CANCELLATION BUZZER
+  // ============================================
+
+  const stopCancellationBuzzer = () => {
+    try {
+      if (cancellationAudioRef.current) {
+        cancellationAudioRef.current.pause();
+        cancellationAudioRef.current.currentTime = 0;
+        cancellationAudioRef.current = null;
+      }
+    } catch (error) {
+      console.error(
+        "Cancellation buzzer stop error:",
+        error
+      );
+    }
+  };
+
+  // ============================================
+  // START CANCELLATION BUZZER
+  // ============================================
+
+  const startCancellationBuzzer = () => {
+    try {
+      stopCancellationBuzzer();
+
+      const audio = new Audio(
+        "/order-cancelled.mp3"
+      );
+
+      audio.loop = true;
+      audio.volume = 1;
+
+      cancellationAudioRef.current = audio;
+
+      audio.play().catch((error) => {
+        console.warn(
+          "Cancellation buzzer could not autoplay:",
+          error
+        );
+      });
+    } catch (error) {
+      console.error(
+        "Cancellation buzzer error:",
+        error
+      );
+    }
+  };
+
+  // ============================================
   // REALTIME ORDER
   // ============================================
 
@@ -59,7 +118,9 @@ function OrderSuccess() {
       localStorage.getItem("lastOrderNumber") || "";
 
     const savedPaymentStatus =
-      localStorage.getItem("lastOrderPaymentStatus") || "";
+      localStorage.getItem(
+        "lastOrderPaymentStatus"
+      ) || "";
 
     setOrderNumber(savedOrderNumber);
     setPaymentStatus(savedPaymentStatus);
@@ -89,6 +150,14 @@ function OrderSuccess() {
 
         const data = snapshot.data();
 
+        const currentStatus = String(
+          data.status || ""
+        ).toUpperCase();
+
+        const confirmationStatus = String(
+          data.confirmationStatus || ""
+        ).toUpperCase();
+
         setOrderNumber(
           data.orderNumber ||
             savedOrderNumber ||
@@ -104,6 +173,58 @@ function OrderSuccess() {
         setOrderStatus(
           data.status || "New"
         );
+
+        // ========================================
+        // CANCELLATION / REJECTION DETECTION
+        // ========================================
+
+        const isCancelled =
+          currentStatus === "CANCELLED" ||
+          confirmationStatus === "AUTO_CANCELLED";
+
+        const isRejected =
+          currentStatus === "REJECTED" ||
+          confirmationStatus === "REJECTED";
+
+        if (isCancelled || isRejected) {
+          const storageKey =
+            `sugarCafeCancellationShown:${savedOrderId}`;
+
+          const alreadyShown =
+            sessionStorage.getItem(storageKey);
+
+          if (!alreadyShown) {
+            sessionStorage.setItem(
+              storageKey,
+              "true"
+            );
+
+            const reason =
+              data.cancellationReason ||
+              data.rejectionReason ||
+              (
+                isRejected
+                  ? "Your order was rejected by Sugar Café."
+                  : "Your order was cancelled because the café did not confirm it within 60 seconds."
+              );
+
+            setCancellationAlert({
+              type: isRejected
+                ? "REJECTED"
+                : "CANCELLED",
+
+              orderNumber:
+                data.orderNumber ||
+                savedOrderNumber ||
+                savedOrderId,
+
+              reason,
+            });
+
+            // 🔔 START BUZZER
+            startCancellationBuzzer();
+          }
+        }
 
         // ========================================
         // SUGAR REWARD STATE
@@ -133,8 +254,30 @@ function OrderSuccess() {
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      stopCancellationBuzzer();
+    };
   }, []);
+
+  // ============================================
+  // CLEANUP BUZZER WHEN PAGE CLOSES
+  // ============================================
+
+  useEffect(() => {
+    return () => {
+      stopCancellationBuzzer();
+    };
+  }, []);
+
+  // ============================================
+  // CLOSE CANCELLATION POPUP
+  // ============================================
+
+  const closeCancellationAlert = () => {
+    stopCancellationBuzzer();
+    setCancellationAlert(null);
+  };
 
   // ============================================
   // REVEAL SUGAR REWARD
@@ -196,7 +339,8 @@ function OrderSuccess() {
       const reward =
         LOYALTY_REWARDS[
           Math.floor(
-            Math.random() * LOYALTY_REWARDS.length
+            Math.random() *
+              LOYALTY_REWARDS.length
           )
         ];
 
@@ -298,7 +442,8 @@ function OrderSuccess() {
   const isWaiting =
     orderStatus === "New" ||
     orderStatus === "Order Placed" ||
-    orderStatus === "Pending";
+    orderStatus === "Pending" ||
+    orderStatus === "WAITING_FOR_CONFIRMATION";
 
   const isAccepted =
     orderStatus === "Preparing" ||
@@ -309,6 +454,10 @@ function OrderSuccess() {
 
   const isRejected =
     orderStatus === "Rejected";
+
+  const isCancelled =
+    String(orderStatus).toUpperCase() ===
+    "CANCELLED";
 
   // ============================================
   // REWARD UI
@@ -652,6 +801,109 @@ function OrderSuccess() {
   );
 
   // ============================================
+  // CANCELLED
+  // ============================================
+
+  const renderCancelled = () => (
+    <>
+      <div
+        className="success-icon"
+        style={{
+          background: "#fef2f2",
+          color: "#dc2626",
+        }}
+      >
+        🚫
+      </div>
+
+      <h2>
+        Order Cancelled
+      </h2>
+
+      <p>
+        We're sorry! Your order could not
+        <br />
+        be processed by Sugar Café.
+      </p>
+
+      <div
+        style={{
+          margin: "16px 0",
+          padding: "14px",
+          borderRadius: "12px",
+          background: "#fef2f2",
+          border: "1px solid #fecaca",
+        }}
+      >
+        <div
+          style={{
+            fontSize: "12px",
+            color: "#991b1b",
+            marginBottom: "5px",
+          }}
+        >
+          ORDER NUMBER
+        </div>
+
+        <strong
+          style={{
+            fontSize: "18px",
+          }}
+        >
+          {orderNumber}
+        </strong>
+
+        <div
+          style={{
+            marginTop: "10px",
+            color: "#dc2626",
+            fontSize: "13px",
+            fontWeight: "700",
+          }}
+        >
+          🔴 Order Cancelled
+        </div>
+      </div>
+
+      <div
+        style={{
+          padding: "12px",
+          borderRadius: "10px",
+          background: "#fff7f7",
+          border: "1px solid #fee2e2",
+          fontSize: "13px",
+          color: "#555",
+          lineHeight: "1.5",
+        }}
+      >
+        <strong>
+          Reason:
+        </strong>
+
+        <br />
+
+        {cancellationAlert?.reason ||
+          "The café did not confirm your order within the required time."}
+      </div>
+
+      {paymentStatus === "Paid" && (
+        <p
+          style={{
+            marginTop: "12px",
+            fontSize: "12px",
+            color: "#666",
+          }}
+        >
+          Your online payment was received.
+          Please contact Sugar Café regarding
+          the payment/refund for this cancelled
+          order.
+        </p>
+      )}
+    </>
+  );
+
+  // ============================================
   // LOADING
   // ============================================
 
@@ -719,6 +971,8 @@ function OrderSuccess() {
               </div>
             )}
           </>
+        ) : isCancelled ? (
+          renderCancelled()
         ) : isRejected ? (
           renderRejected()
         ) : isWaiting ? (
@@ -754,6 +1008,71 @@ function OrderSuccess() {
         </button>
 
       </div>
+
+      {/* =========================================
+          CANCELLATION / REJECTION POPUP
+      ========================================= */}
+
+      {cancellationAlert && (
+        <div className="order-cancel-overlay">
+          <div className="order-cancel-popup">
+
+            <div className="cancel-buzzer-icon">
+              {cancellationAlert.type ===
+              "REJECTED"
+                ? "❌"
+                : "🔔"}
+            </div>
+
+            <div className="cancel-title">
+              {cancellationAlert.type ===
+              "REJECTED"
+                ? "Order Rejected"
+                : "Order Cancelled"}
+            </div>
+
+            <div className="cancel-order-number">
+              Order #{cancellationAlert.orderNumber}
+            </div>
+
+            <div className="cancel-message">
+              {cancellationAlert.type ===
+              "REJECTED"
+                ? "😔 Sorry! Sugar Café could not accept your order."
+                : "😔 Sorry! Your order was cancelled because it could not be confirmed in time."}
+            </div>
+
+            <div className="cancel-reason">
+              <strong>
+                Reason
+              </strong>
+
+              <p>
+                {cancellationAlert.reason}
+              </p>
+            </div>
+
+            {paymentStatus === "Paid" && (
+              <div className="cancel-payment-warning">
+                💳 Your online payment was received.
+                <br />
+                Please contact Sugar Café regarding
+                your refund.
+              </div>
+            )}
+
+            <button
+              type="button"
+              className="cancel-popup-ok"
+              onClick={
+                closeCancellationAlert
+              }
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
