@@ -275,3 +275,147 @@ body{
     transform: scale(1);
   }
 }
+/* ============================================
+   ORDER CANCELLATION POPUP
+============================================ */
+
+.order-cancel-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+.order-cancel-popup {
+  width: 100%;
+  max-width: 390px;
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 30px 22px;
+  text-align: center;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.35);
+  animation: cancellationPopupIn 0.35s ease-out;
+}
+
+.cancel-buzzer-icon {
+  width: 76px;
+  height: 76px;
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #fff0f0;
+  font-size: 38px;
+  animation: cancelBellShake 0.7s infinite;
+}
+
+.cancel-title {
+  font-size: 27px;
+  font-weight: 800;
+  color: #d62828;
+  margin-bottom: 7px;
+}
+
+.cancel-order-number {
+  font-size: 14px;
+  font-weight: 700;
+  color: #777;
+  margin-bottom: 20px;
+}
+
+.cancel-message {
+  font-size: 16px;
+  line-height: 1.5;
+  color: #333;
+  margin-bottom: 18px;
+}
+
+.cancel-reason {
+  background: #fff5f5;
+  border: 1px solid #ffd5d5;
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 15px;
+}
+
+.cancel-reason strong {
+  display: block;
+  font-size: 13px;
+  color: #d62828;
+  margin-bottom: 5px;
+}
+
+.cancel-reason p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #444;
+}
+
+.cancel-payment-warning {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 18px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.cancel-popup-ok {
+  width: 100%;
+  border: 0;
+  border-radius: 14px;
+  padding: 14px 18px;
+  background: #111;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cancel-popup-ok:active {
+  transform: scale(0.98);
+}
+
+@keyframes cancellationPopupIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.94);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes cancelBellShake {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  20% {
+    transform: rotate(-12deg);
+  }
+
+  40% {
+    transform: rotate(12deg);
+  }
+
+  60% {
+    transform: rotate(-9deg);
+  }
+
+  80% {
+    transform: rotate(9deg);
+  }
+}
