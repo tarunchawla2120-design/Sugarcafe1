@@ -1,10 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react";
+
 import {
   collection,
   doc,
   onSnapshot,
   Timestamp,
-  updateDoc
+  updateDoc,
+  runTransaction
 } from "firebase/firestore";
 
 import { db } from "../firebase";
@@ -41,7 +49,9 @@ async function sendOrderStatusNotification(order, status) {
               ""
           ),
           status: String(status),
-          orderType: String(order.orderType || "Delivery")
+          orderType: String(
+            order.orderType || "Delivery"
+          )
         })
       }
     );
@@ -74,12 +84,13 @@ async function sendOrderStatusNotification(order, status) {
 
 const STATUS = [
   "All",
-  "New",
+  "Waiting",
   "Preparing",
   "Food Ready",
   "Dispatched",
   "Delivered",
-  "Rejected"
+  "Rejected",
+  "Cancelled"
 ];
 
 /* =========================================================
@@ -103,11 +114,75 @@ function toMillis(value) {
 
   const parsed = new Date(value).getTime();
 
-  return Number.isNaN(parsed) ? null : parsed;
+  return Number.isNaN(parsed)
+    ? null
+    : parsed;
 }
 
+/* =========================================================
+   CONFIRMATION HELPERS
+========================================================= */
+
+function isWaitingForConfirmation(order) {
+  return (
+    String(
+      order?.status || ""
+    ).toUpperCase() ===
+    "WAITING_FOR_CONFIRMATION"
+  );
+}
+
+function confirmationRemaining(
+  order,
+  currentTime
+) {
+  const deadline =
+    toMillis(
+      order?.confirmationDeadline
+    );
+
+  if (!deadline) return 0;
+
+  return Math.max(
+    0,
+    Math.ceil(
+      (deadline - currentTime) / 1000
+    )
+  );
+}
+
+function confirmationTimeLabel(
+  order,
+  currentTime
+) {
+  const seconds =
+    confirmationRemaining(
+      order,
+      currentTime
+    );
+
+  const minutes =
+    Math.floor(seconds / 60);
+
+  const remainingSeconds =
+    seconds % 60;
+
+  return `${String(minutes).padStart(
+    2,
+    "0"
+  )}:${String(
+    remainingSeconds
+  ).padStart(2, "0")}`;
+}
+
+/* =========================================================
+   DISPLAY HELPERS
+========================================================= */
+
 function money(value) {
-  return `₹${Number(value || 0).toLocaleString("en-IN")}`;
+  return `₹${Number(
+    value || 0
+  ).toLocaleString("en-IN")}`;
 }
 
 function label(order) {
@@ -176,11 +251,14 @@ function isDailyScratchItem(item) {
 }
 
 function getDailyScratchReward(order) {
-  return order?.dailyScratchReward || null;
+  return (
+    order?.dailyScratchReward || null
+  );
 }
 
 function getDailyScratchRewardText(order) {
-  const reward = getDailyScratchReward(order);
+  const reward =
+    getDailyScratchReward(order);
 
   if (!reward?.enabled) return "";
 
@@ -193,7 +271,9 @@ function getDailyScratchRewardText(order) {
     );
 
     return amount > 0
-      ? `5% OFF · ${money(amount)} discount`
+      ? `5% OFF · ${money(
+          amount
+        )} discount`
       : "5% OFF";
   }
 
@@ -208,7 +288,10 @@ function getDailyScratchRewardText(order) {
     }`;
   }
 
-  return reward.title || "Scratch & Win Reward";
+  return (
+    reward.title ||
+    "Scratch & Win Reward"
+  );
 }
 
 /* =========================================================
@@ -220,7 +303,8 @@ function getElectronPrinter() {
     if (
       typeof window !== "undefined" &&
       window.electronAPI &&
-      typeof window.electronAPI.printKOT === "function"
+      typeof window.electronAPI.printKOT ===
+        "function"
     ) {
       return window.electronAPI;
     }
@@ -228,7 +312,8 @@ function getElectronPrinter() {
     if (
       typeof window !== "undefined" &&
       window.sugarCafeDesktop &&
-      typeof window.sugarCafeDesktop.printKOT === "function"
+      typeof window.sugarCafeDesktop.printKOT ===
+        "function"
     ) {
       return window.sugarCafeDesktop;
     }
@@ -247,7 +332,8 @@ function getElectronPrinter() {
 ========================================================= */
 
 function DailyScratchBadge({ order }) {
-  const reward = getDailyScratchReward(order);
+  const reward =
+    getDailyScratchReward(order);
 
   if (!reward?.enabled) return null;
 
@@ -300,11 +386,15 @@ function DailyScratchBadge({ order }) {
         </strong>
 
         <span>
-          {getDailyScratchRewardText(order)}
+          {getDailyScratchRewardText(
+            order
+          )}
         </span>
 
         {isDiscount &&
-          Number(reward.appliedDiscount || 0) > 0 && (
+          Number(
+            reward.appliedDiscount || 0
+          ) > 0 && (
             <small
               style={{
                 display: "block",
@@ -333,6 +423,7 @@ function KOTModal({
   if (!order) return null;
 
   const items = itemsFor(order);
+
   const scratchReward =
     getDailyScratchReward(order);
 
@@ -357,6 +448,7 @@ function KOTModal({
         <div className="sc-kot-head">
           <div>
             <b>☕ SUGAR CAFE</b>
+
             <span>
               KITCHEN ORDER TICKET
             </span>
@@ -368,19 +460,27 @@ function KOTModal({
         </div>
 
         <div className="sc-kot-meta">
-          <b>#{label(order)}</b>
+          <b>
+            #{label(order)}
+          </b>
 
           <span>
-            {date.toLocaleDateString("en-IN")}{" "}
+            {date.toLocaleDateString(
+              "en-IN"
+            )}{" "}
             ·{" "}
-            {date.toLocaleTimeString("en-IN", {
-              hour: "2-digit",
-              minute: "2-digit"
-            })}
+            {date.toLocaleTimeString(
+              "en-IN",
+              {
+                hour: "2-digit",
+                minute: "2-digit"
+              }
+            )}
           </span>
 
           <em>
-            {order.orderType || "Delivery"}
+            {order.orderType ||
+              "Delivery"}
           </em>
         </div>
 
@@ -411,7 +511,8 @@ function KOTModal({
               padding: 12,
               borderRadius: 10,
               background: "#fff7ed",
-              border: "1px solid #fed7aa"
+              border:
+                "1px solid #fed7aa"
             }}
           >
             <small
@@ -430,17 +531,21 @@ function KOTModal({
                 color: "#7c2d12"
               }}
             >
-              {getDailyScratchRewardText(order)}
+              {getDailyScratchRewardText(
+                order
+              )}
             </strong>
 
             {(
-              scratchReward.type === "discount" ||
+              scratchReward.type ===
+                "discount" ||
               Number(
                 scratchReward.discountPercent
               ) === 5
             ) &&
               Number(
-                scratchReward.appliedDiscount || 0
+                scratchReward.appliedDiscount ||
+                  0
               ) > 0 && (
                 <div
                   style={{
@@ -470,15 +575,21 @@ function KOTModal({
               );
 
               const dailyScratchFree =
-                isDailyScratchItem(item);
+                isDailyScratchItem(
+                  item
+                );
 
               const itemTotal =
-                Number(item.price || 0) * qty;
+                Number(
+                  item.price || 0
+                ) * qty;
 
               return (
                 <div
                   className="kot-item"
-                  key={item.id || i}
+                  key={
+                    item.id || i
+                  }
                 >
                   <span>
                     {dailyScratchFree && (
@@ -498,11 +609,9 @@ function KOTModal({
                           item.productName ||
                           "Food Item"
                         }`
-                      : (
-                          item.name ||
-                          item.productName ||
-                          "Food Item"
-                        )}
+                      : item.name ||
+                        item.productName ||
+                        "Food Item"}
 
                     {" "}×{qty}
                   </span>
@@ -516,7 +625,9 @@ function KOTModal({
               );
             })
           ) : (
-            <div>No items found.</div>
+            <div>
+              No items found.
+            </div>
           )}
         </section>
 
@@ -566,7 +677,6 @@ function KOTModal({
 ========================================================= */
 
 function AdminOrders() {
-
   const [orders, setOrders] =
     useState([]);
 
@@ -622,90 +732,78 @@ function AdminOrders() {
   const firstSnapshot =
     useRef(true);
 
-  /* =======================================================
-     CREATE AUDIO ONCE
+  const autoCancellingRef =
+    useRef(new Set());
 
-     IMPORTANT:
-     FILE IS:
-     public/order-ringtone.mp3
+  /* =======================================================
+     CREATE AUDIO
   ======================================================= */
 
-  const getAlarmAudio = useCallback(() => {
+  const getAlarmAudio =
+    useCallback(() => {
+      if (
+        typeof window ===
+        "undefined"
+      ) {
+        return null;
+      }
 
-    if (
-      typeof window === "undefined"
-    ) {
-      return null;
-    }
+      try {
+        if (!alarmRef.current) {
+          const audio =
+            new Audio(
+              "/order-ringtone.mp3"
+            );
 
-    try {
+          audio.preload = "auto";
+          audio.loop = true;
+          audio.volume = 1;
+          audio.muted = false;
 
-      if (!alarmRef.current) {
-
-        const audio =
-          new Audio(
-            "/order-ringtone.mp3"
+          audio.addEventListener(
+            "ended",
+            () => {
+              if (!audio.loop) {
+                isBellPlayingRef.current =
+                  false;
+              }
+            }
           );
 
-        audio.preload = "auto";
-        audio.loop = true;
-        audio.volume = 1;
-        audio.muted = false;
+          audio.addEventListener(
+            "error",
+            (event) => {
+              console.error(
+                "❌ Ringtone audio error:",
+                event
+              );
 
-        audio.addEventListener(
-          "ended",
-          () => {
-            if (!audio.loop) {
               isBellPlayingRef.current =
                 false;
             }
-          }
+          );
+
+          alarmRef.current =
+            audio;
+        }
+
+        return alarmRef.current;
+      } catch (error) {
+        console.error(
+          "❌ Audio creation error:",
+          error
         );
 
-        audio.addEventListener(
-          "error",
-          (event) => {
-
-            console.error(
-              "❌ Ringtone audio error:",
-              event
-            );
-
-            isBellPlayingRef.current =
-              false;
-          }
-        );
-
-        alarmRef.current =
-          audio;
+        return null;
       }
-
-      return alarmRef.current;
-
-    } catch (error) {
-
-      console.error(
-        "❌ Audio creation error:",
-        error
-      );
-
-      return null;
-    }
-
-  }, []);
+    }, []);
 
   /* =======================================================
      UNLOCK AUDIO
-
-     FIXED FOR iPHONE / SAFARI / CHROME
-     
-     No global pointerdown/touchstart listeners.
-     User manually taps the sound button.
   ======================================================= */
 
   const unlockAlarmAudio =
     useCallback(async () => {
-
       if (
         audioUnlockedRef.current
       ) {
@@ -715,14 +813,11 @@ function AdminOrders() {
       if (
         unlockingAudioRef.current
       ) {
-
         return new Promise(
           (resolve) => {
-
             let attempts = 0;
 
             const check = () => {
-
               attempts += 1;
 
               if (
@@ -741,9 +836,7 @@ function AdminOrders() {
                 return;
               }
 
-              if (
-                attempts >= 40
-              ) {
+              if (attempts >= 40) {
                 resolve(false);
                 return;
               }
@@ -763,7 +856,6 @@ function AdminOrders() {
         true;
 
       try {
-
         const audio =
           getAlarmAudio();
 
@@ -772,15 +864,11 @@ function AdminOrders() {
         }
 
         audio.pause();
-
         audio.currentTime = 0;
         audio.loop = false;
         audio.muted = false;
         audio.volume = 1;
 
-        /*
-         * Direct user interaction se play.
-         */
         const playPromise =
           audio.play();
 
@@ -798,43 +886,26 @@ function AdminOrders() {
         isBellPlayingRef.current =
           true;
 
-        console.log(
-          "🔊 SugarCafe ringtone unlocked successfully"
-        );
-
-        /*
-         * Short test only.
-         */
         setTimeout(() => {
-
           try {
-
             if (
               alarmRef.current ===
               audio
             ) {
-
               audio.pause();
-
-              audio.currentTime =
-                0;
-
+              audio.currentTime = 0;
               audio.loop = true;
 
               isBellPlayingRef.current =
                 false;
             }
-
           } catch {
             // ignore
           }
-
         }, 1200);
 
         return true;
-
       } catch (error) {
-
         audioUnlockedRef.current =
           false;
 
@@ -844,28 +915,23 @@ function AdminOrders() {
         );
 
         return false;
-
       } finally {
-
         unlockingAudioRef.current =
           false;
       }
-
     }, [
       getAlarmAudio
     ]);
 
   /* =======================================================
      PLAY BELL
-
-     CONTINUOUS LOOP
   ======================================================= */
 
   const playBell =
     useCallback(async () => {
-
       if (
-        store.buzzerEnabled === false
+        store.buzzerEnabled ===
+        false
       ) {
         return;
       }
@@ -877,9 +943,6 @@ function AdminOrders() {
         return;
       }
 
-      /*
-       * Already continuously playing.
-       */
       if (
         isBellPlayingRef.current &&
         !audio.paused &&
@@ -888,16 +951,15 @@ function AdminOrders() {
         return;
       }
 
-      audioGenerationRef.current += 1;
+      audioGenerationRef.current +=
+        1;
 
       const generation =
         audioGenerationRef.current;
 
       try {
-
         audio.pause();
         audio.currentTime = 0;
-
         audio.loop = true;
         audio.muted = false;
         audio.volume = 1;
@@ -917,12 +979,9 @@ function AdminOrders() {
           generation !==
           audioGenerationRef.current
         ) {
-
           try {
-
             audio.pause();
             audio.currentTime = 0;
-
           } catch {
             // ignore
           }
@@ -936,9 +995,7 @@ function AdminOrders() {
         console.log(
           "🔔 SugarCafe ringtone PLAYING continuously"
         );
-
       } catch (error) {
-
         isBellPlayingRef.current =
           false;
 
@@ -946,18 +1003,7 @@ function AdminOrders() {
           "⚠️ Order ringtone could not play:",
           error
         );
-
-        if (
-          error?.name ===
-          "NotAllowedError"
-        ) {
-
-          console.warn(
-            "⚠️ Browser blocked autoplay. Tap the 🔊 button once."
-          );
-        }
       }
-
     }, [
       getAlarmAudio,
       store.buzzerEnabled
@@ -969,14 +1015,13 @@ function AdminOrders() {
 
   const stopBell =
     useCallback(() => {
-
-      audioGenerationRef.current += 1;
+      audioGenerationRef.current +=
+        1;
 
       isBellPlayingRef.current =
         false;
 
       try {
-
         const audio =
           alarmRef.current;
 
@@ -995,19 +1040,12 @@ function AdminOrders() {
         audio.loop = false;
         audio.muted = false;
         audio.volume = 1;
-
-        console.log(
-          "🔕 SugarCafe ringtone STOPPED"
-        );
-
       } catch (error) {
-
         console.error(
           "❌ Stop ringtone error:",
           error
         );
       }
-
     }, []);
 
   /* =======================================================
@@ -1015,13 +1053,10 @@ function AdminOrders() {
   ======================================================= */
 
   useEffect(() => {
-
     const unsub =
       onSnapshot(
         collection(db, "orders"),
-
         (snapshot) => {
-
           const data =
             snapshot.docs
               .map((d) => ({
@@ -1043,34 +1078,28 @@ function AdminOrders() {
 
           snapshot.docChanges().forEach(
             (change) => {
-
               if (
-                change.type === "added" &&
+                change.type ===
+                  "added" &&
                 !firstSnapshot.current &&
                 !knownIds.current.has(
                   change.doc.id
                 )
               ) {
-
                 const incoming = {
                   id: change.doc.id,
                   ...change.doc.data()
                 };
 
                 if (
-                  (
-                    incoming.status ||
-                    "New"
-                  ) === "New"
+                  isWaitingForConfirmation(
+                    incoming
+                  )
                 ) {
-
                   setNewOrder(
                     incoming
                   );
 
-                  /*
-                   * Continuous new order ringtone.
-                   */
                   playBell();
                 }
               }
@@ -1081,12 +1110,41 @@ function AdminOrders() {
             }
           );
 
+          /* =================================================
+             FIRST SNAPSHOT
+             Show latest active waiting order
+          ================================================= */
+
+          if (
+            firstSnapshot.current
+          ) {
+            const waitingOrders =
+              data.filter(
+                (order) =>
+                  isWaitingForConfirmation(
+                    order
+                  ) &&
+                  confirmationRemaining(
+                    order,
+                    Date.now()
+                  ) > 0
+              );
+
+            if (
+              waitingOrders.length
+            ) {
+              setNewOrder(
+                waitingOrders[0]
+              );
+
+              playBell();
+            }
+          }
+
           firstSnapshot.current =
             false;
         },
-
         (err) => {
-
           console.error(
             "Orders listener error:",
             err
@@ -1101,17 +1159,13 @@ function AdminOrders() {
       );
 
     return () => unsub();
-
-  }, [
-    playBell
-  ]);
+  }, [playBell]);
 
   /* =======================================================
      CLOCK
   ======================================================= */
 
   useEffect(() => {
-
     const id =
       setInterval(() => {
         setNow(Date.now());
@@ -1119,27 +1173,177 @@ function AdminOrders() {
 
     return () =>
       clearInterval(id);
-
   }, []);
+
+  /* =======================================================
+     AUTOMATIC 60 SECOND CANCELLATION
+  ======================================================= */
+
+  useEffect(() => {
+    if (!orders.length) {
+      return;
+    }
+
+    orders.forEach(async (order) => {
+      if (
+        !isWaitingForConfirmation(
+          order
+        )
+      ) {
+        return;
+      }
+
+      const deadline =
+        toMillis(
+          order.confirmationDeadline
+        );
+
+      if (!deadline || now < deadline) {
+        return;
+      }
+
+      if (
+        autoCancellingRef.current.has(
+          order.id
+        )
+      ) {
+        return;
+      }
+
+      autoCancellingRef.current.add(
+        order.id
+      );
+
+      try {
+        const didCancel =
+          await runTransaction(
+            db,
+            async (transaction) => {
+              const orderRef =
+                doc(
+                  db,
+                  "orders",
+                  order.id
+                );
+
+              const snap =
+                await transaction.get(
+                  orderRef
+                );
+
+              if (!snap.exists()) {
+                return false;
+              }
+
+              const current =
+                snap.data();
+
+              const currentStatus =
+                String(
+                  current.status || ""
+                ).toUpperCase();
+
+              const currentDeadline =
+                toMillis(
+                  current.confirmationDeadline
+                );
+
+              if (
+                currentStatus !==
+                "WAITING_FOR_CONFIRMATION"
+              ) {
+                return false;
+              }
+
+              if (
+                !currentDeadline ||
+                Date.now() <
+                  currentDeadline
+              ) {
+                return false;
+              }
+
+              transaction.update(
+                orderRef,
+                {
+                  status:
+                    "CANCELLED",
+
+                  confirmationStatus:
+                    "AUTO_CANCELLED",
+
+                  cancelledAt:
+                    Timestamp.now(),
+
+                  cancellationReason:
+                    "Store did not confirm the order within 60 seconds",
+
+                  acceptedAt: null,
+
+                  preparationStartedAt:
+                    null,
+
+                  preparationEndAt:
+                    null
+                }
+              );
+
+              return true;
+            }
+          );
+
+        if (didCancel) {
+          await sendOrderStatusNotification(
+            order,
+            "CANCELLED"
+          );
+
+          if (
+            newOrder?.id ===
+            order.id
+          ) {
+            stopBell();
+            setNewOrder(null);
+          }
+        }
+
+        autoCancellingRef.current.delete(
+          order.id
+        );
+      } catch (error) {
+        console.error(
+          "Automatic order cancellation failed:",
+          error
+        );
+
+        autoCancellingRef.current.delete(
+          order.id
+        );
+      }
+    });
+  }, [
+    now,
+    orders,
+    newOrder,
+    stopBell
+  ]);
 
   /* =======================================================
      PREPARATION TIMER BELL
   ======================================================= */
 
   useEffect(() => {
-
     if (
-      store.buzzerEnabled === false
+      store.buzzerEnabled ===
+      false
     ) {
       return;
     }
 
     orders.forEach((order) => {
-
       if (
-        (
-          order.status ||
-          "New"
+        String(
+          order.status || ""
         ) !== "Preparing"
       ) {
         return;
@@ -1165,9 +1369,7 @@ function AdminOrders() {
       );
 
       playBell();
-
     });
-
   }, [
     now,
     orders,
@@ -1180,13 +1382,12 @@ function AdminOrders() {
   ======================================================= */
 
   useEffect(() => {
-
     if (
-      store.buzzerEnabled === false
+      store.buzzerEnabled ===
+      false
     ) {
       stopBell();
     }
-
   }, [
     store.buzzerEnabled,
     stopBell
@@ -1197,25 +1398,26 @@ function AdminOrders() {
   ======================================================= */
 
   useEffect(() => {
-
     return () => {
-
       try {
-
-        audioGenerationRef.current += 1;
+        audioGenerationRef.current +=
+          1;
 
         if (alarmRef.current) {
-
           alarmRef.current.pause();
 
           try {
-            alarmRef.current.currentTime = 0;
+            alarmRef.current.currentTime =
+              0;
           } catch {
             // ignore
           }
 
-          alarmRef.current.loop = false;
-          alarmRef.current.muted = false;
+          alarmRef.current.loop =
+            false;
+
+          alarmRef.current.muted =
+            false;
 
           alarmRef.current = null;
         }
@@ -1225,16 +1427,13 @@ function AdminOrders() {
 
         audioUnlockedRef.current =
           false;
-
       } catch (error) {
-
         console.error(
           "Audio cleanup error:",
           error
         );
       }
     };
-
   }, []);
 
   /* =======================================================
@@ -1245,9 +1444,7 @@ function AdminOrders() {
     order,
     updates
   ) => {
-
     try {
-
       await updateDoc(
         doc(
           db,
@@ -1258,25 +1455,51 @@ function AdminOrders() {
       );
 
       if (
-        newOrder?.id === order.id
+        newOrder?.id ===
+        order.id
       ) {
         stopBell();
         setNewOrder(null);
       }
 
+      let notificationStatus =
+        updates?.status || "";
+
       if (
-        updates?.status &&
+        updates?.confirmationStatus ===
+        "ACCEPTED"
+      ) {
+        notificationStatus =
+          "CONFIRMED";
+      }
+
+      if (
+        updates?.confirmationStatus ===
+        "REJECTED"
+      ) {
+        notificationStatus =
+          "REJECTED";
+      }
+
+      if (
+        updates?.confirmationStatus ===
+        "AUTO_CANCELLED"
+      ) {
+        notificationStatus =
+          "CANCELLED";
+      }
+
+      if (
+        notificationStatus &&
         String(
-          updates.status
+          notificationStatus
         ).trim()
       ) {
-
         sendOrderStatusNotification(
           order,
-          updates.status
+          notificationStatus
         ).catch(
           (notificationError) => {
-
             console.error(
               "Background order notification error:",
               notificationError
@@ -1286,9 +1509,7 @@ function AdminOrders() {
       }
 
       return true;
-
     } catch (e) {
-
       console.error(
         "Order update error:",
         e
@@ -1309,17 +1530,44 @@ function AdminOrders() {
   const printKOT = async (
     order
   ) => {
+    if (
+      isWaitingForConfirmation(
+        order
+      )
+    ) {
+      alert(
+        "Order abhi store confirmation ka wait kar raha hai.\n\n" +
+          "Pehle order Accept karein, uske baad KOT print hoga."
+      );
+
+      return false;
+    }
+
+    if (
+      String(
+        order?.status || ""
+      ).toUpperCase() ===
+        "CANCELLED" ||
+      String(
+        order?.status || ""
+      ).toUpperCase() ===
+        "REJECTED"
+    ) {
+      alert(
+        "Rejected/Cancelled order ka KOT print nahi hoga."
+      );
+
+      return false;
+    }
 
     try {
-
       const electron =
         getElectronPrinter();
 
       if (!electron) {
-
         alert(
           "Automatic KOT printing ke liye SugarCafe Dashboard Windows App open karein.\n\n" +
-          "Chrome/browser se silent printing possible nahi hai."
+            "Chrome/browser se silent printing possible nahi hai."
         );
 
         return false;
@@ -1331,7 +1579,6 @@ function AdminOrders() {
         );
 
       if (!result?.success) {
-
         const reason =
           result?.error ||
           result?.failureReason ||
@@ -1339,9 +1586,9 @@ function AdminOrders() {
 
         alert(
           "KOT printing failed.\n\n" +
-          reason +
-          "\n\n" +
-          "TVS-E RP 3230 printer check karein."
+            reason +
+            "\n\n" +
+            "TVS-E RP 3230 printer check karein."
         );
 
         return false;
@@ -1353,9 +1600,7 @@ function AdminOrders() {
       );
 
       return true;
-
     } catch (error) {
-
       console.error(
         "KOT print exception:",
         error
@@ -1363,10 +1608,10 @@ function AdminOrders() {
 
       alert(
         "KOT printing mein error aaya.\n\n" +
-        (
-          error?.message ||
-          "Unknown error"
-        )
+          (
+            error?.message ||
+            "Unknown error"
+          )
       );
 
       return false;
@@ -1375,140 +1620,341 @@ function AdminOrders() {
 
   /* =======================================================
      ACCEPT ORDER
-  ======================================================= */
+     
+     IMPORTANT:
+     Firestore transaction guarantees:
+     - Only WAITING order can be accepted.
+     - Deadline must not be crossed.
+     - Preparation starts ONLY after acceptance.
+     ======================================================= */
 
   const accept = async (
     order
   ) => {
+    if (!order?.id) {
+      alert(
+        "Order ID nahi mila."
+      );
+
+      return false;
+    }
 
     stopBell();
 
-    const minutes =
-      Number(
-        order.preparationMinutes ??
-        15
-      );
+    try {
+      const result =
+        await runTransaction(
+          db,
+          async (transaction) => {
+            const orderRef =
+              doc(
+                db,
+                "orders",
+                order.id
+              );
 
-    const started =
-      Date.now();
+            const snap =
+              await transaction.get(
+                orderRef
+              );
 
-    const end =
-      started +
-      minutes * 60000;
+            if (!snap.exists()) {
+              return {
+                accepted: false,
+                expired: false,
+                reason: "NOT_FOUND"
+              };
+            }
 
-    const accepted =
-      await updateOrder(
-        order,
-        {
-          status: "Preparing",
+            const current =
+              snap.data();
 
-          acceptedAt:
-            Timestamp.fromMillis(
-              started
-            ),
+            const currentStatus =
+              String(
+                current.status || ""
+              ).toUpperCase();
 
-          preparationStartedAt:
-            Timestamp.fromMillis(
-              started
-            ),
+            const deadline =
+              toMillis(
+                current.confirmationDeadline
+              );
 
-          preparationEndAt:
-            Timestamp.fromMillis(
-              end
-            ),
+            /*
+             * Order already handled.
+             */
+            if (
+              currentStatus !==
+              "WAITING_FOR_CONFIRMATION"
+            ) {
+              return {
+                accepted: false,
+                expired: false,
+                reason: "ALREADY_HANDLED"
+              };
+            }
 
-          preparationMinutes:
-            minutes,
+            /*
+             * 60 seconds expired.
+             */
+            if (
+              !deadline ||
+              Date.now() >= deadline
+            ) {
+              transaction.update(
+                orderRef,
+                {
+                  status:
+                    "CANCELLED",
 
-          rejectedAt: null
-        }
-      );
+                  confirmationStatus:
+                    "AUTO_CANCELLED",
 
-    if (!accepted) return;
+                  cancelledAt:
+                    Timestamp.now(),
 
-    const printPayload = {
-      ...order,
+                  cancellationReason:
+                    "Store did not confirm the order within 60 seconds",
 
-      status: "Preparing",
+                  acceptedAt: null,
 
-      acceptedAt: {
-        seconds:
-          Math.floor(
-            started / 1000
-          )
-      },
+                  preparationStartedAt:
+                    null,
 
-      preparationStartedAt: {
-        seconds:
-          Math.floor(
-            started / 1000
-          )
-      },
+                  preparationEndAt:
+                    null
+                }
+              );
 
-      preparationEndAt: {
-        seconds:
-          Math.floor(
-            end / 1000
-          )
-      },
+              return {
+                accepted: false,
+                expired: true,
+                reason: "EXPIRED"
+              };
+            }
 
-      preparationMinutes:
-        minutes
-    };
+            const minutes =
+              Number(
+                current.preparationMinutes ??
+                  15
+              );
 
-    let printed = false;
+            const started =
+              Date.now();
 
-    for (
-      let attempt = 1;
-      attempt <= 3 &&
-      !printed;
-      attempt++
-    ) {
+            const end =
+              started +
+              minutes * 60000;
 
-      console.log(
-        `KOT print attempt ${attempt}/3`
-      );
+            transaction.update(
+              orderRef,
+              {
+                status:
+                  "Preparing",
 
-      printed =
-        await printKOT(
-          printPayload
+                confirmationStatus:
+                  "ACCEPTED",
+
+                acceptedAt:
+                  Timestamp.fromMillis(
+                    started
+                  ),
+
+                rejectedAt: null,
+
+                cancelledAt: null,
+
+                cancellationReason:
+                  "",
+
+                rejectionReason:
+                  "",
+
+                preparationStartedAt:
+                  Timestamp.fromMillis(
+                    started
+                  ),
+
+                preparationEndAt:
+                  Timestamp.fromMillis(
+                    end
+                  ),
+
+                preparationMinutes:
+                  minutes,
+
+                foodReadyAt: null,
+
+                dispatchedAt: null,
+
+                deliveredAt: null
+              }
+            );
+
+            return {
+              accepted: true,
+              expired: false,
+              minutes,
+              started,
+              end,
+              current
+            };
+          }
         );
 
       if (
-        !printed &&
-        attempt < 3
+        result.expired
       ) {
+        stopBell();
 
-        await new Promise(
-          (resolve) =>
-            setTimeout(
-              resolve,
-              1000
-            )
+        setNewOrder(
+          (current) =>
+            current?.id === order.id
+              ? null
+              : current
+        );
+
+        await sendOrderStatusNotification(
+          order,
+          "CANCELLED"
+        );
+
+        alert(
+          "60 seconds complete ho gaye the.\n\nOrder automatically Cancelled ho gaya."
+        );
+
+        return false;
+      }
+
+      if (!result.accepted) {
+        stopBell();
+
+        setNewOrder(
+          (current) =>
+            current?.id === order.id
+              ? null
+              : current
+        );
+
+        if (
+          result.reason ===
+          "ALREADY_HANDLED"
+        ) {
+          alert(
+            "Ye order already accept/reject/cancel ho chuka hai."
+          );
+        }
+
+        return false;
+      }
+
+      /*
+       * Confirmation notification.
+       */
+      await sendOrderStatusNotification(
+        order,
+        "CONFIRMED"
+      );
+
+      /*
+       * KOT payload AFTER acceptance only.
+       */
+      const printPayload = {
+        ...order,
+
+        status: "Preparing",
+
+        confirmationStatus:
+          "ACCEPTED",
+
+        acceptedAt:
+          Timestamp.fromMillis(
+            result.started
+          ),
+
+        preparationStartedAt:
+          Timestamp.fromMillis(
+            result.started
+          ),
+
+        preparationEndAt:
+          Timestamp.fromMillis(
+            result.end
+          ),
+
+        preparationMinutes:
+          result.minutes
+      };
+
+      let printed = false;
+
+      for (
+        let attempt = 1;
+        attempt <= 3 &&
+        !printed;
+        attempt++
+      ) {
+        console.log(
+          `KOT print attempt ${attempt}/3`
+        );
+
+        printed =
+          await printKOT(
+            printPayload
+          );
+
+        if (
+          !printed &&
+          attempt < 3
+        ) {
+          await new Promise(
+            (resolve) =>
+              setTimeout(
+                resolve,
+                1000
+              )
+          );
+        }
+      }
+
+      if (!printed) {
+        alert(
+          "Order accepted successfully.\n\n" +
+            "Lekin KOT + Counter Slip print nahi hui.\n\n" +
+            "SugarCafe Dashboard App aur TVS-E RP 3230 printer check karein."
         );
       }
-    }
 
-    if (!printed) {
+      return true;
+    } catch (error) {
+      console.error(
+        "Accept order error:",
+        error
+      );
 
       alert(
-        "Order accepted successfully.\n\n" +
-        "Lekin KOT + Counter Slip print nahi hui.\n\n" +
-        "SugarCafe Dashboard App aur TVS-E RP 3230 printer check karein."
+        "Order accept nahi ho paya.\n\n" +
+          (
+            error?.message ||
+            "Unknown error"
+          )
       );
+
+      return false;
     }
   };
 
   /* =======================================================
-     REJECT
+     REJECT ORDER
+     
+     IMPORTANT:
+     Reject bhi transaction ke through hoga.
+     60 sec ke baad reject impossible.
   ======================================================= */
 
   const reject = async (
     order
   ) => {
-
     if (!order?.id) {
-
       alert(
         "Order ID nahi mila."
       );
@@ -1517,38 +1963,187 @@ function AdminOrders() {
     }
 
     try {
-
       stopBell();
 
-      const success =
-        await updateOrder(
-          order,
-          {
-            status: "Rejected",
+      const result =
+        await runTransaction(
+          db,
+          async (transaction) => {
+            const orderRef =
+              doc(
+                db,
+                "orders",
+                order.id
+              );
 
-            rejectionReason:
-              "Order rejected by staff",
+            const snap =
+              await transaction.get(
+                orderRef
+              );
 
-            rejectedAt:
-              Timestamp.now()
+            if (!snap.exists()) {
+              return {
+                rejected: false,
+                expired: false,
+                reason: "NOT_FOUND"
+              };
+            }
+
+            const current =
+              snap.data();
+
+            const currentStatus =
+              String(
+                current.status || ""
+              ).toUpperCase();
+
+            const deadline =
+              toMillis(
+                current.confirmationDeadline
+              );
+
+            if (
+              currentStatus !==
+              "WAITING_FOR_CONFIRMATION"
+            ) {
+              return {
+                rejected: false,
+                expired: false,
+                reason: "ALREADY_HANDLED"
+              };
+            }
+
+            if (
+              !deadline ||
+              Date.now() >= deadline
+            ) {
+              transaction.update(
+                orderRef,
+                {
+                  status:
+                    "CANCELLED",
+
+                  confirmationStatus:
+                    "AUTO_CANCELLED",
+
+                  cancelledAt:
+                    Timestamp.now(),
+
+                  cancellationReason:
+                    "Store did not confirm the order within 60 seconds",
+
+                  acceptedAt: null,
+
+                  preparationStartedAt:
+                    null,
+
+                  preparationEndAt:
+                    null
+                }
+              );
+
+              return {
+                rejected: false,
+                expired: true,
+                reason: "EXPIRED"
+              };
+            }
+
+            transaction.update(
+              orderRef,
+              {
+                status:
+                  "Rejected",
+
+                confirmationStatus:
+                  "REJECTED",
+
+                rejectionReason:
+                  "Order rejected by staff",
+
+                rejectedAt:
+                  Timestamp.now(),
+
+                acceptedAt: null,
+
+                preparationStartedAt:
+                  null,
+
+                preparationEndAt:
+                  null,
+
+                cancelledAt: null,
+
+                cancellationReason:
+                  ""
+              }
+            );
+
+            return {
+              rejected: true,
+              expired: false
+            };
           }
         );
 
-      if (success) {
+      if (
+        result.expired
+      ) {
+        await sendOrderStatusNotification(
+          order,
+          "CANCELLED"
+        );
 
-        setNewOrder((current) =>
+        setNewOrder(
+          (current) =>
+            current?.id === order.id
+              ? null
+              : current
+        );
+
+        alert(
+          "60 seconds complete ho gaye the.\n\nOrder automatically Cancelled ho gaya."
+        );
+
+        return false;
+      }
+
+      if (
+        !result.rejected
+      ) {
+        setNewOrder(
+          (current) =>
+            current?.id === order.id
+              ? null
+              : current
+        );
+
+        if (
+          result.reason ===
+          "ALREADY_HANDLED"
+        ) {
+          alert(
+            "Ye order already accept/reject/cancel ho chuka hai."
+          );
+        }
+
+        return false;
+      }
+
+      await sendOrderStatusNotification(
+        order,
+        "REJECTED"
+      );
+
+      setNewOrder(
+        (current) =>
           current?.id === order.id
             ? null
             : current
-        );
+      );
 
-        return true;
-      }
-
-      return false;
-
+      return true;
     } catch (error) {
-
       console.error(
         "Reject order error:",
         error
@@ -1556,10 +2151,10 @@ function AdminOrders() {
 
       alert(
         "Order reject nahi ho paya.\n\n" +
-        (
-          error?.message ||
-          "Unknown error"
-        )
+          (
+            error?.message ||
+            "Unknown error"
+          )
       );
 
       return false;
@@ -1573,11 +2168,10 @@ function AdminOrders() {
   const extra = (
     order
   ) => {
-
     const mins =
       Number(
         order.extraPreparationMinutes ??
-        10
+          10
       );
 
     const base =
@@ -1607,13 +2201,13 @@ function AdminOrders() {
   const ready = async (
     order
   ) => {
-
     stopBell();
 
     return updateOrder(
       order,
       {
-        status: "Food Ready",
+        status:
+          "Food Ready",
 
         foodReadyAt:
           Timestamp.now()
@@ -1631,7 +2225,8 @@ function AdminOrders() {
     updateOrder(
       order,
       {
-        status: "Dispatched",
+        status:
+          "Dispatched",
 
         dispatchedAt:
           Timestamp.now()
@@ -1648,7 +2243,8 @@ function AdminOrders() {
     updateOrder(
       order,
       {
-        status: "Delivered",
+        status:
+          "Delivered",
 
         deliveredAt:
           Timestamp.now()
@@ -1665,7 +2261,8 @@ function AdminOrders() {
     updateOrder(
       order,
       {
-        paymentStatus: "Paid",
+        paymentStatus:
+          "Paid",
 
         paymentVerifiedAt:
           Timestamp.now()
@@ -1681,17 +2278,46 @@ function AdminOrders() {
       () =>
         STATUS.reduce(
           (a, s) => {
+            if (s === "All") {
+              a[s] =
+                orders.length;
+
+              return a;
+            }
 
             a[s] =
-              s === "All"
-                ? orders.length
-                : orders.filter(
-                    (o) =>
-                      (
-                        o.status ||
-                        "New"
-                      ) === s
-                  ).length;
+              orders.filter(
+                (o) => {
+                  const raw =
+                    String(
+                      o.status || ""
+                    ).toUpperCase();
+
+                  if (
+                    s === "Waiting"
+                  ) {
+                    return (
+                      raw ===
+                      "WAITING_FOR_CONFIRMATION"
+                    );
+                  }
+
+                  if (
+                    s ===
+                    "Cancelled"
+                  ) {
+                    return (
+                      raw ===
+                      "CANCELLED"
+                    );
+                  }
+
+                  return (
+                    raw ===
+                    s.toUpperCase()
+                  );
+                }
+              ).length;
 
             return a;
           },
@@ -1709,14 +2335,34 @@ function AdminOrders() {
       () =>
         orders.filter(
           (o) => {
-
             const q =
               query
                 .trim()
                 .toLowerCase();
 
-            const status =
-              o.status || "New";
+            const rawStatus =
+              String(
+                o.status || ""
+              ).toUpperCase();
+
+            let displayStatus =
+              rawStatus;
+
+            if (
+              rawStatus ===
+              "WAITING_FOR_CONFIRMATION"
+            ) {
+              displayStatus =
+                "Waiting";
+            }
+
+            if (
+              rawStatus ===
+              "CANCELLED"
+            ) {
+              displayStatus =
+                "Cancelled";
+            }
 
             const searchable = [
               label(o),
@@ -1734,7 +2380,8 @@ function AdminOrders() {
             return (
               (
                 filter === "All" ||
-                status === filter
+                displayStatus ===
+                  filter
               ) &&
               (
                 !q ||
@@ -1757,14 +2404,13 @@ function AdminOrders() {
   const remaining = (
     order
   ) => {
-
     const end =
       toMillis(
         order.preparationEndAt
       );
 
     if (!end) {
-      return "15:00";
+      return "00:00";
     }
 
     const sec =
@@ -1816,21 +2462,17 @@ function AdminOrders() {
 
               <i
                 className={
-                  (
-                    store.isOpen &&
-                    store.acceptingOrders &&
-                    store.inHours
-                  )
+                  store.isOpen &&
+                  store.acceptingOrders &&
+                  store.inHours
                     ? "on"
                     : "off"
                 }
               />
 
-              {(
-                store.isOpen &&
-                store.acceptingOrders &&
-                store.inHours
-              )
+              {store.isOpen &&
+              store.acceptingOrders &&
+              store.inHours
                 ? "Delivery Open"
                 : "Delivery Closed"}
 
@@ -1843,7 +2485,7 @@ function AdminOrders() {
             </div>
 
             {/* =================================================
-                SOUND / NOTIFICATION BUTTON
+                SOUND BUTTON
             ================================================= */}
 
             <button
@@ -1851,22 +2493,16 @@ function AdminOrders() {
               className="notification-button"
               title="Enable / Test Order Sound"
               onClick={async (e) => {
-
                 e.preventDefault();
                 e.stopPropagation();
-
-                console.log(
-                  "🔊 SugarCafe sound button clicked"
-                );
 
                 const unlocked =
                   await unlockAlarmAudio();
 
                 if (!unlocked) {
-
                   alert(
                     "Sound enable nahi ho paya.\n\n" +
-                    "Please 🔊 button ek baar dobara tap karein."
+                      "Please 🔊 button ek baar dobara tap karein."
                   );
 
                   return;
@@ -1880,12 +2516,8 @@ function AdminOrders() {
                 }
 
                 try {
-
                   audio.pause();
-
-                  audio.currentTime =
-                    0;
-
+                  audio.currentTime = 0;
                   audio.loop = false;
                   audio.muted = false;
                   audio.volume = 1;
@@ -1904,39 +2536,26 @@ function AdminOrders() {
                   isBellPlayingRef.current =
                     true;
 
-                  console.log(
-                    "🔔 SugarCafe test ringtone PLAYING"
-                  );
-
                   setTimeout(() => {
-
                     try {
-
                       if (
                         alarmRef.current ===
                           audio &&
                         !audio.loop
                       ) {
-
                         audio.pause();
-
                         audio.currentTime =
                           0;
-
                         audio.loop = true;
 
                         isBellPlayingRef.current =
                           false;
                       }
-
                     } catch {
                       // ignore
                     }
-
                   }, 2000);
-
                 } catch (error) {
-
                   console.error(
                     "❌ Test ringtone failed:",
                     error
@@ -1944,7 +2563,7 @@ function AdminOrders() {
 
                   alert(
                     "Ringtone play nahi ho pa rahi.\n\n" +
-                    "Phone ka silent mode aur volume check karein."
+                      "Phone ka silent mode aur volume check karein."
                   );
                 }
               }}
@@ -1952,7 +2571,7 @@ function AdminOrders() {
               🔊
 
               <b>
-                {counts.New || 0}
+                {counts.Waiting || 0}
               </b>
 
             </button>
@@ -1988,7 +2607,6 @@ function AdminOrders() {
         <section className="status-tabs">
 
           {STATUS.map((s) => (
-
             <button
               key={s}
               className={
@@ -2005,7 +2623,6 @@ function AdminOrders() {
                 setFilter(s)
               }
             >
-
               {s === "All"
                 ? "All Orders"
                 : s}
@@ -2013,9 +2630,7 @@ function AdminOrders() {
               <b>
                 {counts[s] || 0}
               </b>
-
             </button>
-
           ))}
 
         </section>
@@ -2027,13 +2642,10 @@ function AdminOrders() {
         )}
 
         {loading ? (
-
           <div className="empty-card">
             Loading live orders…
           </div>
-
         ) : filtered.length === 0 ? (
-
           <div className="empty-card">
 
             <div>📦</div>
@@ -2048,17 +2660,27 @@ function AdminOrders() {
             </p>
 
           </div>
-
         ) : (
-
           <div className="orders-grid">
 
             {filtered.map(
               (order) => {
+                const rawStatus =
+                  order.status || "";
+
+                const waiting =
+                  isWaitingForConfirmation(
+                    order
+                  );
 
                 const status =
-                  order.status ||
-                  "New";
+                  waiting
+                    ? "Waiting"
+                    : rawStatus ===
+                      "CANCELLED"
+                    ? "Cancelled"
+                    : rawStatus ||
+                      "Waiting";
 
                 const items =
                   itemsFor(order);
@@ -2074,11 +2696,23 @@ function AdminOrders() {
                   );
 
                 const expired =
-                  preparationEnd !== null &&
-                  preparationEnd <= now;
+                  preparationEnd !==
+                    null &&
+                  preparationEnd <=
+                    now;
+
+                const confirmationLeft =
+                  confirmationRemaining(
+                    order,
+                    now
+                  );
+
+                const confirmationExpired =
+                  waiting &&
+                  confirmationLeft <=
+                    0;
 
                 return (
-
                   <article
                     className={`order-card ${status
                       .toLowerCase()
@@ -2121,7 +2755,8 @@ function AdminOrders() {
                                 "en-IN",
                                 {
                                   hour: "2-digit",
-                                  minute: "2-digit"
+                                  minute:
+                                    "2-digit"
                                 }
                               )
                             : "—"}
@@ -2150,7 +2785,9 @@ function AdminOrders() {
                           {order.orderType ||
                             "Delivery"}{" "}
                           ·{" "}
-                          {addressFor(order)}
+                          {addressFor(
+                            order
+                          )}
                         </span>
 
                         <DailyScratchBadge
@@ -2170,7 +2807,6 @@ function AdminOrders() {
                             item,
                             i
                           ) => {
-
                             const qty =
                               Number(
                                 item.qty ||
@@ -2184,7 +2820,6 @@ function AdminOrders() {
                               );
 
                             return (
-
                               <div
                                 className="item-row"
                                 key={
@@ -2211,11 +2846,9 @@ function AdminOrders() {
                                         item.productName ||
                                         "Food Item"
                                       }`
-                                    : (
-                                        item.name ||
-                                        item.productName ||
-                                        "Food Item"
-                                      )}
+                                    : item.name ||
+                                      item.productName ||
+                                      "Food Item"}
 
                                   <small>
                                     ×{qty}
@@ -2224,7 +2857,6 @@ function AdminOrders() {
                                 </span>
 
                                 <strong>
-
                                   {freeScratch
                                     ? "FREE"
                                     : money(
@@ -2234,25 +2866,26 @@ function AdminOrders() {
                                         ) *
                                           qty
                                       )}
-
                                 </strong>
 
                               </div>
-
                             );
                           }
                         )}
 
-                      {items.length > 5 && (
+                      {items.length >
+                        5 && (
                         <span className="more">
-                          +{items.length - 5} more items
+                          +
+                          {items.length -
+                            5}{" "}
+                          more items
                         </span>
                       )}
 
                       {getDailyScratchReward(
                         order
                       )?.enabled && (
-
                         <div
                           style={{
                             marginTop: 8,
@@ -2274,7 +2907,6 @@ function AdminOrders() {
                             order
                           )}
                         </div>
-
                       )}
 
                       <div className="total-row">
@@ -2314,39 +2946,92 @@ function AdminOrders() {
 
                     </div>
 
+                    {/* =================================================
+                        ACTIONS
+                    ================================================= */}
+
                     <div className="action-block">
 
-                      <button
-                        type="button"
-                        className="action reject"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          reject(order);
-                        }}
-                      >
-                        ✕ Reject
-                      </button>
+                      {/* WAITING */}
+                      {waiting && (
+                        <>
+                          <div
+                            className="timer preparation"
+                            style={{
+                              border:
+                                "1px solid #fed7aa",
+                              background:
+                                "#fff7ed"
+                            }}
+                          >
+                            <span>
+                              {confirmationExpired
+                                ? "Confirmation expired"
+                                : "Store Confirmation"}
+                            </span>
 
-                      {status ===
-                        "New" && (
+                            <strong
+                              style={{
+                                color:
+                                  confirmationExpired
+                                    ? "#dc2626"
+                                    : "#ea580c"
+                              }}
+                            >
+                              {confirmationTimeLabel(
+                                order,
+                                now
+                              )}
+                            </strong>
+                          </div>
 
-                        <button
-                          className="action accept"
-                          onClick={() =>
-                            accept(order)
-                          }
-                        >
-                          ✓ Accept Order
-                        </button>
+                          {!confirmationExpired ? (
+                            <div className="action-row">
 
+                              <button
+                                type="button"
+                                className="action reject"
+                                onClick={() =>
+                                  reject(
+                                    order
+                                  )
+                                }
+                              >
+                                ✕ Reject
+                              </button>
+
+                              <button
+                                type="button"
+                                className="action accept"
+                                onClick={() =>
+                                  accept(
+                                    order
+                                  )
+                                }
+                              >
+                                ✓ Accept Order
+                              </button>
+
+                            </div>
+                          ) : (
+                            <div
+                              className="rejected"
+                              style={{
+                                color:
+                                  "#dc2626"
+                              }}
+                            >
+                              Time expired ·
+                              Cancelling...
+                            </div>
+                          )}
+                        </>
                       )}
 
+                      {/* PREPARING */}
                       {status ===
                         "Preparing" && (
-
                         <>
-
                           <div
                             className={`timer preparation ${
                               expired
@@ -2354,7 +3039,6 @@ function AdminOrders() {
                                 : ""
                             }`}
                           >
-
                             <span>
                               {expired
                                 ? "Time completed"
@@ -2362,9 +3046,10 @@ function AdminOrders() {
                             </span>
 
                             <strong>
-                              {remaining(order)}
+                              {remaining(
+                                order
+                              )}
                             </strong>
-
                           </div>
 
                           <div className="action-row">
@@ -2372,7 +3057,9 @@ function AdminOrders() {
                             <button
                               className="action extra"
                               onClick={() =>
-                                extra(order)
+                                extra(
+                                  order
+                                )
                               }
                             >
                               +10 Min
@@ -2381,99 +3068,125 @@ function AdminOrders() {
                             <button
                               className="action ready"
                               onClick={() =>
-                                ready(order)
+                                ready(
+                                  order
+                                )
                               }
                             >
                               Mark Ready
                             </button>
 
                           </div>
-
                         </>
-
                       )}
 
+                      {/* FOOD READY */}
                       {status ===
                         "Food Ready" && (
-
                         <button
                           className="action dispatch"
                           onClick={() =>
-                            dispatch(order)
+                            dispatch(
+                              order
+                            )
                           }
                         >
                           🛵 Dispatch
                         </button>
-
                       )}
 
+                      {/* DISPATCHED */}
                       {status ===
                         "Dispatched" && (
-
                         <button
                           className="action ready"
                           onClick={() =>
-                            delivered(order)
+                            delivered(
+                              order
+                            )
                           }
                         >
                           ✓ Mark Delivered
                         </button>
-
                       )}
 
+                      {/* REJECTED */}
                       {status ===
                         "Rejected" && (
-
                         <div className="rejected">
                           Rejected ·{" "}
                           {order.rejectionReason ||
                             "Staff rejected"}
                         </div>
-
                       )}
 
-                      <button
-                        className="action outline view-kot-btn"
-                        onClick={() => {
+                      {/* CANCELLED */}
+                      {status ===
+                        "Cancelled" && (
+                        <div
+                          className="rejected"
+                          style={{
+                            color:
+                              "#dc2626"
+                          }}
+                        >
+                          Cancelled ·{" "}
+                          {order.cancellationReason ||
+                            "Order confirmation timeout"}
+                        </div>
+                      )}
 
-                          stopBell();
+                      {/* VIEW KOT
+                          Never available before acceptance.
+                      */}
+                      {!waiting &&
+                        status !==
+                          "Rejected" &&
+                        status !==
+                          "Cancelled" && (
+                          <button
+                            className="action outline view-kot-btn"
+                            onClick={() => {
+                              stopBell();
 
-                          setKotOrder(
-                            order
-                          );
+                              setKotOrder(
+                                order
+                              );
 
-                          if (
-                            newOrder?.id ===
-                            order.id
-                          ) {
-                            setNewOrder(
-                              null
-                            );
-                          }
-                        }}
-                      >
-                        🧾 View KOT
-                      </button>
+                              if (
+                                newOrder?.id ===
+                                order.id
+                              ) {
+                                setNewOrder(
+                                  null
+                                );
+                              }
+                            }}
+                          >
+                            🧾 View KOT
+                          </button>
+                        )}
 
+                      {/* UPI */}
                       {order.paymentMethod ===
                         "UPI Payment" &&
                         order.paymentStatus !==
                           "Paid" &&
                         status !==
-                          "Rejected" && (
-
-                        <button
-                          className="action payment-btn"
-                          onClick={() =>
-                            verifyUpi(
-                              order
-                            )
-                          }
-                        >
-                          💳 Mark UPI Paid
-                        </button>
-
-                      )}
+                          "Rejected" &&
+                        status !==
+                          "Cancelled" && (
+                          <button
+                            className="action payment-btn"
+                            onClick={() =>
+                              verifyUpi(
+                                order
+                              )
+                            }
+                          >
+                            💳 Mark UPI Paid
+                          </button>
+                        )}
 
                     </div>
 
@@ -2488,132 +3201,162 @@ function AdminOrders() {
       </main>
 
       {/* ===================================================
-          NEW ORDER POPUP
+          WAITING FOR CONFIRMATION POPUP
       =================================================== */}
 
-      {newOrder && (
+      {newOrder &&
+        isWaitingForConfirmation(
+          newOrder
+        ) && (
+          <div className="new-order-overlay">
 
-        <div className="new-order-overlay">
-
-          <div className="new-order-alert">
-
-            <button
-              className="alert-close"
-              onClick={() => {
-
-                stopBell();
-
-                setNewOrder(
-                  null
-                );
-              }}
-            >
-              ×
-            </button>
-
-            <div className="new-icon">
-              🔔
-            </div>
-
-            <div>
-
-              <span>
-                NEW ORDER RECEIVED
-              </span>
-
-              <h2>
-                Order #{label(newOrder)}
-              </h2>
-
-              <p>
-                {newOrder.customerName ||
-                  newOrder.name ||
-                  "Customer"}{" "}
-                ·{" "}
-                {money(
-                  newOrder.total
-                )}
-              </p>
-
-              {getDailyScratchReward(
-                newOrder
-              )?.enabled && (
-
-                <div
-                  style={{
-                    marginTop: 8,
-                    display:
-                      "inline-flex",
-                    alignItems:
-                      "center",
-                    gap: 6,
-                    padding:
-                      "6px 9px",
-                    borderRadius: 8,
-                    background:
-                      "#fff7ed",
-                    border:
-                      "1px solid #fed7aa",
-                    color:
-                      "#9a3412",
-                    fontSize: 12,
-                    fontWeight: 800
-                  }}
-                >
-                  🎁{" "}
-                  {getDailyScratchRewardText(
-                    newOrder
-                  )}
-                </div>
-
-              )}
-
-            </div>
-
-            <div className="alert-actions">
+            <div className="new-order-alert">
 
               <button
-                className="action accept big"
-                onClick={() =>
-                  accept(newOrder)
-                }
-              >
-                ✓ ACCEPT ORDER
-              </button>
-
-              <button
-                className="action reject big"
-                onClick={() =>
-                  reject(newOrder)
-                }
-              >
-                ✕ REJECT
-              </button>
-
-              <button
-                className="action outline big"
+                className="alert-close"
                 onClick={() => {
-
                   stopBell();
-
-                  setKotOrder(
-                    newOrder
-                  );
 
                   setNewOrder(
                     null
                   );
                 }}
               >
-                🧾 VIEW KOT
+                ×
               </button>
+
+              <div className="new-icon">
+                🔔
+              </div>
+
+              <div>
+
+                <span>
+                  WAITING FOR STORE CONFIRMATION
+                </span>
+
+                <h2>
+                  Order #{label(
+                    newOrder
+                  )}
+                </h2>
+
+                <p>
+                  {newOrder.customerName ||
+                    newOrder.name ||
+                    "Customer"}{" "}
+                  ·{" "}
+                  {money(
+                    newOrder.total
+                  )}
+                </p>
+
+                <div
+                  style={{
+                    marginTop: 10,
+                    fontSize: 28,
+                    fontWeight: 900,
+                    color:
+                      confirmationRemaining(
+                        newOrder,
+                        now
+                      ) > 0
+                        ? "#ea580c"
+                        : "#dc2626"
+                  }}
+                >
+                  {confirmationTimeLabel(
+                    newOrder,
+                    now
+                  )}
+                </div>
+
+                {getDailyScratchReward(
+                  newOrder
+                )?.enabled && (
+                  <div
+                    style={{
+                      marginTop: 8,
+                      display:
+                        "inline-flex",
+                      alignItems:
+                        "center",
+                      gap: 6,
+                      padding:
+                        "6px 9px",
+                      borderRadius: 8,
+                      background:
+                        "#fff7ed",
+                      border:
+                        "1px solid #fed7aa",
+                      color:
+                        "#9a3412",
+                      fontSize: 12,
+                      fontWeight: 800
+                    }}
+                  >
+                    🎁{" "}
+                    {getDailyScratchRewardText(
+                      newOrder
+                    )}
+                  </div>
+                )}
+
+              </div>
+
+              <div className="alert-actions">
+
+                {confirmationRemaining(
+                  newOrder,
+                  now
+                ) > 0 ? (
+                  <>
+                    <button
+                      className="action accept big"
+                      onClick={() =>
+                        accept(
+                          newOrder
+                        )
+                      }
+                    >
+                      ✓ ACCEPT ORDER
+                    </button>
+
+                    <button
+                      className="action reject big"
+                      onClick={() =>
+                        reject(
+                          newOrder
+                        )
+                      }
+                    >
+                      ✕ REJECT
+                    </button>
+                  </>
+                ) : (
+                  <div
+                    style={{
+                      width: "100%",
+                      textAlign:
+                        "center",
+                      padding: 12,
+                      color:
+                        "#dc2626",
+                      fontWeight: 800
+                    }}
+                  >
+                    ⏰ Confirmation time
+                    expired. Order is
+                    being cancelled...
+                  </div>
+                )}
+
+              </div>
 
             </div>
 
           </div>
-
-        </div>
-      )}
+        )}
 
       {/* ===================================================
           KOT MODAL
@@ -2621,16 +3364,13 @@ function AdminOrders() {
 
       <KOTModal
         order={kotOrder}
-
         onClose={() => {
-
           stopBell();
 
           setKotOrder(
             null
           );
         }}
-
         onPrint={
           printKOT
         }
