@@ -10,13 +10,19 @@
 
    FINAL DELIVERY RULES
    ---------------------------------------------------------
-   DELIVERY:
-   - Minimum delivery order: ₹169
-   - Takeaway has NO ₹169 minimum
+   BEFORE 9 PM:
    - 0–2 KM: ₹50 delivery charge
-   - Above 2 KM: ₹20/KM
+   - Above 2 KM: ₹25/KM
    - Maximum delivery charge: ₹149
+
+   AFTER 9 PM:
+   - 0–1 KM: ₹50 delivery charge
+   - Above 1 KM: ₹30/KM
+   - Maximum delivery charge: ₹149
+
    - Maximum delivery radius: 8 KM
+   - Delivery minimum: ITEM TOTAL + DELIVERY >= ₹169
+   - Takeaway has NO ₹169 minimum
 
    ORDER CONFIRMATION
    ---------------------------------------------------------
@@ -77,9 +83,28 @@ const MIN_ORDER_AMOUNT = 169;
 
 const MAX_DELIVERY_DISTANCE = 8;
 
-const DELIVERY_PER_KM = 20;
+/*
+ * BEFORE 9 PM
+ * 0–2 KM = ₹50
+ * Above 2 KM = ₹25/KM
+ *
+ * AFTER 9 PM
+ * 0–1 KM = ₹50
+ * Above 1 KM = ₹30/KM
+ *
+ * Maximum delivery charge = ₹149
+ */
 
-const MIN_DELIVERY_CHARGE = 50;
+const DAY_BASE_DISTANCE_KM = 2;
+const NIGHT_BASE_DISTANCE_KM = 1;
+
+const DAY_BASE_DELIVERY_CHARGE = 50;
+const NIGHT_BASE_DELIVERY_CHARGE = 50;
+
+const DAY_DELIVERY_PER_KM = 25;
+const NIGHT_DELIVERY_PER_KM = 30;
+
+const NIGHT_START_HOUR = 21;
 
 const MAX_DELIVERY_CHARGE = 149;
 
@@ -525,10 +550,16 @@ export default function Checkout() {
 
   /* =======================================================
      DELIVERY CHARGE
-     
-     0–2 KM       = ₹50
-     Above 2 KM   = ₹20/KM
-     Maximum      = ₹149
+
+     BEFORE 9 PM:
+     0–2 KM      = ₹50
+     Above 2 KM  = ₹25/KM
+     Maximum     = ₹149
+
+     AFTER 9 PM:
+     0–1 KM      = ₹50
+     Above 1 KM  = ₹30/KM
+     Maximum     = ₹149
   ======================================================= */
 
   const deliveryCharge = useMemo(() => {
@@ -550,20 +581,53 @@ export default function Checkout() {
       return 0;
     }
 
-    if (km <= 2) {
-      return MIN_DELIVERY_CHARGE;
+    const currentHour =
+      new Date().getHours();
+
+    const isNight =
+      currentHour >=
+      NIGHT_START_HOUR;
+
+    /* ================================================
+       AFTER 9 PM
+    ================================================= */
+
+    if (isNight) {
+      if (
+        km <=
+        NIGHT_BASE_DISTANCE_KM
+      ) {
+        return NIGHT_BASE_DELIVERY_CHARGE;
+      }
+
+      const calculatedCharge =
+        Math.ceil(km) *
+        NIGHT_DELIVERY_PER_KM;
+
+      return Math.min(
+        MAX_DELIVERY_CHARGE,
+        calculatedCharge
+      );
+    }
+
+    /* ================================================
+       BEFORE 9 PM
+    ================================================= */
+
+    if (
+      km <=
+      DAY_BASE_DISTANCE_KM
+    ) {
+      return DAY_BASE_DELIVERY_CHARGE;
     }
 
     const calculatedCharge =
       Math.ceil(km) *
-      DELIVERY_PER_KM;
+      DAY_DELIVERY_PER_KM;
 
     return Math.min(
       MAX_DELIVERY_CHARGE,
-      Math.max(
-        MIN_DELIVERY_CHARGE,
-        calculatedCharge
-      )
+      calculatedCharge
     );
   }, [
     orderType,
@@ -959,9 +1023,31 @@ export default function Checkout() {
 
   /* =======================================================
      TOTAL
+
+     DELIVERY MINIMUM:
+     Item Total + Delivery Charge >= ₹169
+
+     Scratch discount is NOT counted for the
+     delivery minimum eligibility.
   ======================================================= */
 
   const gst = 0;
+
+  const deliveryBillAmount =
+    Number(totalPrice || 0) +
+    Number(deliveryCharge || 0);
+
+  const minimumDeliveryAmount =
+    Math.max(
+      0,
+      MIN_ORDER_AMOUNT -
+        deliveryBillAmount
+    );
+
+  const meetsMinimumDeliveryBill =
+    orderType === "Takeaway" ||
+    deliveryBillAmount >=
+      MIN_ORDER_AMOUNT;
 
   const grandTotal =
     Math.max(
@@ -2291,22 +2377,28 @@ export default function Checkout() {
         orderType ===
         "Delivery"
       ) {
+        /*
+         * FINAL MINIMUM RULE:
+         *
+         * Item Total + Delivery Charge >= ₹169
+         */
         if (
-          Number(totalPrice) <
-          MIN_ORDER_AMOUNT
+          !meetsMinimumDeliveryBill
         ) {
-          const remainingAmount =
-            MIN_ORDER_AMOUNT -
-            Number(totalPrice);
-
           alert(
-            `🛵 Minimum delivery order is ₹${MIN_ORDER_AMOUNT}.\n\n` +
-            `Your current item total is ₹${Number(
+            `🛵 Minimum delivery bill is ₹${MIN_ORDER_AMOUNT}.\n\n` +
+            `Item Total: ₹${Number(
               totalPrice
-            ).toFixed(0)}.\n\n` +
-            `Please add ₹${remainingAmount.toFixed(
+            ).toFixed(0)}\n` +
+            `Delivery Charge: ₹${Number(
+              deliveryCharge
+            ).toFixed(0)}\n` +
+            `Current Bill: ₹${deliveryBillAmount.toFixed(
               0
-            )} more to place a delivery order.`
+            )}\n\n` +
+            `Please add ₹${minimumDeliveryAmount.toFixed(
+              0
+            )} more to your order.`
           );
 
           return;
@@ -2575,11 +2667,11 @@ export default function Checkout() {
 
         /* ================================================
            ORDER CONFIRMATION TIME
-           
+
            IMPORTANT:
            Order creation timestamp and 60-second deadline
            are calculated BEFORE creating orderData.
-           
+
            For Online Payment this orderData is only written
            AFTER Razorpay verification succeeds.
         ================================================= */
@@ -2801,13 +2893,13 @@ export default function Checkout() {
 
           /* =================================================
              ORDER CONFIRMATION
-             
+
              Customer places order
              ↓
              WAITING_FOR_CONFIRMATION
              ↓
              Dashboard has 60 seconds
-             
+
              IMPORTANT:
              No preparation timer here.
              No preparationStartedAt.
@@ -2842,7 +2934,7 @@ export default function Checkout() {
 
           /* =================================================
              PREPARATION
-             
+
              These stay NULL until Dashboard accepts.
              ================================================= */
 
@@ -2954,10 +3046,13 @@ export default function Checkout() {
      No ₹169 minimum.
 
      DELIVERY:
-     ₹169 minimum
-     + GPS
-     + manual address
-     + within 8 KM
+     Item Total + Delivery Charge
+     must be ₹169 or more.
+
+     Also:
+     - GPS required
+     - Address required
+     - Within 8 KM
   ======================================================= */
 
   const orderDisabled =
@@ -2966,8 +3061,7 @@ export default function Checkout() {
     (
       orderType === "Delivery" &&
       (
-        Number(totalPrice) <
-          MIN_ORDER_AMOUNT ||
+        !meetsMinimumDeliveryBill ||
         !gpsVerified ||
         !manualAddress.trim() ||
         !deliveryAvailable
@@ -4389,19 +4483,32 @@ export default function Checkout() {
 
         {orderType ===
           "Delivery" &&
-          Number(totalPrice) <
-            MIN_ORDER_AMOUNT && (
-            <div className="checkout-action-warning">
-              🛵 Minimum delivery order is ₹169.
-              Please add ₹
-              {Math.max(
-                0,
-                MIN_ORDER_AMOUNT -
-                  Number(totalPrice)
-              ).toFixed(0)}
-              {" "}more to your cart.
-            </div>
-          )}
+          !meetsMinimumDeliveryBill && (
+          <div className="checkout-action-warning">
+            🛵 Minimum delivery bill is ₹169.
+            <br />
+
+            Item: ₹
+            {Number(
+              totalPrice
+            ).toFixed(0)}
+
+            {" + "}
+
+            Delivery: ₹
+            {Number(
+              deliveryCharge
+            ).toFixed(0)}
+
+            <br />
+
+            Please add ₹
+            {minimumDeliveryAmount.toFixed(
+              0
+            )}
+            {" "}more.
+          </div>
+        )}
 
         {/* GPS WARNING */}
 
