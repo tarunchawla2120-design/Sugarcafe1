@@ -23,6 +23,7 @@ const DEV_URL = `http://${DEV_HOST}:${DEV_PORT}`;
 
 let server = null;
 let productionServer = null;
+
 let dashboardWindow = null;
 let tray = null;
 let isQuitting = false;
@@ -180,6 +181,7 @@ function startProductionServer() {
 
         let filePath = path.resolve(DIST_DIR, safePath);
 
+        // Prevent requests from escaping the dist directory.
         if (
           filePath !== path.resolve(DIST_DIR) &&
           !filePath.startsWith(
@@ -380,7 +382,8 @@ function code128Svg(value) {
 }
 
 /* =========================================================
-   KOT HTML — KITCHEN + DELIVERY HANDOVER COPIES
+   KOT HTML
+   TWO COPIES
 ========================================================= */
 
 function buildKOTHtml(order) {
@@ -484,23 +487,25 @@ function buildKOTHtml(order) {
       : order?.landmark || "";
 
   const itemRows = items.length
-    ? items.map((item) => {
-        const qty = Number(item?.qty || item?.quantity || 1);
+    ? items
+        .map((item) => {
+          const qty = Number(item?.qty || item?.quantity || 1);
 
-        return `
-          <div class="item">
-            <span>
-              ${escapeHtml(item?.name || "Food Item")}
-              ${
-                item?.variant
-                  ? `<small>${escapeHtml(item.variant)}</small>`
-                  : ""
-              }
-            </span>
-            <b>${qty}</b>
-          </div>
-        `;
-      }).join("")
+          return `
+            <div class="item">
+              <span>
+                ${escapeHtml(item?.name || "Food Item")}
+                ${
+                  item?.variant
+                    ? `<small>${escapeHtml(item.variant)}</small>`
+                    : ""
+                }
+              </span>
+              <b>${qty}</b>
+            </div>
+          `;
+        })
+        .join("")
     : `
         <div class="item">
           <span>No items found</span>
@@ -516,59 +521,234 @@ function buildKOTHtml(order) {
 <head>
 <meta charset="utf-8">
 <style>
-@page { size: 72mm 3276mm; margin: 0; }
+@page {
+  size: 72mm 3276mm;
+  margin: 0;
+}
+
 * { box-sizing: border-box; }
+
 html, body {
-  width: 68mm; max-width: 68mm; margin: 0; padding: 0;
-  background: #fff; color: #111;
-  font-family: Arial, Helvetica, sans-serif; overflow-x: hidden;
+  width: 68mm;
+  max-width: 68mm;
+  margin: 0;
+  padding: 0;
+  background: #fff;
+  color: #111;
+  font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
 }
-body { width: 68mm; max-width: 68mm; }
+
+body {
+  width: 68mm;
+  max-width: 68mm;
+}
+
 .ticket {
-  width: 68mm; max-width: 68mm; padding: 3mm 2mm 6mm;
-  margin: 0; font-size: 12px; overflow: hidden;
-  break-after: page; page-break-after: always;
+  width: 68mm;
+  max-width: 68mm;
+  padding: 3mm 2mm 6mm;
+  margin: 0;
+  font-size: 12px;
+  overflow: hidden;
+  break-after: page;
+  page-break-after: always;
 }
-.ticket:last-child { break-after: auto; page-break-after: auto; }
+
+.ticket:last-child {
+  break-after: auto;
+  page-break-after: auto;
+}
+
 .center { text-align: center; }
-.brand { font-size: 19px; font-weight: 900; letter-spacing: 1px; }
-.title { font-size: 12px; font-weight: 800; margin-top: 2px; }
-.meta { margin-top: 7px; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+
+.brand {
+  font-size: 19px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.title {
+  font-size: 12px;
+  font-weight: 800;
+  margin-top: 2px;
+}
+
+.meta {
+  margin-top: 7px;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
 .meta strong { font-size: 13px; }
-.rule { border-top: 1px dashed #111; margin: 7px 0; }
-.type { font-weight: 900; font-size: 14px; text-transform: uppercase; margin: 3px 0 6px; }
+
+.rule {
+  border-top: 1px dashed #111;
+  margin: 7px 0;
+}
+
+.type {
+  font-weight: 900;
+  font-size: 14px;
+  text-transform: uppercase;
+  margin: 3px 0 6px;
+}
+
 .items-head, .item {
-  display: grid; grid-template-columns: minmax(0, 1fr) 28px;
-  gap: 5px; width: 100%; max-width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  gap: 5px;
+  width: 100%;
+  max-width: 100%;
 }
-.items-head { font-weight: 700; font-size: 11px; margin-bottom: 3px; }
-.item { padding: 5px 0; border-top: 1px dashed #aaa; font-size: 13px; min-width: 0; }
-.item > span { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
-.item b { text-align: right; white-space: nowrap; }
-.item small { display: block; font-size: 10px; color: #555; margin-top: 2px; }
+
+.items-head {
+  font-weight: 700;
+  font-size: 11px;
+  margin-bottom: 3px;
+}
+
+.item {
+  padding: 5px 0;
+  border-top: 1px dashed #aaa;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.item > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.item b {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.item small {
+  display: block;
+  font-size: 10px;
+  color: #555;
+  margin-top: 2px;
+}
+
 .notes {
-  width: 100%; max-width: 100%; font-size: 12px; font-weight: 700;
-  margin: 8px 0; overflow-wrap: anywhere; word-break: break-word;
+  width: 100%;
+  max-width: 100%;
+  font-size: 12px;
+  font-weight: 700;
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
+
 .line {
-  display: flex; justify-content: space-between; align-items: flex-start;
-  gap: 6px; width: 100%; max-width: 100%; margin: 5px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  max-width: 100%;
+  margin: 5px 0;
 }
-.line > span { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
-.line > span:last-child { text-align: right; white-space: normal; }
+
+.line > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.line > span:last-child {
+  text-align: right;
+  white-space: normal;
+}
+
 .strong { font-weight: 800; }
-.prepare { margin-top: 8px; font-size: 11px; }
-.barcode { margin: 9px 0 3px; width: 100%; max-width: 100%; height: 38px; overflow: hidden; }
-.barcode svg { display: block; width: 100%; max-width: 100%; height: 38px; }
-.barcode-label { text-align: center; font-family: monospace; font-size: 11px; letter-spacing: 1px; overflow-wrap: anywhere; }
-.pickup { text-align: center; font-size: 11px; font-weight: 700; margin-top: 7px; overflow-wrap: anywhere; word-break: break-word; }
+
+.prepare {
+  margin-top: 8px;
+  font-size: 11px;
+}
+
+.barcode {
+  margin: 9px 0 3px;
+  width: 100%;
+  max-width: 100%;
+  height: 38px;
+  overflow: hidden;
+}
+
+.barcode svg {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: 38px;
+}
+
+.barcode-label {
+  text-align: center;
+  font-family: monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+  overflow-wrap: anywhere;
+}
+
+.pickup {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 7px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .small { font-size: 9px; color: #333; }
-.handover-title { font-size: 13px; font-weight: 900; letter-spacing: .5px; }
-.address { width: 100%; max-width: 100%; font-size: 13px; font-weight: 700; line-height: 1.4; margin-top: 7px; overflow-wrap: anywhere; word-break: break-word; }
-.handover-box { width: 100%; max-width: 100%; border: 1px solid #111; padding: 7px; margin-top: 8px; overflow: hidden; }
+
+.handover-title {
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: .5px;
+}
+
+.address {
+  width: 100%;
+  max-width: 100%;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-top: 7px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.handover-box {
+  width: 100%;
+  max-width: 100%;
+  border: 1px solid #111;
+  padding: 7px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
 .handover-box .line { font-size: 12px; }
-.big-otp { font-size: 20px; font-weight: 900; text-align: center; margin: 9px 0; }
-.handover-note { text-align: center; font-size: 11px; font-weight: 800; margin-top: 8px; overflow-wrap: anywhere; word-break: break-word; }
+
+.big-otp {
+  font-size: 20px;
+  font-weight: 900;
+  text-align: center;
+  margin: 9px 0;
+}
+
+.handover-note {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 800;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 </style>
 </head>
 <body>
@@ -576,50 +756,76 @@ body { width: 68mm; max-width: 68mm; }
 <div class="ticket">
   <div class="center brand">SUGAR CAFE</div>
   <div class="center title">KITCHEN ORDER TICKET</div>
+
   <div class="center meta">
-    <strong>${escapeHtml(dt.date)} ${escapeHtml(dt.time)}</strong><br>
-    <strong>KOT - ${escapeHtml(kotNo)}</strong><br>
-    <strong>${escapeHtml(platform)} : ${escapeHtml(platformNo)}</strong><br>
+    <strong>${escapeHtml(dt.date)} ${escapeHtml(dt.time)}</strong>
+    <br>
+    <strong>KOT - ${escapeHtml(kotNo)}</strong>
+    <br>
+    <strong>${escapeHtml(platform)} : ${escapeHtml(platformNo)}</strong>
+    <br>
     <strong>OTP : ${escapeHtml(otp)}</strong>
   </div>
+
   <div class="center type">${escapeHtml(type)}</div>
   <div class="rule"></div>
+
   <div class="items-head">
     <span>Item</span>
     <span style="text-align:right">Qty.</span>
   </div>
+
   ${itemRows}
+
   ${
     notes
       ? `<div class="notes">Customer Notes: ${escapeHtml(notes)}</div>`
       : ""
   }
+
   <div class="rule"></div>
+
   <div class="line">
     <span class="strong">Payment Status :</span>
     <span>${escapeHtml(payment)}</span>
   </div>
+
   <div class="line prepare">
     <span class="strong">Prepare By :</span>
     <span>${escapeHtml(prepareText)}</span>
   </div>
-  <div class="center small" style="margin-top:8px">Scan to Mark food ready</div>
+
+  <div class="center small" style="margin-top:8px">
+    Scan to Mark food ready
+  </div>
+
   <div class="barcode">${barcode}</div>
   <div class="barcode-label">${escapeHtml(barcodeValue)}</div>
-  <div class="pickup">Pickup barcode for ${escapeHtml(platform)} delivery partner</div>
-  <div class="center small" style="margin-top:8px">Kitchen Copy</div>
+
+  <div class="pickup">
+    Pickup barcode for ${escapeHtml(platform)} delivery partner
+  </div>
+
+  <div class="center small" style="margin-top:8px">
+    Kitchen Copy
+  </div>
 </div>
 
 <div class="ticket">
   <div class="center brand">SUGAR CAFE</div>
   <div class="center handover-title">DELIVERY HANDOVER SLIP</div>
+
   <div class="center meta">
-    <strong>${escapeHtml(dt.date)} ${escapeHtml(dt.time)}</strong><br>
-    <strong>KOT - ${escapeHtml(kotNo)}</strong><br>
+    <strong>${escapeHtml(dt.date)} ${escapeHtml(dt.time)}</strong>
+    <br>
+    <strong>KOT - ${escapeHtml(kotNo)}</strong>
+    <br>
     <strong>${escapeHtml(platform)} : ${escapeHtml(platformNo)}</strong>
   </div>
+
   <div class="center type">${escapeHtml(type)}</div>
   <div class="rule"></div>
+
   <div class="handover-box">
     <div class="line">
       <span class="strong">Customer</span>
@@ -638,8 +844,10 @@ body { width: 68mm; max-width: 68mm; }
       <span>₹${escapeHtml(total)}</span>
     </div>
   </div>
+
   <div class="rule"></div>
   <div class="strong">DELIVERY ADDRESS</div>
+
   <div class="address">
     ${escapeHtml(address)}
     ${
@@ -648,11 +856,15 @@ body { width: 68mm; max-width: 68mm; }
         : ""
     }
   </div>
+
   <div class="big-otp">OTP: ${escapeHtml(otp)}</div>
   <div class="center small">Show/confirm OTP at handover</div>
+
   <div class="barcode">${barcode}</div>
   <div class="barcode-label">${escapeHtml(barcodeValue)}</div>
+
   <div class="handover-note">DELIVERY BOY / PARTNER COPY</div>
+
   <div class="center small" style="margin-top:8px">
     Customer details & delivery address — hand over this copy to delivery partner.
   </div>
@@ -675,7 +887,9 @@ ipcMain.handle("print-kot", async (_event, order) => {
       show: false,
       width: 380,
       height: 1200,
-      webPreferences: { sandbox: true },
+      webPreferences: {
+        sandbox: true,
+      },
     });
 
     await printWin.loadURL(
@@ -710,15 +924,27 @@ ipcMain.handle("print-kot", async (_event, order) => {
       );
     }
 
+    console.log(
+      "SugarCafe KOT printer selected:",
+      selectedPrinter.name
+    );
+
     const options = {
       silent: true,
       printBackground: true,
       deviceName: selectedPrinter.name,
-      margins: { marginType: "none" },
-      pageSize: { width: 72000, height: 3276000 },
+      margins: {
+        marginType: "none",
+      },
+      pageSize: {
+        width: 72000,
+        height: 3276000,
+      },
       copies: 1,
       scaleFactor: 100,
     };
+
+    console.log("SugarCafe print options:", options);
 
     const result = await new Promise((resolve) => {
       printWin.webContents.print(options, (success, failureReason) => {
@@ -754,11 +980,13 @@ ipcMain.handle("print-kot", async (_event, order) => {
 });
 
 /* =========================================================
-   WINDOW / TRAY
+   DASHBOARD WINDOW / SYSTEM TRAY
 ========================================================= */
 
 function showDashboard() {
-  if (!dashboardWindow || dashboardWindow.isDestroyed()) return;
+  if (!dashboardWindow || dashboardWindow.isDestroyed()) {
+    return;
+  }
 
   if (dashboardWindow.isMinimized()) {
     dashboardWindow.restore();
@@ -775,6 +1003,10 @@ function attachWindowBehavior(win) {
     if (!isQuitting) {
       event.preventDefault();
       win.hide();
+
+      if (tray && Notification.isSupported()) {
+        // Tray remains available; no repeated notification is sent here.
+      }
     }
   });
 
@@ -797,27 +1029,26 @@ function createTray() {
   tray = new Tray(trayImage);
   tray.setToolTip("SugarCafe Professional Dashboard");
 
-  tray.setContextMenu(
-    Menu.buildFromTemplate([
-      {
-        label: "Open SugarCafe Dashboard",
-        click: showDashboard,
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: "Open SugarCafe Dashboard",
+      click: () => showDashboard(),
+    },
+    {
+      label: "Exit SugarCafe",
+      click: () => {
+        isQuitting = true;
+        app.quit();
       },
-      {
-        label: "Exit SugarCafe",
-        click: () => {
-          isQuitting = true;
-          app.quit();
-        },
-      },
-    ])
-  );
+    },
+  ]);
 
-  tray.on("click", showDashboard);
+  tray.setContextMenu(contextMenu);
+  tray.on("click", () => showDashboard());
 }
 
 /* =========================================================
-   NEW ORDER POPUP
+   BACKGROUND ORDER POPUP
 ========================================================= */
 
 function showOrderPopup(order) {
@@ -826,7 +1057,7 @@ function showOrderPopup(order) {
   const orderId = String(order.id || order.orderId || "");
 
   if (!orderId) {
-    console.error("Background popup: order ID missing.");
+    console.error("Background order popup: missing order ID.");
     return;
   }
 
@@ -836,11 +1067,11 @@ function showOrderPopup(order) {
 
   shownOrderIds.add(orderId);
 
-  const customerName = order.customerName || order.name || "Customer";
+  const customerName =
+    order.customerName || order.name || "Customer";
+
   const orderNumber =
-    order.orderNumber ||
-    order.kotNumber ||
-    orderId.slice(-6).toUpperCase();
+    order.orderNumber || order.kotNumber || orderId.slice(-6).toUpperCase();
 
   const total = Number(order.total || 0).toLocaleString("en-IN");
 
@@ -904,16 +1135,61 @@ function showOrderPopup(order) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 * { box-sizing: border-box; }
-body { margin: 0; padding: 20px; font-family: Arial, sans-serif; background: #fffaf5; color: #251b16; }
-.brand { font-size: 12px; font-weight: 800; letter-spacing: 2px; color: #b45309; }
+body {
+  margin: 0;
+  padding: 20px;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #fffaf5;
+  color: #251b16;
+}
+.brand {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: #b45309;
+}
 h1 { font-size: 23px; margin: 8px 0 4px; }
 .muted { color: #6b625c; font-size: 13px; }
-.card { background: white; border: 1px solid #eadfd5; border-radius: 12px; padding: 14px; margin-top: 16px; }
-.row { display: flex; justify-content: space-between; gap: 12px; margin: 8px 0; font-size: 14px; }
-.items { max-height: 100px; overflow-y: auto; line-height: 1.7; font-size: 13px; overflow-wrap: anywhere; }
-.total { font-size: 21px; font-weight: 800; }
-.buttons { display: flex; gap: 10px; margin-top: 18px; }
-button { flex: 1; padding: 13px 8px; border: 0; border-radius: 9px; color: white; font-size: 15px; font-weight: 800; cursor: pointer; }
+.card {
+  background: white;
+  border: 1px solid #eadfd5;
+  border-radius: 12px;
+  padding: 14px;
+  margin-top: 16px;
+}
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0;
+  font-size: 14px;
+}
+.items {
+  max-height: 100px;
+  overflow-y: auto;
+  line-height: 1.7;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.total {
+  font-size: 21px;
+  font-weight: 800;
+}
+.buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+button {
+  flex: 1;
+  padding: 13px 8px;
+  border: 0;
+  border-radius: 9px;
+  color: white;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
 button:disabled { opacity: .55; cursor: wait; }
 .accept { background: #15803d; }
 .reject { background: #b91c1c; }
@@ -923,14 +1199,21 @@ button:disabled { opacity: .55; cursor: wait; }
 <body>
   <div class="brand">SUGAR CAFE</div>
   <h1>New Order #${escapeHtml(orderNumber)}</h1>
-  <div class="muted">Action required — respond to this order.</div>
+  <div class="muted">Action required — please respond to this order.</div>
 
   <div class="card">
-    <div class="row"><strong>Customer</strong><span>${escapeHtml(customerName)}</span></div>
-    <div class="row"><strong>Order ID</strong><span>${escapeHtml(orderNumber)}</span></div>
+    <div class="row">
+      <strong>Customer</strong>
+      <span>${escapeHtml(customerName)}</span>
+    </div>
+    <div class="row">
+      <strong>Order ID</strong>
+      <span>${escapeHtml(orderNumber)}</span>
+    </div>
     <div class="items">${itemText}</div>
     <div class="row" style="border-top:1px solid #eee;padding-top:12px">
-      <strong>Total</strong><span class="total">₹${escapeHtml(total)}</span>
+      <strong>Total</strong>
+      <span class="total">₹${escapeHtml(total)}</span>
     </div>
   </div>
 
@@ -938,7 +1221,7 @@ button:disabled { opacity: .55; cursor: wait; }
     <button id="reject" class="reject">Reject Order</button>
     <button id="accept" class="accept">Accept Order</button>
   </div>
-  <div id="message">Choose an action to respond.</div>
+  <div id="message">The dashboard will process your selection.</div>
 
   <script>
     const orderId = ${JSON.stringify(orderId)};
@@ -952,15 +1235,13 @@ button:disabled { opacity: .55; cursor: wait; }
       message.textContent = "Sending response…";
 
       try {
-        if (
-          !window.electronAPI ||
-          typeof window.electronAPI.respondToOrder !== "function"
-        ) {
+        if (!window.electronAPI ||
+            typeof window.electronAPI.respondToOrder !== "function") {
           throw new Error("Order response connection is unavailable.");
         }
 
         window.electronAPI.respondToOrder(orderId, action);
-        message.textContent = "Response sent to dashboard.";
+        message.textContent = "Response sent to the dashboard.";
       } catch (error) {
         acceptButton.disabled = false;
         rejectButton.disabled = false;
@@ -978,13 +1259,16 @@ button:disabled { opacity: .55; cursor: wait; }
   popup.on("closed", () => {
     orderPopups.delete(orderId);
 
+    // If the popup was closed without choosing Accept/Reject,
+    // permit another notification for this order if the monitor emits it again.
     if (!handledOrderIds.has(orderId)) {
       shownOrderIds.delete(orderId);
     }
   });
 
   popup.loadURL(
-    "data:text/html;charset=utf-8," + encodeURIComponent(popupHtml)
+    "data:text/html;charset=utf-8," +
+      encodeURIComponent(popupHtml)
   ).catch((error) => {
     console.error("Could not load order popup:", error);
   });
@@ -997,10 +1281,13 @@ button:disabled { opacity: .55; cursor: wait; }
    BACKGROUND ORDER IPC
 ========================================================= */
 
+// Called by BackgroundOrderMonitor.jsx through preload.cjs.
 ipcMain.on("background-new-order", (_event, order) => {
   showOrderPopup(order);
 });
 
+// Popup responses are forwarded to the dashboard renderer.
+// BackgroundOrderMonitor.jsx must listen for "background-order-action".
 ipcMain.on("background-order-response", (_event, payload) => {
   if (!payload || !payload.orderId) return;
 
@@ -1012,30 +1299,28 @@ ipcMain.on("background-order-response", (_event, payload) => {
     return;
   }
 
-  if (!dashboardWindow || dashboardWindow.isDestroyed()) {
-    console.error(
-      "Cannot process order response: dashboard renderer is unavailable."
-    );
-
-    handledOrderIds.delete(orderId);
-    const popup = orderPopups.get(orderId);
-    if (popup && !popup.isDestroyed()) popup.close();
-    return;
-  }
-
   handledOrderIds.add(orderId);
 
-  dashboardWindow.webContents.send("background-order-action", {
-    orderId,
-    action,
-  });
-
   const popup = orderPopups.get(orderId);
-  if (popup && !popup.isDestroyed()) popup.close();
+
+  if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+    dashboardWindow.webContents.send("background-order-action", {
+      orderId,
+      action,
+    });
+  } else {
+    console.error(
+      "Cannot process background order response: dashboard window is unavailable."
+    );
+  }
+
+  if (popup && !popup.isDestroyed()) {
+    popup.close();
+  }
 });
 
 /* =========================================================
-   DASHBOARD WINDOW — DEVELOPMENT
+   DASHBOARD WINDOW - DEVELOPMENT
 ========================================================= */
 
 function createWindow() {
@@ -1065,14 +1350,17 @@ function createWindow() {
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
-    return { action: "deny" };
+
+    return {
+      action: "deny",
+    };
   });
 
   return win;
 }
 
 /* =========================================================
-   DASHBOARD WINDOW — PRODUCTION
+   DASHBOARD WINDOW - PRODUCTION
 ========================================================= */
 
 async function createWindowProduction() {
@@ -1104,7 +1392,10 @@ async function createWindowProduction() {
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
-    return { action: "deny" };
+
+    return {
+      action: "deny",
+    };
   });
 
   return win;
@@ -1122,7 +1413,9 @@ app.whenReady().then(async () => {
     } else {
       console.log("Starting SugarCafe development Dashboard...");
       startDevServer();
+
       await waitForServer(DEV_URL);
+
       createWindow();
     }
 
@@ -1151,13 +1444,17 @@ app.whenReady().then(async () => {
 });
 
 /* =========================================================
-   CLOSE / SYSTEM TRAY
+   CLOSE / KEEP RUNNING IN SYSTEM TRAY
 ========================================================= */
 
+// Closing the dashboard hides it to the tray. It does not quit.
 app.on("window-all-closed", () => {
-  // Intentionally keep the application alive in the system tray.
+  if (isQuitting) {
+    return;
+  }
 });
 
+// Clean up only when the user explicitly exits the app.
 app.on("before-quit", () => {
   isQuitting = true;
 
