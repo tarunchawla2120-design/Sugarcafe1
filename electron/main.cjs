@@ -1,4 +1,15 @@
-const { app, BrowserWindow, shell, ipcMain } = require("electron");
+
+const {
+  app,
+  BrowserWindow,
+  shell,
+  ipcMain,
+  Tray,
+  Menu,
+  nativeImage,
+  Notification,
+} = require("electron");
+
 const { spawn } = require("child_process");
 const http = require("http");
 const fs = require("fs");
@@ -12,6 +23,13 @@ const DEV_URL = `http://${DEV_HOST}:${DEV_PORT}`;
 
 let server = null;
 let productionServer = null;
+let dashboardWindow = null;
+let tray = null;
+let isQuitting = false;
+
+const orderPopups = new Map();
+const shownOrderIds = new Set();
+const handledOrderIds = new Set();
 
 const isPackaged = app.isPackaged;
 
@@ -92,17 +110,11 @@ function startDevServer() {
   );
 
   server.on("error", (error) => {
-    console.error(
-      "Failed to start Vite server:",
-      error
-    );
+    console.error("Failed to start Vite server:", error);
   });
 
   server.on("exit", (code) => {
-    console.log(
-      "Vite server stopped:",
-      code
-    );
+    console.log("Vite server stopped:", code);
   });
 }
 
@@ -111,9 +123,7 @@ function startDevServer() {
 ========================================================= */
 
 function getMimeType(filePath) {
-  const ext = path
-    .extname(filePath)
-    .toLowerCase();
+  const ext = path.extname(filePath).toLowerCase();
 
   const types = {
     ".html": "text/html; charset=UTF-8",
@@ -137,10 +147,7 @@ function getMimeType(filePath) {
     ".mp4": "video/mp4",
   };
 
-  return (
-    types[ext] ||
-    "application/octet-stream"
-  );
+  return types[ext] || "application/octet-stream";
 }
 
 /* =========================================================
@@ -151,121 +158,93 @@ function startProductionServer() {
   return new Promise((resolve, reject) => {
     if (!fs.existsSync(DIST_DIR)) {
       reject(
-        new Error(
-          `DIST folder not found:\n${DIST_DIR}`
-        )
+        new Error(`DIST folder not found:\n${DIST_DIR}`)
       );
       return;
     }
 
-    productionServer = http.createServer(
-      (req, res) => {
-        try {
-          let requestPath =
-            decodeURIComponent(
-              req.url.split("?")[0]
-            );
+    productionServer = http.createServer((req, res) => {
+      try {
+        let requestPath = decodeURIComponent(
+          req.url.split("?")[0]
+        );
 
-          if (
-            !requestPath ||
-            requestPath === "/"
-          ) {
-            requestPath = "/index.html";
-          }
-
-          const safePath = path
-            .normalize(requestPath)
-            .replace(
-              /^(\.\.[\\/])+/,
-              ""
-            );
-
-          let filePath = path.join(
-            DIST_DIR,
-            safePath
-          );
-
-          if (
-            !fs.existsSync(filePath) ||
-            !fs.statSync(filePath).isFile()
-          ) {
-            filePath = path.join(
-              DIST_DIR,
-              "index.html"
-            );
-          }
-
-          if (!fs.existsSync(filePath)) {
-            res.writeHead(404);
-            res.end(
-              "SugarCafe Dashboard not found"
-            );
-            return;
-          }
-
-          const contentType =
-            getMimeType(filePath);
-
-          res.writeHead(200, {
-            "Content-Type": contentType,
-            "Cache-Control": "no-cache",
-          });
-
-          fs.createReadStream(
-            filePath
-          ).pipe(res);
-        } catch (error) {
-          console.error(
-            "Production server error:",
-            error
-          );
-
-          res.writeHead(500);
-          res.end(
-            "Internal server error"
-          );
+        if (!requestPath || requestPath === "/") {
+          requestPath = "/index.html";
         }
-      }
-    );
 
-    productionServer.on(
-      "error",
-      reject
-    );
+        const safePath = path
+          .normalize(requestPath)
+          .replace(/^(\.\.[\\/])+/, "")
+          .replace(/^[/\\]+/, "");
 
-    productionServer.listen(
-      0,
-      "127.0.0.1",
-      () => {
-        const address =
-          productionServer.address();
+        let filePath = path.resolve(DIST_DIR, safePath);
 
-        const port =
-          typeof address === "object" &&
-          address
-            ? address.port
-            : null;
-
-        if (!port) {
-          reject(
-            new Error(
-              "Could not determine production server port."
-            )
-          );
+        if (
+          filePath !== path.resolve(DIST_DIR) &&
+          !filePath.startsWith(
+            path.resolve(DIST_DIR) + path.sep
+          )
+        ) {
+          res.writeHead(403);
+          res.end("Forbidden");
           return;
         }
 
-        const url =
-          `http://127.0.0.1:${port}`;
+        if (
+          !fs.existsSync(filePath) ||
+          !fs.statSync(filePath).isFile()
+        ) {
+          filePath = path.join(DIST_DIR, "index.html");
+        }
 
-        console.log(
-          "SugarCafe packaged dashboard server:",
-          url
-        );
+        if (!fs.existsSync(filePath)) {
+          res.writeHead(404);
+          res.end("SugarCafe Dashboard not found");
+          return;
+        }
 
-        resolve(url);
+        res.writeHead(200, {
+          "Content-Type": getMimeType(filePath),
+          "Cache-Control": "no-cache",
+        });
+
+        fs.createReadStream(filePath).pipe(res);
+      } catch (error) {
+        console.error("Production server error:", error);
+        res.writeHead(500);
+        res.end("Internal server error");
       }
-    );
+    });
+
+    productionServer.on("error", reject);
+
+    productionServer.listen(0, "127.0.0.1", () => {
+      const address = productionServer.address();
+
+      const port =
+        typeof address === "object" && address
+          ? address.port
+          : null;
+
+      if (!port) {
+        reject(
+          new Error(
+            "Could not determine production server port."
+          )
+        );
+        return;
+      }
+
+      const url = `http://127.0.0.1:${port}`;
+
+      console.log(
+        "SugarCafe packaged dashboard server:",
+        url
+      );
+
+      resolve(url);
+    });
   });
 }
 
@@ -293,40 +272,19 @@ function formatDateTime(value) {
       ? value
       : Date.parse(value || "");
 
-  const d = Number.isFinite(ms)
-    ? new Date(ms)
-    : new Date();
+  const d = Number.isFinite(ms) ? new Date(ms) : new Date();
 
-  const dd = String(
-    d.getDate()
-  ).padStart(2, "0");
-
-  const mm = String(
-    d.getMonth() + 1
-  ).padStart(2, "0");
-
-  const yy = String(
-    d.getFullYear()
-  ).slice(-2);
-
-  const hh = String(
-    d.getHours()
-  ).padStart(2, "0");
-
-  const min = String(
-    d.getMinutes()
-  ).padStart(2, "0");
-
-  const sec = String(
-    d.getSeconds()
-  ).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yy = String(d.getFullYear()).slice(-2);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  const sec = String(d.getSeconds()).padStart(2, "0");
 
   return {
     date: `${dd}/${mm}/${yy}`,
     time: `${hh}:${min}`,
-    full:
-      `${d.getFullYear()}-${mm}-${dd} ` +
-      `${hh}:${min}:${sec}`,
+    full: `${d.getFullYear()}-${mm}-${dd} ${hh}:${min}:${sec}`,
   };
 }
 
@@ -335,159 +293,57 @@ function formatDateTime(value) {
 ========================================================= */
 
 const CODE128_PATTERNS = [
-  "212222",
-  "222122",
-  "222221",
-  "121223",
-  "121322",
-  "131222",
-  "122213",
-  "122312",
-  "132212",
-  "221213",
-  "221312",
-  "231212",
-  "112232",
-  "122132",
-  "122231",
-  "113222",
-  "123122",
-  "123221",
-  "223211",
-  "221132",
-  "221231",
-  "213212",
-  "223112",
-  "312131",
-  "311222",
-  "321122",
-  "321221",
-  "312212",
-  "322112",
-  "322211",
-  "212123",
-  "212321",
-  "232121",
-  "111323",
-  "131123",
-  "131321",
-  "112313",
-  "132113",
-  "132311",
-  "211313",
-  "231113",
-  "231311",
-  "112133",
-  "112331",
-  "132131",
-  "113123",
-  "113321",
-  "133121",
-  "313121",
-  "211331",
-  "231131",
-  "213113",
-  "213311",
-  "213131",
-  "311123",
-  "311321",
-  "331121",
-  "312113",
-  "312311",
-  "332111",
-  "314111",
-  "221411",
-  "431111",
-  "111224",
-  "111422",
-  "121124",
-  "121421",
-  "141122",
-  "141221",
-  "112214",
-  "112412",
-  "122114",
-  "122411",
-  "142112",
-  "142211",
-  "241211",
-  "221114",
-  "413111",
-  "241112",
-  "134111",
-  "111242",
-  "121142",
-  "121241",
-  "114212",
-  "124112",
-  "124211",
-  "411212",
-  "421112",
-  "421211",
-  "212141",
-  "214121",
-  "412121",
-  "111143",
-  "111341",
-  "131141",
-  "114113",
-  "114311",
-  "411113",
-  "411311",
-  "113141",
-  "114131",
-  "311141",
-  "411131",
-  "211412",
-  "211214",
-  "211232",
-  "2331112",
+  "212222","222122","222221","121223","121322","131222",
+  "122213","122312","132212","221213","221312","231212",
+  "112232","122132","122231","113222","123122","123221",
+  "223211","221132","221231","213212","223112","312131",
+  "311222","321122","321221","312212","322112","322211",
+  "212123","212321","232121","111323","131123","131321",
+  "112313","132113","132311","211313","231113","231311",
+  "112133","112331","132131","113123","113321","133121",
+  "313121","211331","231131","213113","213311","213131",
+  "311123","311321","331121","312113","312311","332111",
+  "314111","221411","431111","111224","111422","121124",
+  "121421","141122","141221","112214","112412","122114",
+  "122411","142112","142211","241211","221114","413111",
+  "241112","134111","111242","121142","121241","114212",
+  "124112","124211","411212","421112","421211","212141",
+  "214121","412121","111143","111341","131141","114113",
+  "114311","411113","411311","113141","114131","311141",
+  "411131","211412","211214","211232","2331112",
 ];
 
 function code128Svg(value) {
-  const text =
-    String(value || "0")
-      .replace(/[^\x20-\x7E]/g, "-")
-      .slice(0, 24) || "0";
+  const text = String(value || "0")
+    .replace(/[^\x20-\x7E]/g, "-")
+    .slice(0, 24) || "0";
 
   const codes = [104];
 
   for (const ch of text) {
-    codes.push(
-      ch.charCodeAt(0) - 32
-    );
+    codes.push(ch.charCodeAt(0) - 32);
   }
 
   let checksum = 104;
 
-  for (
-    let i = 1;
-    i < codes.length;
-    i++
-  ) {
+  for (let i = 1; i < codes.length; i++) {
     checksum += codes[i] * i;
   }
 
-  codes.push(
-    checksum % 103,
-    106
-  );
+  codes.push(checksum % 103, 106);
 
   let x = 2;
   const scale = 1.45;
   let rects = "";
 
   for (const code of codes) {
-    const pattern =
-      CODE128_PATTERNS[code];
+    const pattern = CODE128_PATTERNS[code];
+
+    if (!pattern) continue;
 
     let black = true;
 
-    for (
-      const width of pattern
-        .split("")
-        .map(Number)
-    ) {
+    for (const width of pattern.split("").map(Number)) {
       const w = width * scale;
 
       if (black) {
@@ -524,31 +380,24 @@ function code128Svg(value) {
 }
 
 /* =========================================================
-   KOT HTML
-   TWO COPIES
+   KOT HTML — KITCHEN + DELIVERY HANDOVER COPIES
 ========================================================= */
 
 function buildKOTHtml(order) {
-  const dt =
-    formatDateTime(
-      order?.createdAt
-    );
+  const dt = formatDateTime(order?.createdAt);
 
-  const items =
-    Array.isArray(order?.items)
-      ? order.items
-      : Array.isArray(order?.cart)
-        ? order.cart
-        : [];
+  const items = Array.isArray(order?.items)
+    ? order.items
+    : Array.isArray(order?.cart)
+      ? order.cart
+      : [];
 
   const kotNo =
     order?.kotNumber ||
     order?.kotNo ||
     order?.kot ||
     order?.orderNumber ||
-    order?.id
-      ?.slice(-4)
-      .toUpperCase() ||
+    order?.id?.slice(-4).toUpperCase() ||
     "—";
 
   const platform =
@@ -573,9 +422,7 @@ function buildKOTHtml(order) {
     order?.deliveryOTP ||
     "—";
 
-  const type =
-    order?.orderType ||
-    "Delivery";
+  const type = order?.orderType || "Delivery";
 
   const notes =
     order?.instructions ||
@@ -586,36 +433,26 @@ function buildKOTHtml(order) {
   const payment =
     order?.paymentStatus === "Paid"
       ? "Online Paid"
-      : order?.paymentStatus ||
-        "Pending";
+      : order?.paymentStatus || "Pending";
 
   const prepareBy =
     order?.preparationEndAt ||
     order?.prepareBy ||
     "";
 
-  const prepareText =
-    prepareBy
-      ? formatDateTime(
-          prepareBy
-        ).full
-      : "—";
+  const prepareText = prepareBy
+    ? formatDateTime(prepareBy).full
+    : "—";
 
-  const barcodeValue =
-    String(
-      order?.zomatoOrderNumber ||
-        order?.platformOrderNumber ||
-        order?.orderNumber ||
-        order?.id ||
-        "000000"
-    );
+  const barcodeValue = String(
+    order?.zomatoOrderNumber ||
+      order?.platformOrderNumber ||
+      order?.orderNumber ||
+      order?.id ||
+      "000000"
+  );
 
-  const total =
-    Number(
-      order?.total || 0
-    ).toLocaleString(
-      "en-IN"
-    );
+  const total = Number(order?.total || 0).toLocaleString("en-IN");
 
   const customerName =
     order?.customerName ||
@@ -628,8 +465,7 @@ function buildKOTHtml(order) {
     order?.customerPhone ||
     "—";
 
-  const addressObj =
-    order?.address;
+  const addressObj = order?.address;
 
   const address =
     typeof addressObj === "string"
@@ -645,1136 +481,706 @@ function buildKOTHtml(order) {
       ? addressObj?.landmark ||
         addressObj?.area ||
         ""
-      : order?.landmark ||
-        "";
+      : order?.landmark || "";
 
-  const itemRows =
-    items.length
-      ? items
-          .map((item) => {
-            const qty =
-              Number(
-                item?.qty ||
-                  item?.quantity ||
-                  1
-              );
+  const itemRows = items.length
+    ? items.map((item) => {
+        const qty = Number(item?.qty || item?.quantity || 1);
 
-            return `
-              <div class="item">
-                <span>
-                  ${escapeHtml(
-                    item?.name ||
-                      "Food Item"
-                  )}
-
-                  ${
-                    item?.variant
-                      ? `
-                        <small>
-                          ${escapeHtml(
-                            item.variant
-                          )}
-                        </small>
-                      `
-                      : ""
-                  }
-                </span>
-
-                <b>${qty}</b>
-              </div>
-            `;
-          })
-          .join("")
-      : `
+        return `
           <div class="item">
-            <span>No items found</span>
-            <b>1</b>
+            <span>
+              ${escapeHtml(item?.name || "Food Item")}
+              ${
+                item?.variant
+                  ? `<small>${escapeHtml(item.variant)}</small>`
+                  : ""
+              }
+            </span>
+            <b>${qty}</b>
           </div>
         `;
+      }).join("")
+    : `
+        <div class="item">
+          <span>No items found</span>
+          <b>1</b>
+        </div>
+      `;
 
-  const barcode =
-    code128Svg(
-      barcodeValue
-    );
+  const barcode = code128Svg(barcodeValue);
 
   return `
 <!doctype html>
-
 <html>
-
 <head>
-
 <meta charset="utf-8">
-
 <style>
-
-/* =========================================================
-   72MM PRINTER PAPER
-   SAFE CONTENT WIDTH = 68MM
-========================================================= */
-
-@page {
-  size: 72mm 3276mm;
-  margin: 0;
+@page { size: 72mm 3276mm; margin: 0; }
+* { box-sizing: border-box; }
+html, body {
+  width: 68mm; max-width: 68mm; margin: 0; padding: 0;
+  background: #fff; color: #111;
+  font-family: Arial, Helvetica, sans-serif; overflow-x: hidden;
 }
-
-* {
-  box-sizing: border-box;
-}
-
-html,
-body {
-  width: 68mm;
-  max-width: 68mm;
-
-  margin: 0;
-  padding: 0;
-
-  background: #fff;
-  color: #111;
-
-  font-family:
-    Arial,
-    Helvetica,
-    sans-serif;
-
-  overflow-x: hidden;
-}
-
-body {
-  width: 68mm;
-  max-width: 68mm;
-}
-
+body { width: 68mm; max-width: 68mm; }
 .ticket {
-  width: 68mm;
-  max-width: 68mm;
-
-  padding:
-    3mm
-    2mm
-    6mm;
-
-  margin: 0;
-
-  font-size: 12px;
-
-  overflow: hidden;
-
-  break-after: page;
-  page-break-after: always;
+  width: 68mm; max-width: 68mm; padding: 3mm 2mm 6mm;
+  margin: 0; font-size: 12px; overflow: hidden;
+  break-after: page; page-break-after: always;
 }
-
-.ticket:last-child {
-  break-after: auto;
-  page-break-after: auto;
+.ticket:last-child { break-after: auto; page-break-after: auto; }
+.center { text-align: center; }
+.brand { font-size: 19px; font-weight: 900; letter-spacing: 1px; }
+.title { font-size: 12px; font-weight: 800; margin-top: 2px; }
+.meta { margin-top: 7px; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.meta strong { font-size: 13px; }
+.rule { border-top: 1px dashed #111; margin: 7px 0; }
+.type { font-weight: 900; font-size: 14px; text-transform: uppercase; margin: 3px 0 6px; }
+.items-head, .item {
+  display: grid; grid-template-columns: minmax(0, 1fr) 28px;
+  gap: 5px; width: 100%; max-width: 100%;
 }
-
-.center {
-  text-align: center;
-}
-
-.brand {
-  font-size: 19px;
-  font-weight: 900;
-  letter-spacing: 1px;
-}
-
-.title {
-  font-size: 12px;
-  font-weight: 800;
-  margin-top: 2px;
-}
-
-.meta {
-  margin-top: 7px;
-
-  font-size: 12px;
-
-  line-height: 1.5;
-
-  overflow-wrap: anywhere;
-}
-
-.meta strong {
-  font-size: 13px;
-}
-
-.rule {
-  border-top:
-    1px dashed #111;
-
-  margin: 7px 0;
-}
-
-.type {
-  font-weight: 900;
-
-  font-size: 14px;
-
-  text-transform: uppercase;
-
-  margin:
-    3px
-    0
-    6px;
-}
-
-/* =========================================================
-   ITEMS
-========================================================= */
-
-.items-head,
-.item {
-  display: grid;
-
-  grid-template-columns:
-    minmax(0, 1fr)
-    28px;
-
-  gap: 5px;
-
-  width: 100%;
-  max-width: 100%;
-}
-
-.items-head {
-  font-weight: 700;
-  font-size: 11px;
-
-  margin-bottom: 3px;
-}
-
-.item {
-  padding: 5px 0;
-
-  border-top:
-    1px dashed #aaa;
-
-  font-size: 13px;
-
-  min-width: 0;
-}
-
-.item > span {
-  min-width: 0;
-
-  overflow-wrap:
-    anywhere;
-
-  word-break:
-    break-word;
-}
-
-.item b {
-  text-align: right;
-
-  white-space:
-    nowrap;
-}
-
-.item small {
-  display: block;
-
-  font-size: 10px;
-
-  color: #555;
-
-  margin-top: 2px;
-}
-
-/* =========================================================
-   NOTES
-========================================================= */
-
+.items-head { font-weight: 700; font-size: 11px; margin-bottom: 3px; }
+.item { padding: 5px 0; border-top: 1px dashed #aaa; font-size: 13px; min-width: 0; }
+.item > span { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
+.item b { text-align: right; white-space: nowrap; }
+.item small { display: block; font-size: 10px; color: #555; margin-top: 2px; }
 .notes {
-  width: 100%;
-  max-width: 100%;
-
-  font-size: 12px;
-
-  font-weight: 700;
-
-  margin: 8px 0;
-
-  overflow-wrap:
-    anywhere;
-
-  word-break:
-    break-word;
+  width: 100%; max-width: 100%; font-size: 12px; font-weight: 700;
+  margin: 8px 0; overflow-wrap: anywhere; word-break: break-word;
 }
-
-/* =========================================================
-   GENERAL ROWS
-========================================================= */
-
 .line {
-  display: flex;
-
-  justify-content:
-    space-between;
-
-  align-items:
-    flex-start;
-
-  gap: 6px;
-
-  width: 100%;
-  max-width: 100%;
-
-  margin: 5px 0;
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 6px; width: 100%; max-width: 100%; margin: 5px 0;
 }
-
-.line > span {
-  min-width: 0;
-
-  overflow-wrap:
-    anywhere;
-
-  word-break:
-    break-word;
-}
-
-.line > span:last-child {
-  text-align: right;
-
-  white-space:
-    normal;
-}
-
-.strong {
-  font-weight: 800;
-}
-
-.prepare {
-  margin-top: 8px;
-
-  font-size: 11px;
-}
-
-/* =========================================================
-   BARCODE
-========================================================= */
-
-.barcode {
-  margin:
-    9px
-    0
-    3px;
-
-  width: 100%;
-  max-width: 100%;
-
-  height: 38px;
-
-  overflow: hidden;
-}
-
-.barcode svg {
-  display: block;
-
-  width: 100%;
-  max-width: 100%;
-
-  height: 38px;
-}
-
-.barcode-label {
-  text-align: center;
-
-  font-family:
-    monospace;
-
-  font-size: 11px;
-
-  letter-spacing: 1px;
-
-  overflow-wrap:
-    anywhere;
-}
-
-.pickup {
-  text-align: center;
-
-  font-size: 11px;
-
-  font-weight: 700;
-
-  margin-top: 7px;
-
-  overflow-wrap:
-    anywhere;
-
-  word-break:
-    break-word;
-}
-
-.small {
-  font-size: 9px;
-
-  color: #333;
-}
-
-/* =========================================================
-   DELIVERY COPY
-========================================================= */
-
-.handover-title {
-  font-size: 13px;
-
-  font-weight: 900;
-
-  letter-spacing: .5px;
-}
-
-.address {
-  width: 100%;
-  max-width: 100%;
-
-  font-size: 13px;
-
-  font-weight: 700;
-
-  line-height: 1.4;
-
-  margin-top: 7px;
-
-  overflow-wrap:
-    anywhere;
-
-  word-break:
-    break-word;
-}
-
-.handover-box {
-  width: 100%;
-  max-width: 100%;
-
-  border:
-    1px solid #111;
-
-  padding: 7px;
-
-  margin-top: 8px;
-
-  overflow: hidden;
-}
-
-.handover-box .line {
-  font-size: 12px;
-}
-
-.big-otp {
-  font-size: 20px;
-
-  font-weight: 900;
-
-  text-align: center;
-
-  margin: 9px 0;
-}
-
-.handover-note {
-  text-align: center;
-
-  font-size: 11px;
-
-  font-weight: 800;
-
-  margin-top: 8px;
-
-  overflow-wrap:
-    anywhere;
-
-  word-break:
-    break-word;
-}
-
+.line > span { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
+.line > span:last-child { text-align: right; white-space: normal; }
+.strong { font-weight: 800; }
+.prepare { margin-top: 8px; font-size: 11px; }
+.barcode { margin: 9px 0 3px; width: 100%; max-width: 100%; height: 38px; overflow: hidden; }
+.barcode svg { display: block; width: 100%; max-width: 100%; height: 38px; }
+.barcode-label { text-align: center; font-family: monospace; font-size: 11px; letter-spacing: 1px; overflow-wrap: anywhere; }
+.pickup { text-align: center; font-size: 11px; font-weight: 700; margin-top: 7px; overflow-wrap: anywhere; word-break: break-word; }
+.small { font-size: 9px; color: #333; }
+.handover-title { font-size: 13px; font-weight: 900; letter-spacing: .5px; }
+.address { width: 100%; max-width: 100%; font-size: 13px; font-weight: 700; line-height: 1.4; margin-top: 7px; overflow-wrap: anywhere; word-break: break-word; }
+.handover-box { width: 100%; max-width: 100%; border: 1px solid #111; padding: 7px; margin-top: 8px; overflow: hidden; }
+.handover-box .line { font-size: 12px; }
+.big-otp { font-size: 20px; font-weight: 900; text-align: center; margin: 9px 0; }
+.handover-note { text-align: center; font-size: 11px; font-weight: 800; margin-top: 8px; overflow-wrap: anywhere; word-break: break-word; }
 </style>
-
 </head>
-
 <body>
 
-<!-- =====================================================
-     COPY 1 — KITCHEN COPY
-===================================================== -->
-
 <div class="ticket">
-
-  <div class="center brand">
-    SUGAR CAFE
-  </div>
-
-  <div class="center title">
-    KITCHEN ORDER TICKET
-  </div>
-
+  <div class="center brand">SUGAR CAFE</div>
+  <div class="center title">KITCHEN ORDER TICKET</div>
   <div class="center meta">
-
-    <strong>
-      ${escapeHtml(dt.date)}
-      ${escapeHtml(dt.time)}
-    </strong>
-
-    <br>
-
-    <strong>
-      KOT - ${escapeHtml(kotNo)}
-    </strong>
-
-    <br>
-
-    <strong>
-      ${escapeHtml(platform)}
-      :
-      ${escapeHtml(platformNo)}
-    </strong>
-
-    <br>
-
-    <strong>
-      OTP : ${escapeHtml(otp)}
-    </strong>
-
+    <strong>${escapeHtml(dt.date)} ${escapeHtml(dt.time)}</strong><br>
+    <strong>KOT - ${escapeHtml(kotNo)}</strong><br>
+    <strong>${escapeHtml(platform)} : ${escapeHtml(platformNo)}</strong><br>
+    <strong>OTP : ${escapeHtml(otp)}</strong>
   </div>
-
-  <div class="center type">
-    ${escapeHtml(type)}
-  </div>
-
+  <div class="center type">${escapeHtml(type)}</div>
   <div class="rule"></div>
-
   <div class="items-head">
-
-    <span>
-      Item
-    </span>
-
-    <span style="text-align:right">
-      Qty.
-    </span>
-
+    <span>Item</span>
+    <span style="text-align:right">Qty.</span>
   </div>
-
   ${itemRows}
-
   ${
     notes
-      ? `
-        <div class="notes">
-          Customer Notes:
-          ${escapeHtml(notes)}
-        </div>
-      `
+      ? `<div class="notes">Customer Notes: ${escapeHtml(notes)}</div>`
       : ""
   }
-
   <div class="rule"></div>
-
   <div class="line">
-
-    <span class="strong">
-      Payment Status :
-    </span>
-
-    <span>
-      ${escapeHtml(payment)}
-    </span>
-
+    <span class="strong">Payment Status :</span>
+    <span>${escapeHtml(payment)}</span>
   </div>
-
   <div class="line prepare">
-
-    <span class="strong">
-      Prepare By :
-    </span>
-
-    <span>
-      ${escapeHtml(
-        prepareText
-      )}
-    </span>
-
+    <span class="strong">Prepare By :</span>
+    <span>${escapeHtml(prepareText)}</span>
   </div>
-
-  <div
-    class="center small"
-    style="margin-top:8px"
-  >
-    Scan to Mark food ready
-  </div>
-
-  <div class="barcode">
-    ${barcode}
-  </div>
-
-  <div class="barcode-label">
-    ${escapeHtml(
-      barcodeValue
-    )}
-  </div>
-
-  <div class="pickup">
-
-    Pickup barcode for
-    ${escapeHtml(
-      platform
-    )}
-    delivery partner
-
-  </div>
-
-  <div
-    class="center small"
-    style="margin-top:8px"
-  >
-    Kitchen Copy
-  </div>
-
+  <div class="center small" style="margin-top:8px">Scan to Mark food ready</div>
+  <div class="barcode">${barcode}</div>
+  <div class="barcode-label">${escapeHtml(barcodeValue)}</div>
+  <div class="pickup">Pickup barcode for ${escapeHtml(platform)} delivery partner</div>
+  <div class="center small" style="margin-top:8px">Kitchen Copy</div>
 </div>
 
-
-<!-- =====================================================
-     COPY 2 — DELIVERY HANDOVER COPY
-===================================================== -->
-
 <div class="ticket">
-
-  <div class="center brand">
-    SUGAR CAFE
-  </div>
-
-  <div class="center handover-title">
-    DELIVERY HANDOVER SLIP
-  </div>
-
+  <div class="center brand">SUGAR CAFE</div>
+  <div class="center handover-title">DELIVERY HANDOVER SLIP</div>
   <div class="center meta">
-
-    <strong>
-      ${escapeHtml(dt.date)}
-      ${escapeHtml(dt.time)}
-    </strong>
-
-    <br>
-
-    <strong>
-      KOT - ${escapeHtml(kotNo)}
-    </strong>
-
-    <br>
-
-    <strong>
-      ${escapeHtml(platform)}
-      :
-      ${escapeHtml(platformNo)}
-    </strong>
-
+    <strong>${escapeHtml(dt.date)} ${escapeHtml(dt.time)}</strong><br>
+    <strong>KOT - ${escapeHtml(kotNo)}</strong><br>
+    <strong>${escapeHtml(platform)} : ${escapeHtml(platformNo)}</strong>
   </div>
-
-  <div class="center type">
-    ${escapeHtml(type)}
-  </div>
-
+  <div class="center type">${escapeHtml(type)}</div>
   <div class="rule"></div>
-
   <div class="handover-box">
-
     <div class="line">
-
-      <span class="strong">
-        Customer
-      </span>
-
-      <span>
-        ${escapeHtml(
-          customerName
-        )}
-      </span>
-
+      <span class="strong">Customer</span>
+      <span>${escapeHtml(customerName)}</span>
     </div>
-
     <div class="line">
-
-      <span class="strong">
-        Phone
-      </span>
-
-      <span>
-        ${escapeHtml(phone)}
-      </span>
-
+      <span class="strong">Phone</span>
+      <span>${escapeHtml(phone)}</span>
     </div>
-
     <div class="line">
-
-      <span class="strong">
-        Payment
-      </span>
-
-      <span>
-        ${escapeHtml(payment)}
-      </span>
-
+      <span class="strong">Payment</span>
+      <span>${escapeHtml(payment)}</span>
     </div>
-
     <div class="line">
-
-      <span class="strong">
-        Amount
-      </span>
-
-      <span>
-        ₹${escapeHtml(total)}
-      </span>
-
+      <span class="strong">Amount</span>
+      <span>₹${escapeHtml(total)}</span>
     </div>
-
   </div>
-
   <div class="rule"></div>
-
-  <div class="strong">
-    DELIVERY ADDRESS
-  </div>
-
+  <div class="strong">DELIVERY ADDRESS</div>
   <div class="address">
-
     ${escapeHtml(address)}
-
     ${
       landmark
-        ? `
-          <br>
-          Landmark:
-          ${escapeHtml(
-            landmark
-          )}
-        `
+        ? `<br>Landmark: ${escapeHtml(landmark)}`
         : ""
     }
-
   </div>
-
-  <div class="big-otp">
-    OTP: ${escapeHtml(otp)}
+  <div class="big-otp">OTP: ${escapeHtml(otp)}</div>
+  <div class="center small">Show/confirm OTP at handover</div>
+  <div class="barcode">${barcode}</div>
+  <div class="barcode-label">${escapeHtml(barcodeValue)}</div>
+  <div class="handover-note">DELIVERY BOY / PARTNER COPY</div>
+  <div class="center small" style="margin-top:8px">
+    Customer details & delivery address — hand over this copy to delivery partner.
   </div>
-
-  <div class="center small">
-    Show/confirm OTP at handover
-  </div>
-
-  <div class="barcode">
-    ${barcode}
-  </div>
-
-  <div class="barcode-label">
-    ${escapeHtml(
-      barcodeValue
-    )}
-  </div>
-
-  <div class="handover-note">
-    DELIVERY BOY / PARTNER COPY
-  </div>
-
-  <div
-    class="center small"
-    style="margin-top:8px"
-  >
-    Customer details & delivery
-    address — hand over this copy
-    to delivery partner.
-  </div>
-
 </div>
 
 </body>
-
 </html>
 `;
 }
 
 /* =========================================================
-   SILENT KOT PRINTING
-   TVS-E RP 3230
-   72MM × 3276MM
+   SILENT KOT PRINTING — TVS-E RP 3230
 ========================================================= */
 
-ipcMain.handle(
-  "print-kot",
-  async (_event, order) => {
-    let printWin = null;
+ipcMain.handle("print-kot", async (_event, order) => {
+  let printWin = null;
 
-    try {
-      printWin =
-        new BrowserWindow({
-          show: false,
-
-          width: 380,
-          height: 1200,
-
-          webPreferences: {
-            sandbox: true,
-          },
-        });
-
-      await printWin.loadURL(
-        "data:text/html;charset=utf-8," +
-          encodeURIComponent(
-            buildKOTHtml(order)
-          )
-      );
-
-      await new Promise(
-        (resolve) =>
-          setTimeout(
-            resolve,
-            800
-          )
-      );
-
-      const printers =
-        await printWin.webContents.getPrintersAsync();
-
-      console.log(
-        "SugarCafe available printers:",
-        printers.map((p) => ({
-          name: p.name,
-          displayName:
-            p.displayName,
-          isDefault:
-            p.isDefault,
-        }))
-      );
-
-      /* =====================================================
-         FIND TVS-E RP 3230
-      ===================================================== */
-
-      const selectedPrinter =
-        printers.find((p) => {
-          const name =
-            String(
-              p.name ||
-                p.displayName ||
-                ""
-            )
-              .toLowerCase()
-              .replace(
-                /[^a-z0-9]/g,
-                ""
-              );
-
-          return (
-            name.includes(
-              "tvserp3230"
-            ) ||
-            name.includes(
-              "rp3230"
-            )
-          );
-        });
-
-      if (
-        !selectedPrinter?.name
-      ) {
-        throw new Error(
-          "TVS-E RP 3230 printer not found. Please make sure the printer is installed in Windows."
-        );
-      }
-
-      console.log(
-        "SugarCafe KOT printer selected:",
-        selectedPrinter.name
-      );
-
-      /* =====================================================
-         PRINT SETTINGS
-         
-         Physical paper:
-         72mm
-
-         Safe HTML content:
-         68mm
-
-         Height:
-         3276mm
-
-         Electron uses MICRONS:
-         72mm   = 72000
-         3276mm = 3276000
-      ===================================================== */
-
-      const options = {
-        silent: true,
-
-        printBackground: true,
-
-        deviceName:
-          selectedPrinter.name,
-
-        margins: {
-          marginType: "none",
-        },
-
-        pageSize: {
-          width: 72000,
-          height: 3276000,
-        },
-
-        copies: 1,
-
-        scaleFactor: 100,
-      };
-
-      console.log(
-        "SugarCafe print options:",
-        options
-      );
-
-      const result =
-        await new Promise(
-          (resolve) => {
-            printWin.webContents.print(
-              options,
-              (
-                success,
-                failureReason
-              ) => {
-                console.log(
-                  "SugarCafe KOT print result:",
-                  {
-                    success,
-                    failureReason:
-                      failureReason ||
-                      "",
-                  }
-                );
-
-                resolve({
-                  success,
-                  failureReason:
-                    failureReason ||
-                    "",
-                });
-              }
-            );
-          }
-        );
-
-      return result;
-    } catch (error) {
-      console.error(
-        "SugarCafe KOT print failed:",
-        error
-      );
-
-      return {
-        success: false,
-
-        failureReason:
-          error?.message ||
-          "KOT print failed",
-      };
-    } finally {
-      if (
-        printWin &&
-        !printWin.isDestroyed()
-      ) {
-        setTimeout(() => {
-          if (
-            printWin &&
-            !printWin.isDestroyed()
-          ) {
-            printWin.close();
-          }
-        }, 700);
-      }
-    }
-  }
-);
-
-/* =========================================================
-   DASHBOARD WINDOW - DEVELOPMENT
-========================================================= */
-
-function createWindow() {
-  const win =
-    new BrowserWindow({
-      width: 1440,
-      height: 900,
-
-      minWidth: 1100,
-      minHeight: 700,
-
-      title:
-        "SugarCafe Professional Dashboard",
-
-      autoHideMenuBar: true,
-
-      backgroundColor:
-        "#f7f3ef",
-
-      webPreferences: {
-        contextIsolation: true,
-        nodeIntegration: false,
-
-        preload: path.join(
-          __dirname,
-          "preload.cjs"
-        ),
-      },
+  try {
+    printWin = new BrowserWindow({
+      show: false,
+      width: 380,
+      height: 1200,
+      webPreferences: { sandbox: true },
     });
 
-  win.loadURL(
-    `${DEV_URL}/admin-login`
-  );
+    await printWin.loadURL(
+      "data:text/html;charset=utf-8," +
+        encodeURIComponent(buildKOTHtml(order))
+    );
 
-  win.webContents.setWindowOpenHandler(
-    ({ url }) => {
-      shell.openExternal(url);
+    await new Promise((resolve) => setTimeout(resolve, 800));
 
-      return {
-        action: "deny",
-      };
+    const printers = await printWin.webContents.getPrintersAsync();
+
+    console.log(
+      "SugarCafe available printers:",
+      printers.map((p) => ({
+        name: p.name,
+        displayName: p.displayName,
+        isDefault: p.isDefault,
+      }))
+    );
+
+    const selectedPrinter = printers.find((p) => {
+      const name = String(p.name || p.displayName || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
+
+      return name.includes("tvserp3230") || name.includes("rp3230");
+    });
+
+    if (!selectedPrinter?.name) {
+      throw new Error(
+        "TVS-E RP 3230 printer not found. Please make sure the printer is installed in Windows."
+      );
     }
+
+    const options = {
+      silent: true,
+      printBackground: true,
+      deviceName: selectedPrinter.name,
+      margins: { marginType: "none" },
+      pageSize: { width: 72000, height: 3276000 },
+      copies: 1,
+      scaleFactor: 100,
+    };
+
+    const result = await new Promise((resolve) => {
+      printWin.webContents.print(options, (success, failureReason) => {
+        console.log("SugarCafe KOT print result:", {
+          success,
+          failureReason: failureReason || "",
+        });
+
+        resolve({
+          success,
+          failureReason: failureReason || "",
+        });
+      });
+    });
+
+    return result;
+  } catch (error) {
+    console.error("SugarCafe KOT print failed:", error);
+
+    return {
+      success: false,
+      failureReason: error?.message || "KOT print failed",
+    };
+  } finally {
+    if (printWin && !printWin.isDestroyed()) {
+      setTimeout(() => {
+        if (printWin && !printWin.isDestroyed()) {
+          printWin.close();
+        }
+      }, 700);
+    }
+  }
+});
+
+/* =========================================================
+   WINDOW / TRAY
+========================================================= */
+
+function showDashboard() {
+  if (!dashboardWindow || dashboardWindow.isDestroyed()) return;
+
+  if (dashboardWindow.isMinimized()) {
+    dashboardWindow.restore();
+  }
+
+  dashboardWindow.show();
+  dashboardWindow.focus();
+}
+
+function attachWindowBehavior(win) {
+  dashboardWindow = win;
+
+  win.on("close", (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      win.hide();
+    }
+  });
+
+  win.on("closed", () => {
+    if (dashboardWindow === win) {
+      dashboardWindow = null;
+    }
+  });
+}
+
+function createTray() {
+  if (tray) return;
+
+  const iconPath = path.join(__dirname, "icon.png");
+
+  const trayImage = fs.existsSync(iconPath)
+    ? nativeImage.createFromPath(iconPath)
+    : nativeImage.createEmpty();
+
+  tray = new Tray(trayImage);
+  tray.setToolTip("SugarCafe Professional Dashboard");
+
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      {
+        label: "Open SugarCafe Dashboard",
+        click: showDashboard,
+      },
+      {
+        label: "Exit SugarCafe",
+        click: () => {
+          isQuitting = true;
+          app.quit();
+        },
+      },
+    ])
   );
+
+  tray.on("click", showDashboard);
 }
 
 /* =========================================================
-   DASHBOARD WINDOW - PRODUCTION
+   NEW ORDER POPUP
+========================================================= */
+
+function showOrderPopup(order) {
+  if (!order || typeof order !== "object") return;
+
+  const orderId = String(order.id || order.orderId || "");
+
+  if (!orderId) {
+    console.error("Background popup: order ID missing.");
+    return;
+  }
+
+  if (shownOrderIds.has(orderId) || handledOrderIds.has(orderId)) {
+    return;
+  }
+
+  shownOrderIds.add(orderId);
+
+  const customerName = order.customerName || order.name || "Customer";
+  const orderNumber =
+    order.orderNumber ||
+    order.kotNumber ||
+    orderId.slice(-6).toUpperCase();
+
+  const total = Number(order.total || 0).toLocaleString("en-IN");
+
+  const items = Array.isArray(order.items)
+    ? order.items
+    : Array.isArray(order.cart)
+      ? order.cart
+      : [];
+
+  const itemText = items.length
+    ? items
+        .map((item) => {
+          const qty = Number(item.qty || item.quantity || 1);
+          return `${escapeHtml(item.name || "Food Item")} × ${qty}`;
+        })
+        .join("<br>")
+    : "Order items";
+
+  if (Notification.isSupported()) {
+    try {
+      new Notification({
+        title: `New SugarCafe Order #${orderNumber}`,
+        body: `${customerName} · ₹${total}`,
+        silent: false,
+      }).show();
+    } catch (error) {
+      console.error("Windows notification failed:", error);
+    }
+  }
+
+  const popup = new BrowserWindow({
+    width: 390,
+    height: 470,
+    minWidth: 360,
+    minHeight: 420,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    alwaysOnTop: true,
+    autoHideMenuBar: true,
+    title: `New Order #${orderNumber}`,
+    backgroundColor: "#fffaf5",
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: path.join(__dirname, "preload.cjs"),
+    },
+  });
+
+  orderPopups.set(orderId, popup);
+
+  const popupHtml = `
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta
+  http-equiv="Content-Security-Policy"
+  content="default-src 'self' data:; style-src 'unsafe-inline'; script-src 'unsafe-inline';"
+>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; padding: 20px; font-family: Arial, sans-serif; background: #fffaf5; color: #251b16; }
+.brand { font-size: 12px; font-weight: 800; letter-spacing: 2px; color: #b45309; }
+h1 { font-size: 23px; margin: 8px 0 4px; }
+.muted { color: #6b625c; font-size: 13px; }
+.card { background: white; border: 1px solid #eadfd5; border-radius: 12px; padding: 14px; margin-top: 16px; }
+.row { display: flex; justify-content: space-between; gap: 12px; margin: 8px 0; font-size: 14px; }
+.items { max-height: 100px; overflow-y: auto; line-height: 1.7; font-size: 13px; overflow-wrap: anywhere; }
+.total { font-size: 21px; font-weight: 800; }
+.buttons { display: flex; gap: 10px; margin-top: 18px; }
+button { flex: 1; padding: 13px 8px; border: 0; border-radius: 9px; color: white; font-size: 15px; font-weight: 800; cursor: pointer; }
+button:disabled { opacity: .55; cursor: wait; }
+.accept { background: #15803d; }
+.reject { background: #b91c1c; }
+#message { margin-top: 12px; font-size: 12px; color: #6b625c; }
+</style>
+</head>
+<body>
+  <div class="brand">SUGAR CAFE</div>
+  <h1>New Order #${escapeHtml(orderNumber)}</h1>
+  <div class="muted">Action required — respond to this order.</div>
+
+  <div class="card">
+    <div class="row"><strong>Customer</strong><span>${escapeHtml(customerName)}</span></div>
+    <div class="row"><strong>Order ID</strong><span>${escapeHtml(orderNumber)}</span></div>
+    <div class="items">${itemText}</div>
+    <div class="row" style="border-top:1px solid #eee;padding-top:12px">
+      <strong>Total</strong><span class="total">₹${escapeHtml(total)}</span>
+    </div>
+  </div>
+
+  <div class="buttons">
+    <button id="reject" class="reject">Reject Order</button>
+    <button id="accept" class="accept">Accept Order</button>
+  </div>
+  <div id="message">Choose an action to respond.</div>
+
+  <script>
+    const orderId = ${JSON.stringify(orderId)};
+    const acceptButton = document.getElementById("accept");
+    const rejectButton = document.getElementById("reject");
+    const message = document.getElementById("message");
+
+    function respond(action) {
+      acceptButton.disabled = true;
+      rejectButton.disabled = true;
+      message.textContent = "Sending response…";
+
+      try {
+        if (
+          !window.electronAPI ||
+          typeof window.electronAPI.respondToOrder !== "function"
+        ) {
+          throw new Error("Order response connection is unavailable.");
+        }
+
+        window.electronAPI.respondToOrder(orderId, action);
+        message.textContent = "Response sent to dashboard.";
+      } catch (error) {
+        acceptButton.disabled = false;
+        rejectButton.disabled = false;
+        message.textContent = error.message || "Could not send response.";
+      }
+    }
+
+    acceptButton.addEventListener("click", () => respond("accept"));
+    rejectButton.addEventListener("click", () => respond("reject"));
+  </script>
+</body>
+</html>
+`;
+
+  popup.on("closed", () => {
+    orderPopups.delete(orderId);
+
+    if (!handledOrderIds.has(orderId)) {
+      shownOrderIds.delete(orderId);
+    }
+  });
+
+  popup.loadURL(
+    "data:text/html;charset=utf-8," + encodeURIComponent(popupHtml)
+  ).catch((error) => {
+    console.error("Could not load order popup:", error);
+  });
+
+  popup.show();
+  popup.focus();
+}
+
+/* =========================================================
+   BACKGROUND ORDER IPC
+========================================================= */
+
+ipcMain.on("background-new-order", (_event, order) => {
+  showOrderPopup(order);
+});
+
+ipcMain.on("background-order-response", (_event, payload) => {
+  if (!payload || !payload.orderId) return;
+
+  const orderId = String(payload.orderId);
+  const action = String(payload.action || "").toLowerCase();
+
+  if (!["accept", "reject"].includes(action)) {
+    console.error("Invalid background order action:", payload.action);
+    return;
+  }
+
+  if (!dashboardWindow || dashboardWindow.isDestroyed()) {
+    console.error(
+      "Cannot process order response: dashboard renderer is unavailable."
+    );
+
+    handledOrderIds.delete(orderId);
+    const popup = orderPopups.get(orderId);
+    if (popup && !popup.isDestroyed()) popup.close();
+    return;
+  }
+
+  handledOrderIds.add(orderId);
+
+  dashboardWindow.webContents.send("background-order-action", {
+    orderId,
+    action,
+  });
+
+  const popup = orderPopups.get(orderId);
+  if (popup && !popup.isDestroyed()) popup.close();
+});
+
+/* =========================================================
+   DASHBOARD WINDOW — DEVELOPMENT
+========================================================= */
+
+function createWindow() {
+  if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+    showDashboard();
+    return dashboardWindow;
+  }
+
+  const win = new BrowserWindow({
+    width: 1440,
+    height: 900,
+    minWidth: 1100,
+    minHeight: 700,
+    title: "SugarCafe Professional Dashboard",
+    autoHideMenuBar: true,
+    backgroundColor: "#f7f3ef",
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: path.join(__dirname, "preload.cjs"),
+    },
+  });
+
+  attachWindowBehavior(win);
+
+  win.loadURL(`${DEV_URL}/admin-login`);
+
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: "deny" };
+  });
+
+  return win;
+}
+
+/* =========================================================
+   DASHBOARD WINDOW — PRODUCTION
 ========================================================= */
 
 async function createWindowProduction() {
-  const dashboardUrl =
-    await startProductionServer();
+  if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+    showDashboard();
+    return dashboardWindow;
+  }
 
-  const win =
-    new BrowserWindow({
-      width: 1440,
-      height: 900,
+  const dashboardUrl = await startProductionServer();
 
-      minWidth: 1100,
-      minHeight: 700,
-
-      title:
-        "SugarCafe Professional Dashboard",
-
-      autoHideMenuBar: true,
-
-      backgroundColor:
-        "#f7f3ef",
-
-      webPreferences: {
-        contextIsolation: true,
-        nodeIntegration: false,
-
-        preload: path.join(
-          __dirname,
-          "preload.cjs"
-        ),
-      },
-    });
-
-  await win.loadURL(
-    `${dashboardUrl}/admin-login`
-  );
-
-  win.webContents.setWindowOpenHandler(
-    ({ url }) => {
-      shell.openExternal(url);
-
-      return {
-        action: "deny",
-      };
-    }
-  );
-
-  win.on("closed", () => {
-    if (productionServer) {
-      productionServer.close();
-      productionServer = null;
-    }
+  const win = new BrowserWindow({
+    width: 1440,
+    height: 900,
+    minWidth: 1100,
+    minHeight: 700,
+    title: "SugarCafe Professional Dashboard",
+    autoHideMenuBar: true,
+    backgroundColor: "#f7f3ef",
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: path.join(__dirname, "preload.cjs"),
+    },
   });
+
+  attachWindowBehavior(win);
+
+  await win.loadURL(`${dashboardUrl}/admin-login`);
+
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: "deny" };
+  });
+
+  return win;
 }
 
 /* =========================================================
    ELECTRON START
 ========================================================= */
 
-app.whenReady().then(
-  async () => {
-    try {
-      if (isPackaged) {
-        console.log(
-          "Starting SugarCafe packaged Dashboard..."
-        );
-
-        await createWindowProduction();
-      } else {
-        console.log(
-          "Starting SugarCafe development Dashboard..."
-        );
-
-        startDevServer();
-
-        await waitForServer(
-          DEV_URL
-        );
-
-        createWindow();
-      }
-    } catch (error) {
-      console.error(
-        "SugarCafe could not start:",
-        error
-      );
-
-      app.quit();
-      return;
+app.whenReady().then(async () => {
+  try {
+    if (isPackaged) {
+      console.log("Starting SugarCafe packaged Dashboard...");
+      await createWindowProduction();
+    } else {
+      console.log("Starting SugarCafe development Dashboard...");
+      startDevServer();
+      await waitForServer(DEV_URL);
+      createWindow();
     }
 
-    app.on(
-      "activate",
-      async () => {
-        if (
-          BrowserWindow.getAllWindows()
-            .length === 0
-        ) {
-          if (isPackaged) {
-            await createWindowProduction();
-          } else {
-            createWindow();
-          }
-        }
-      }
-    );
+    createTray();
+  } catch (error) {
+    console.error("SugarCafe could not start:", error);
+    app.quit();
+    return;
   }
-);
+
+  app.on("activate", async () => {
+    if (!dashboardWindow || dashboardWindow.isDestroyed()) {
+      try {
+        if (isPackaged) {
+          await createWindowProduction();
+        } else {
+          createWindow();
+        }
+      } catch (error) {
+        console.error("Could not reopen SugarCafe:", error);
+      }
+    } else {
+      showDashboard();
+    }
+  });
+});
 
 /* =========================================================
-   CLOSE
+   CLOSE / SYSTEM TRAY
 ========================================================= */
 
-app.on(
-  "window-all-closed",
-  () => {
-    if (server) {
-      server.kill();
-      server = null;
-    }
+app.on("window-all-closed", () => {
+  // Intentionally keep the application alive in the system tray.
+});
 
-    if (productionServer) {
-      productionServer.close();
-      productionServer = null;
-    }
+app.on("before-quit", () => {
+  isQuitting = true;
 
-    if (
-      process.platform !==
-      "darwin"
-    ) {
-      app.quit();
+  for (const popup of orderPopups.values()) {
+    if (popup && !popup.isDestroyed()) {
+      popup.destroy();
     }
   }
-);
+
+  orderPopups.clear();
+
+  if (tray) {
+    tray.destroy();
+    tray = null;
+  }
+
+  if (server) {
+    server.kill();
+    server = null;
+  }
+
+  if (productionServer) {
+    productionServer.close();
+    productionServer = null;
+  }
+});
