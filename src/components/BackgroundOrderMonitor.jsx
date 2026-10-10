@@ -352,4 +352,3 @@ export default function BackgroundOrderMonitor() {
 
   return null;
 }
-
