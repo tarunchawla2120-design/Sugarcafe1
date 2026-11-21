@@ -1,8 +1,10 @@
+
 import { useState } from "react";
 import SplashScreen from "./SplashScreen";
 import "./App.css";
 import { StoreProvider } from "./context/StoreContext";
 import StoreStatusBanner from "./components/StoreStatusBanner";
+import BackgroundOrderMonitor from "./components/BackgroundOrderMonitor";
 
 import {
   BrowserRouter,
@@ -33,12 +35,8 @@ import AdminMenu from "./pages/AdminMenu";
 import AdminCategories from "./pages/AdminCategories";
 import AdminReviews from "./pages/AdminReviews";
 
-
 /* =========================================================
    STORE STATUS BANNER CONTROLLER
-
-   Checkout.jsx already contains its own status bar,
-   so the global StoreStatusBanner must be hidden there.
 ========================================================= */
 
 function StoreBannerController() {
@@ -50,7 +48,6 @@ function StoreBannerController() {
 
   return <StoreStatusBanner />;
 }
-
 
 /* =========================================================
    APP
@@ -70,6 +67,9 @@ function App() {
   return (
     <StoreProvider>
       <BrowserRouter>
+
+        {/* Background order listener */}
+        <BackgroundOrderMonitor />
 
         <StoreBannerController />
 
